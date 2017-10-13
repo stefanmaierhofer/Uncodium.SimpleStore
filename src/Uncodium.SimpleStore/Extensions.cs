@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.IO.Compression;
+using System.Text;
 
 namespace Uncodium.SimpleStore
 {
@@ -12,6 +13,18 @@ namespace Uncodium.SimpleStore
         /// </summary>
         public static void Add(this ISimpleStore store, string id, string value)
             => store.Add(id, value, () => Encoding.UTF8.GetBytes(value));
+
+        /// <summary>
+        /// Store blob.
+        /// </summary>
+        public static void Add(this ISimpleStore store, string id, byte[] value)
+            => store.Add(id, value, () => value);
+
+        /// <summary>
+        /// Compressed storage.
+        /// </summary>
+        public static ISimpleStore Compress(this ISimpleStore store, CompressionLevel compressionLevel)
+            => new WrapperCompress(store, compressionLevel);
 
         /// <summary>
         /// Each store operation fails with given probability.

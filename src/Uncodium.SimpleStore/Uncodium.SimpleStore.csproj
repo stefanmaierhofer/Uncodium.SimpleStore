@@ -48,6 +48,7 @@
     <Compile Include="ISimpleStore.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="WrapperAsync.cs" />
+    <Compile Include="WrapperCompress.cs" />
     <Compile Include="WrapperRandomDelayAsync.cs" />
     <Compile Include="SimpleDiskStore.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

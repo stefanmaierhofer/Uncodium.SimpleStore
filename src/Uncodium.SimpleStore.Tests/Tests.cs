@@ -270,23 +270,24 @@ namespace Uncodium.SimpleStore.Tests
             {
                 var stats0 = store.Stats;
                 Assert.IsTrue(stats0.CountAdd == 0);
-
+                
                 var ts = new List<Task>();
                 for (var t = 0; t < 4; t++)
                 {
                     ts.Add(Task.Run(() =>
                     {
-                        for (var i = 0; i < 250000; i++)
+                        for (var i = 0; i < 50000; i++)
                         {
                             var key = Guid.NewGuid().ToString();
-                            store.Add(key, "value");
+                            var data = new byte[1024];
+                            store.Add(key, data);
                         }
                     }));
                 }
 
                 Task.WhenAll(ts).Wait();
 
-                Assert.IsTrue(store.Stats.CountAdd == 1000000);
+                Assert.IsTrue(store.Stats.CountAdd == 200000);
             }
         }
 

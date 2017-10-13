@@ -24,5 +24,4 @@ obj/
 /teststore
 /teststore_large
 /.paket/Paket.Restore.targets
-/src/teststore
-/src/teststore_large
+/src/teststore*

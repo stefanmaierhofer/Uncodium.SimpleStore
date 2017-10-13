@@ -7,7 +7,7 @@ using System.Threading;
 namespace Uncodium.SimpleStore
 {
     /// <summary>
-    /// A memory-mapped key/value store on the disk.
+    /// A memory-mapped key/value store on disk.
     /// </summary>
     public class SimpleDiskStore : ISimpleStore
     {
