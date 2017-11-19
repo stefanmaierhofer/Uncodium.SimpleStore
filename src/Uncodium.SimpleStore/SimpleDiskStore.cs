@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.IO.MemoryMappedFiles;
+using System.Linq;
 using System.Threading;
 
 namespace Uncodium.SimpleStore
@@ -135,7 +136,7 @@ namespace Uncodium.SimpleStore
                     {
                         m_dataSize += 1024 * 1024 * 1024;
                     }
-                    Console.WriteLine($"[SimpleDiskStore] RESIZE to {m_dataSize / (1024 * 1024 * 1024.0):0.000} GiB");
+                    //Console.WriteLine($"[SimpleDiskStore] RESIZE to {m_dataSize / (1024 * 1024 * 1024.0):0.000} GiB");
                     m_accessorSize.Dispose(); m_accessor.Dispose(); m_mmf.Dispose();
                     m_mmf = MemoryMappedFile.CreateFromFile(m_dataFilename, FileMode.OpenOrCreate, null, 8 + m_dataSize, MemoryMappedFileAccess.ReadWrite);
                     m_accessorSize = m_mmf.CreateViewAccessor(0, 8);
@@ -150,7 +151,6 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
-        /// 
         /// </summary>
         public byte[] Get(string id)
         {
@@ -174,7 +174,6 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
-        /// 
         /// </summary>
         public void Remove(string id)
         {
@@ -188,7 +187,6 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
-        /// 
         /// </summary>
         public object TryGetFromCache(string id)
         {
@@ -209,7 +207,17 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
-        /// 
+        /// </summary>
+        public string[] SnapshotKeys()
+        {
+            lock (m_dbDiskLocation)
+            {
+                Interlocked.Increment(ref m_stats.CountSnapshotKeys);
+                return m_dbIndex.Keys.ToArray();
+            }
+        }
+
+        /// <summary>
         /// </summary>
         public void Flush()
         {
@@ -220,7 +228,6 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
-        /// 
         /// </summary>
         public void Dispose()
         {

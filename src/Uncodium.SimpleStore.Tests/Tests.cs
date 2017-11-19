@@ -292,5 +292,53 @@ namespace Uncodium.SimpleStore.Tests
         }
 
         #endregion
+
+        #region SnapshotKeys
+
+        [Test]
+        public void CanSnapshotKeys_Memory()
+        {
+            var key1 = Guid.NewGuid().ToString();
+            var key2 = Guid.NewGuid().ToString();
+            var key3 = Guid.NewGuid().ToString();
+            using (var store = new SimpleMemoryStore())
+            {
+                store.Add(key1, "key1", null);
+                Assert.IsTrue(store.SnapshotKeys().Length == 1);
+                store.Add(key2, "key2", null);
+                Assert.IsTrue(store.SnapshotKeys().Length == 2);
+                store.Add(key3, "key3", null);
+                Assert.IsTrue(store.SnapshotKeys().Length == 3);
+
+                var keys = new HashSet<string>(store.SnapshotKeys());
+                Assert.IsTrue(keys.Contains(key1));
+                Assert.IsTrue(keys.Contains(key2));
+                Assert.IsTrue(keys.Contains(key3));
+            }
+        }
+
+        [Test]
+        public void CanSnapshotKeys_Disk()
+        {
+            var key1 = Guid.NewGuid().ToString();
+            var key2 = Guid.NewGuid().ToString();
+            var key3 = Guid.NewGuid().ToString();
+            using (var store = new SimpleDiskStore(TestStoreSmallPath + ".1"))
+            {
+                store.Add(key1, "key1", () => Encoding.UTF8.GetBytes("key1"));
+                Assert.IsTrue(store.SnapshotKeys().Length == 1);
+                store.Add(key2, "key2", () => Encoding.UTF8.GetBytes("key2"));
+                Assert.IsTrue(store.SnapshotKeys().Length == 2);
+                store.Add(key3, "key3", () => Encoding.UTF8.GetBytes("key3"));
+                Assert.IsTrue(store.SnapshotKeys().Length == 3);
+
+                var keys = new HashSet<string>(store.SnapshotKeys());
+                Assert.IsTrue(keys.Contains(key1));
+                Assert.IsTrue(keys.Contains(key2));
+                Assert.IsTrue(keys.Contains(key3));
+            }
+        }
+
+        #endregion
     }
 }

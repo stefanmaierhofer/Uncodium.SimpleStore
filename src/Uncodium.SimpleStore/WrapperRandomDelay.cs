@@ -82,6 +82,10 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
+        public string[] SnapshotKeys() => m_store.SnapshotKeys();
+
+        /// <summary>
+        /// </summary>
         public void Flush()
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtFlush));

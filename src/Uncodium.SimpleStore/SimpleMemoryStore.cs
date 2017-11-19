@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 
 namespace Uncodium.SimpleStore
@@ -91,6 +92,17 @@ namespace Uncodium.SimpleStore
 
             Interlocked.Increment(ref m_stats.CountGetCacheMiss);
             return null;
+        }
+
+        /// <summary>
+        /// </summary>
+        public string[] SnapshotKeys()
+        {
+            lock (m_db)
+            {
+                Interlocked.Increment(ref m_stats.CountSnapshotKeys);
+                return m_db.Keys.ToArray();
+            }
         }
 
         /// <summary>

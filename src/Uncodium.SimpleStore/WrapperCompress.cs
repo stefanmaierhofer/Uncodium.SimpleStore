@@ -88,6 +88,10 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
+        public string[] SnapshotKeys() => m_store.SnapshotKeys();
+
+        /// <summary>
+        /// </summary>
         public void Flush()
         {
             m_store.Flush();

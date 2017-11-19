@@ -3,6 +3,7 @@ bin/Debug
 *.swp
 *.userprefs
 **/obj
+**/*.csproj.user
 /packages
 !/packages/*.config
 /src/*.suo
@@ -20,7 +21,6 @@ obj/
 /src/*.psess
 /src/*.vspx
 /src/*.sdf
-/Aardvark.log
 /teststore
 /teststore_large
 /.paket/Paket.Restore.targets

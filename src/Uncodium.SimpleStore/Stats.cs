@@ -38,6 +38,10 @@
 
         /// <summary>
         /// </summary>
+        public long CountSnapshotKeys;
+
+        /// <summary>
+        /// </summary>
         public long CountFlush;
     }
 }

@@ -69,6 +69,10 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
+        public string[] SnapshotKeys() => m_store.SnapshotKeys();
+
+        /// <summary>
+        /// </summary>
         public void Flush()
         {
             if (m_random.NextDouble() < m_pFlush) throw new Exception();

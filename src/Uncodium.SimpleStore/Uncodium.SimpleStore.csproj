@@ -58,5 +58,9 @@
     <Compile Include="SimpleMemoryStore.cs" />
     <Compile Include="Stats.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="paket.references" />
+    <None Include="paket.template" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

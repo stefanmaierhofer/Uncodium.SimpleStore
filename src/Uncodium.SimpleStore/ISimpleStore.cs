@@ -8,7 +8,7 @@ namespace Uncodium.SimpleStore
     public interface ISimpleStore : IDisposable
     {
         /// <summary>
-        /// Various counts and other statistics.
+        /// Various runtime counts and other statistics.
         /// </summary>
         Stats Stats { get; }
 
@@ -27,6 +27,11 @@ namespace Uncodium.SimpleStore
         /// <summary>
         /// </summary>
         object TryGetFromCache(string id);
+
+        /// <summary>
+        /// Gets a snapshot of all existing keys.
+        /// </summary>
+        string[] SnapshotKeys();
 
         /// <summary>
         /// </summary>
