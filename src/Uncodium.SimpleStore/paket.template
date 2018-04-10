@@ -1,9 +1,9 @@
 type project
 id Uncodium.SimpleStore
 authors Stefan Maierhofer
+owners Stefan Maierhofer
+projectUrl https://github.com/stefanmaierhofer/Uncodium.SimpleStore
+licenseUrl https://github.com/stefanmaierhofer/Uncodium.SimpleStore/blob/master/LICENSE
 description
     Simple key/value store with out-of-core and in-memory implementation.
-files
-    ..\..\bin\Release\Uncodium.SimpleStore.dll ==> lib\net45
-    ..\..\bin\Release\Uncodium.SimpleStore.pdb ==> lib\net45
-    ..\..\bin\Release\Uncodium.SimpleStore.xml ==> lib\net45
+include-pdbs true

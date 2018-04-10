@@ -323,7 +323,10 @@ namespace Uncodium.SimpleStore.Tests
             var key1 = Guid.NewGuid().ToString();
             var key2 = Guid.NewGuid().ToString();
             var key3 = Guid.NewGuid().ToString();
-            using (var store = new SimpleDiskStore(TestStoreSmallPath + ".1"))
+            var storename = TestStoreSmallPath + ".1";
+            if (Directory.Exists(storename)) Directory.Delete(storename, true);
+
+            using (var store = new SimpleDiskStore(storename))
             {
                 store.Add(key1, "key1", () => Encoding.UTF8.GetBytes("key1"));
                 Assert.IsTrue(store.SnapshotKeys().Length == 1);
@@ -336,6 +339,8 @@ namespace Uncodium.SimpleStore.Tests
                 Assert.IsTrue(keys.Contains(key1));
                 Assert.IsTrue(keys.Contains(key2));
                 Assert.IsTrue(keys.Contains(key3));
+
+                store.Flush();
             }
         }
 
