@@ -45,23 +45,23 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
-        public Task AddAsync(string id, object value, Func<byte[]> getEncodedValue, CancellationToken ct)
-            => m_random.NextDouble() < m_pAdd ? throw new Exception() : m_store.AddAsync(id, value, getEncodedValue, ct);
+        public Task AddAsync(string key, object value, Func<byte[]> getEncodedValue, CancellationToken ct)
+            => m_random.NextDouble() < m_pAdd ? throw new Exception() : m_store.AddAsync(key, value, getEncodedValue, ct);
 
         /// <summary>
         /// </summary>
-        public Task<byte[]> GetAsync(string id, CancellationToken ct)
-            => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetAsync(id, ct);
+        public Task<byte[]> GetAsync(string key, CancellationToken ct)
+            => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetAsync(key, ct);
 
         /// <summary>
         /// </summary>
-        public Task RemoveAsync(string id, CancellationToken ct)
-            => m_random.NextDouble() < m_pRemove ? throw new Exception() : m_store.RemoveAsync(id, ct);
+        public Task RemoveAsync(string key, CancellationToken ct)
+            => m_random.NextDouble() < m_pRemove ? throw new Exception() : m_store.RemoveAsync(key, ct);
 
         /// <summary>
         /// </summary>
-        public Task<object> TryGetFromCacheAsync(string id, CancellationToken ct)
-            => m_random.NextDouble() < m_pTryGetFromCache ? throw new Exception() : m_store.TryGetFromCacheAsync(id, ct);
+        public Task<object> TryGetFromCacheAsync(string key, CancellationToken ct)
+            => m_random.NextDouble() < m_pTryGetFromCache ? throw new Exception() : m_store.TryGetFromCacheAsync(key, ct);
 
         /// <summary>
         /// </summary>

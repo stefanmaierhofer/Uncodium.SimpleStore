@@ -19,14 +19,14 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
-        public Task AddAsync(string id, object value, Func<byte[]> getEncodedValue, CancellationToken ct)
+        public Task AddAsync(string key, object value, Func<byte[]> getEncodedValue, CancellationToken ct)
         {
             var tcs = new TaskCompletionSource<int>();
             Task.Run(() =>
             {
                 try
                 {
-                    m_store.Add(id, value, getEncodedValue);
+                    m_store.Add(key, value, getEncodedValue);
                     if (ct.IsCancellationRequested)
                     {
                         tcs.SetCanceled();
@@ -46,14 +46,14 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
-        public Task<byte[]> GetAsync(string id, CancellationToken ct)
+        public Task<byte[]> GetAsync(string key, CancellationToken ct)
         {
             var tcs = new TaskCompletionSource<byte[]>();
             Task.Run(() =>
             {
                 try
                 {
-                    var result = m_store.Get(id);
+                    var result = m_store.Get(key);
                     if (ct.IsCancellationRequested)
                     {
                         tcs.SetCanceled();
@@ -100,14 +100,14 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
-        public Task RemoveAsync(string id, CancellationToken ct)
+        public Task RemoveAsync(string key, CancellationToken ct)
         {
             var tcs = new TaskCompletionSource<int>();
             Task.Run(() =>
             {
                 try
                 {
-                    m_store.Remove(id);
+                    m_store.Remove(key);
                     if (ct.IsCancellationRequested)
                     {
                         tcs.SetCanceled();
@@ -127,14 +127,14 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
-        public Task<object> TryGetFromCacheAsync(string id, CancellationToken ct)
+        public Task<object> TryGetFromCacheAsync(string key, CancellationToken ct)
         {
             var tcs = new TaskCompletionSource<object>();
             Task.Run(() =>
             {
                 try
                 {
-                    var result = m_store.TryGetFromCache(id);
+                    var result = m_store.TryGetFromCache(key);
                     if (ct.IsCancellationRequested)
                     {
                         tcs.SetCanceled();

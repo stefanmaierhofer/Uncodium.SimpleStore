@@ -27,11 +27,11 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
-        public void Add(string id, object value, Func<byte[]> getEncodedValue)
+        public void Add(string key, object value, Func<byte[]> getEncodedValue)
         {
             if (getEncodedValue == null)
             {
-                m_store.Add(id, value, getEncodedValue);
+                m_store.Add(key, value, getEncodedValue);
                 return;
             }
 
@@ -49,14 +49,14 @@ namespace Uncodium.SimpleStore
                 }
                 return ms.ToArray();
             };
-            m_store.Add(id, value, f);
+            m_store.Add(key, value, f);
         }
 
         /// <summary>
         /// </summary>
-        public byte[] Get(string id)
+        public byte[] Get(string key)
         {
-            var buffer = m_store.Get(id);
+            var buffer = m_store.Get(key);
             if (buffer == null) return null;
             var ms = new MemoryStream(buffer);
             using (var br = new BinaryReader(ms))
@@ -74,16 +74,16 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
-        public void Remove(string id)
+        public void Remove(string key)
         {
-            m_store.Remove(id);
+            m_store.Remove(key);
         }
 
         /// <summary>
         /// </summary>
-        public object TryGetFromCache(string id)
+        public object TryGetFromCache(string key)
         {
-            return m_store.TryGetFromCache(id);
+            return m_store.TryGetFromCache(key);
         }
 
         /// <summary>

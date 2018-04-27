@@ -50,34 +50,34 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
-        public void Add(string id, object value, Func<byte[]> getEncodedValue)
+        public void Add(string key, object value, Func<byte[]> getEncodedValue)
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtAdd));
-            m_store.Add(id, value, getEncodedValue);
+            m_store.Add(key, value, getEncodedValue);
         }
 
         /// <summary>
         /// </summary>
-        public byte[] Get(string id)
+        public byte[] Get(string key)
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet));
-            return m_store.Get(id);
+            return m_store.Get(key);
         }
 
         /// <summary>
         /// </summary>
-        public void Remove(string id)
+        public void Remove(string key)
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtRemove));
-            m_store.Remove(id);
+            m_store.Remove(key);
         }
 
         /// <summary>
         /// </summary>
-        public object TryGetFromCache(string id)
+        public object TryGetFromCache(string key)
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtTryGetFromCache));
-            return m_store.TryGetFromCache(id);
+            return m_store.TryGetFromCache(key);
         }
 
         /// <summary>

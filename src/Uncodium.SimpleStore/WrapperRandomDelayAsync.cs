@@ -48,34 +48,34 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
-        public async Task AddAsync(string id, object value, Func<byte[]> getEncodedValue, CancellationToken ct)
+        public async Task AddAsync(string key, object value, Func<byte[]> getEncodedValue, CancellationToken ct)
         {
             await Task.Delay(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtAdd), ct);
-            await m_store.AddAsync(id, value, getEncodedValue, ct);
+            await m_store.AddAsync(key, value, getEncodedValue, ct);
         }
 
         /// <summary>
         /// </summary>
-        public async Task<byte[]> GetAsync(string id, CancellationToken ct)
+        public async Task<byte[]> GetAsync(string key, CancellationToken ct)
         {
             await Task.Delay(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet), ct);
-            return await m_store.GetAsync(id, ct);
+            return await m_store.GetAsync(key, ct);
         }
 
         /// <summary>
         /// </summary>
-        public async Task RemoveAsync(string id, CancellationToken ct)
+        public async Task RemoveAsync(string key, CancellationToken ct)
         {
             await Task.Delay(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtRemove), ct);
-            await m_store.RemoveAsync(id, ct);
+            await m_store.RemoveAsync(key, ct);
         }
 
         /// <summary>
         /// </summary>
-        public async Task<object> TryGetFromCacheAsync(string id, CancellationToken ct)
+        public async Task<object> TryGetFromCacheAsync(string key, CancellationToken ct)
         {
             await Task.Delay(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtTryGetFromCache), ct);
-            return await m_store.TryGetFromCacheAsync(id, ct);
+            return await m_store.TryGetFromCacheAsync(key, ct);
         }
 
         /// <summary>

@@ -42,11 +42,11 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
-        public byte[] Get(string id)
+        public byte[] Get(string key)
         {
             lock (m_db)
             {
-                if (m_db.TryGetValue(id, out Func<byte[]> f))
+                if (m_db.TryGetValue(key, out Func<byte[]> f))
                 {
                     Interlocked.Increment(ref m_stats.CountGet);
                     return f?.Invoke();
@@ -61,13 +61,13 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
-        public void Remove(string id)
+        public void Remove(string key)
         {
             lock (m_db)
             {
-                if (m_db.Remove(id))
+                if (m_db.Remove(key))
                 {
-                    m_dbCache.Remove(id);
+                    m_dbCache.Remove(key);
                     Interlocked.Increment(ref m_stats.CountRemove);
                 }
                 else
@@ -79,11 +79,11 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
-        public object TryGetFromCache(string id)
+        public object TryGetFromCache(string key)
         {
             lock (m_db)
             {
-                if (m_dbCache.TryGetValue(id, out object value))
+                if (m_dbCache.TryGetValue(key, out object value))
                 {
                     Interlocked.Increment(ref m_stats.CountGetCacheHit);
                     return value;

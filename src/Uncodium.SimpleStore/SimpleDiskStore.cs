@@ -16,7 +16,7 @@ namespace Uncodium.SimpleStore
         private string m_indexFilename;
         private string m_dataFilename;
 
-        private Dictionary<string, Tuple<long, int>> m_dbIndex;
+        private Dictionary<string, (long, int)> m_dbIndex;
         private Dictionary<string, WeakReference<object>> m_dbCache;
         private HashSet<object> m_dbCacheKeepAlive;
         private HashSet<Type> m_typesToKeepAlive;
@@ -71,19 +71,19 @@ namespace Uncodium.SimpleStore
                 using (var br = new BinaryReader(f))
                 {
                     var count = br.ReadInt32();
-                    m_dbIndex = new Dictionary<string, Tuple<long, int>>(count);
+                    m_dbIndex = new Dictionary<string, (long, int)>(count);
                     for (var i = 0; i < count; i++)
                     {
                         var key = br.ReadString();
                         var offset = br.ReadInt64();
                         var size = br.ReadInt32();
-                        m_dbIndex[key] = Tuple.Create(offset, size);
+                        m_dbIndex[key] = (offset, size);
                     }
                 }
             }
             else
             {
-                m_dbIndex = new Dictionary<string, Tuple<long, int>>();
+                m_dbIndex = new Dictionary<string, (long, int)>();
             }
 
             m_dataSize = new FileInfo(m_dataFilename).Length;
@@ -143,7 +143,7 @@ namespace Uncodium.SimpleStore
                     m_accessor = m_mmf.CreateViewAccessor(8, m_dataSize);
                 }
                 m_accessor.WriteArray(m_dataPos, buffer, 0, buffer.Length);
-                m_dbIndex[key] = Tuple.Create(m_dataPos, buffer.Length);
+                m_dbIndex[key] = (m_dataPos, buffer.Length);
                 m_indexHasChanged = true;
                 m_dataPos += buffer.Length;
                 m_accessorSize.Write(0, m_dataPos);
@@ -152,12 +152,12 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
-        public byte[] Get(string id)
+        public byte[] Get(string key)
         {
             if (m_isDisposed) throw new ObjectDisposedException("SimpleDiskStore");
             lock (m_dbDiskLocation)
             {
-                if (m_dbIndex.TryGetValue(id, out Tuple<long, int> entry))
+                if (m_dbIndex.TryGetValue(key, out (long, int) entry))
                 {
                     var buffer = new byte[entry.Item2];
                     var readcount = m_accessor.ReadArray(entry.Item1, buffer, 0, buffer.Length);
@@ -175,12 +175,12 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
-        public void Remove(string id)
+        public void Remove(string key)
         {
             if (m_isDisposed) throw new ObjectDisposedException("SimpleDiskStore");
             lock (m_dbDiskLocation)
             {
-                m_dbIndex.Remove(id);
+                m_dbIndex.Remove(key);
                 m_indexHasChanged = true;
             }
             Interlocked.Increment(ref m_stats.CountRemove);
@@ -188,12 +188,12 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
-        public object TryGetFromCache(string id)
+        public object TryGetFromCache(string key)
         {
             if (m_isDisposed) throw new ObjectDisposedException("SimpleDiskStore");
             lock (m_dbCache)
             {
-                if (m_dbCache.TryGetValue(id, out WeakReference<object> weakRef))
+                if (m_dbCache.TryGetValue(key, out WeakReference<object> weakRef))
                 {
                     if (weakRef.TryGetTarget(out object data))
                     {

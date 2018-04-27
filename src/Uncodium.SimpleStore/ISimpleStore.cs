@@ -13,20 +13,21 @@ namespace Uncodium.SimpleStore
         Stats Stats { get; }
 
         /// <summary>
+        /// Adds key/value 
         /// </summary>
-        void Add(string id, object value, Func<byte[]> getEncodedValue);
+        void Add(string key, object value, Func<byte[]> getEncodedValue);
 
         /// <summary>
         /// </summary>
-        byte[] Get(string id);
+        byte[] Get(string key);
 
         /// <summary>
         /// </summary>
-        void Remove(string id);
+        void Remove(string key);
 
         /// <summary>
         /// </summary>
-        object TryGetFromCache(string id);
+        object TryGetFromCache(string key);
 
         /// <summary>
         /// Gets a snapshot of all existing keys.

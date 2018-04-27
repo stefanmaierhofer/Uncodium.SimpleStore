@@ -43,29 +43,29 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
-        public void Add(string id, object value, Func<byte[]> getEncodedValue)
+        public void Add(string key, object value, Func<byte[]> getEncodedValue)
         {
             if (m_random.NextDouble() < m_pAdd) throw new Exception();
-            m_store.Add(id, value, getEncodedValue);
+            m_store.Add(key, value, getEncodedValue);
         }
 
         /// <summary>
         /// </summary>
-        public byte[] Get(string id)
-            => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.Get(id);
+        public byte[] Get(string key)
+            => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.Get(key);
 
         /// <summary>
         /// </summary>
-        public void Remove(string id)
+        public void Remove(string key)
         {
             if (m_random.NextDouble() < m_pRemove) throw new Exception();
-            m_store.Remove(id);
+            m_store.Remove(key);
         }
 
         /// <summary>
         /// </summary>
-        public object TryGetFromCache(string id)
-            => m_random.NextDouble() < m_pTryGetFromCache ? throw new Exception() : m_store.TryGetFromCache(id);
+        public object TryGetFromCache(string key)
+            => m_random.NextDouble() < m_pTryGetFromCache ? throw new Exception() : m_store.TryGetFromCache(key);
 
         /// <summary>
         /// </summary>

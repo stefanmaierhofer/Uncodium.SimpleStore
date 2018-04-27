@@ -11,14 +11,14 @@ namespace Uncodium.SimpleStore
         /// <summary>
         /// String will be stored UTF8 encoded.
         /// </summary>
-        public static void Add(this ISimpleStore store, string id, string value)
-            => store.Add(id, value, () => Encoding.UTF8.GetBytes(value));
+        public static void Add(this ISimpleStore store, string key, string value)
+            => store.Add(key, value, () => Encoding.UTF8.GetBytes(value));
 
         /// <summary>
         /// Store blob.
         /// </summary>
-        public static void Add(this ISimpleStore store, string id, byte[] value)
-            => store.Add(id, value, () => value);
+        public static void Add(this ISimpleStore store, string key, byte[] value)
+            => store.Add(key, value, () => value);
 
         /// <summary>
         /// Compressed storage.

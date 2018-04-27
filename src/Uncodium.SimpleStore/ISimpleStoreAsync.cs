@@ -15,19 +15,19 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
-        Task AddAsync(string id, object value, Func<byte[]> getEncodedValue, CancellationToken ct);
+        Task AddAsync(string key, object value, Func<byte[]> getEncodedValue, CancellationToken ct);
 
         /// <summary>
         /// </summary>
-        Task<byte[]> GetAsync(string id, CancellationToken ct);
+        Task<byte[]> GetAsync(string key, CancellationToken ct);
 
         /// <summary>
         /// </summary>
-        Task RemoveAsync(string id, CancellationToken ct);
+        Task RemoveAsync(string key, CancellationToken ct);
 
         /// <summary>
         /// </summary>
-        Task<object> TryGetFromCacheAsync(string id, CancellationToken ct);
+        Task<object> TryGetFromCacheAsync(string key, CancellationToken ct);
 
         /// <summary>
         /// </summary>
