@@ -70,14 +70,33 @@ namespace Uncodium.SimpleStore
                 using (var f = File.Open(m_indexFilename, FileMode.Open, FileAccess.Read, FileShare.None))
                 using (var br = new BinaryReader(f))
                 {
-                    var count = br.ReadInt32();
-                    m_dbIndex = new Dictionary<string, (long, int)>(count);
-                    for (var i = 0; i < count; i++)
+                    var count = 0;
+                    var i = 0;
+                    var key = string.Empty;
+                    var offset = 0L;
+                    var size = 0;
+                    try
                     {
-                        var key = br.ReadString();
-                        var offset = br.ReadInt64();
-                        var size = br.ReadInt32();
-                        m_dbIndex[key] = (offset, size);
+                        count = br.ReadInt32();
+                        m_dbIndex = new Dictionary<string, (long, int)>(count);
+                        for (i = 0; i < count; i++)
+                        {
+                            key = br.ReadString();
+                            offset = br.ReadInt64();
+                            size = br.ReadInt32();
+
+                            //if (key.StartsWith("5dce76d5-95e3-4566-aaaa-147a6abe3de9")) Console.WriteLine($"yes!    {key}");
+                            //Console.WriteLine($"[{i,10}] {key}  {offset,20:N0}   {size,20:N0}    {totalSize,20:N0}");
+
+                            m_dbIndex[key] = (offset, size);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Console.Error.WriteLine($"[CRITICAL ERROR] Damaged index file {m_indexFilename}");
+                        Console.Error.WriteLine($"[CRITICAL ERROR] Could read {i:N0}/{count:N0} index entries.");
+                        Console.Error.WriteLine($"[CRITICAL ERROR] Last entry: {key} @ +{offset:N0} with size {size:N0} bytes.");
+                        Console.Error.WriteLine($"[CRITICAL ERROR] {e}");
                     }
                 }
             }
