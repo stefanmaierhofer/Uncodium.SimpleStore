@@ -25,3 +25,4 @@ obj/
 /teststore_large
 /.paket/Paket.Restore.targets
 /src/teststore*
+/.paket/.store
