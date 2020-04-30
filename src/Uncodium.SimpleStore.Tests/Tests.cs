@@ -55,7 +55,7 @@ namespace Uncodium.SimpleStore.Tests
         {
             using (var store = new SimpleDiskStore(TestStoreSmallPath))
             {
-                using (var storeReadOnly = new SimpleDiskStore(TestStoreSmallPath))
+                using (var storeReadOnly = SimpleDiskStore.OpenReadOnlySnapshot(TestStoreSmallPath))
                 {
 
                 }

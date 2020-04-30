@@ -13,7 +13,7 @@ namespace Uncodium.SimpleStore
     public class SimpleDiskStore : ISimpleStore
     {
         private readonly string m_dbDiskLocation;
-        private readonly bool m_readOnly;
+        private readonly bool m_readOnlySnapshot;
         private string m_indexFilename;
         private string m_dataFilename;
 
@@ -36,11 +36,12 @@ namespace Uncodium.SimpleStore
         /// <summary>
         /// Creates store in folder 'dbDiskLocation'.
         /// Optional set of types that will be kept alive in memory.
+        /// Optionally opens current state read-only.
         /// </summary>
-        public SimpleDiskStore(string dbDiskLocation, Type[] typesToKeepAlive, bool readOnly)
+        private SimpleDiskStore(string dbDiskLocation, Type[] typesToKeepAlive, bool readOnlySnapshot)
         {
             m_dbDiskLocation = dbDiskLocation;
-            m_readOnly = readOnly;
+            m_readOnlySnapshot = readOnlySnapshot;
 
             if (typesToKeepAlive == null) typesToKeepAlive = new Type[0];
             m_typesToKeepAlive = new HashSet<Type>(typesToKeepAlive);
@@ -52,17 +53,31 @@ namespace Uncodium.SimpleStore
         /// Creates store in folder 'dbDiskLocation'.
         /// Optional set of types that will be kept alive in memory.
         /// </summary>
-        public SimpleDiskStore(string dbDiskLocation, Type[] typesToKeepAlive) : this(dbDiskLocation, typesToKeepAlive, false) { }
+        public SimpleDiskStore(string dbDiskLocation, Type[] typesToKeepAlive) 
+            : this(dbDiskLocation, typesToKeepAlive, readOnlySnapshot: false)
+        { }
 
         /// <summary>
         /// Creates store in folder 'dbDiskLocation'.
         /// </summary>
-        public SimpleDiskStore(string dbDiskLocation) : this(dbDiskLocation, null, false) { }
+        public SimpleDiskStore(string dbDiskLocation) 
+            : this(dbDiskLocation, typesToKeepAlive: null, readOnlySnapshot: false) 
+        { }
 
         /// <summary>
-        /// Creates store in folder 'dbDiskLocation'.
+        /// Opens store in folder 'dbDiskLocation' in read-only snapshot mode.
+        /// This means that no store entries that are added after the call to OpenReadOnlySnapshot will be(come) visible.
+        /// Optional set of types that will be kept alive in memory.
         /// </summary>
-        public SimpleDiskStore(string dbDiskLocation, bool readOnly) : this(dbDiskLocation, null, readOnly) { }
+        public static SimpleDiskStore OpenReadOnlySnapshot(string dbDiskLocation, Type[] typesToKeepAlive)
+            => new SimpleDiskStore(dbDiskLocation, typesToKeepAlive, readOnlySnapshot: true);
+
+        /// <summary>
+        /// Opens store in folder 'dbDiskLocation' in read-only snapshot mode.
+        /// This means that no store entries that are added after the call to OpenReadOnlySnapshot will be(come) visible.
+        /// </summary>
+        public static SimpleDiskStore OpenReadOnlySnapshot(string dbDiskLocation)
+            => new SimpleDiskStore(dbDiskLocation, typesToKeepAlive: null, readOnlySnapshot: true);
 
         private void Init()
         {
@@ -118,17 +133,26 @@ namespace Uncodium.SimpleStore
             m_dataSize = new FileInfo(m_dataFilename).Length;
             if (m_dataSize == 0) m_dataSize = 1024 * 1024; else m_dataSize -= 8;
 
-            if (m_readOnly)
+            var mapName = m_dataFilename.ToMd5Hash().ToString();
+
+            if (m_readOnlySnapshot)
             {
-                throw new NotImplementedException();
-                //m_mmf = MemoryMappedFile.OpenExisting(m_dataFilename, MemoryMappedFileRights.Read);
-                //m_accessorSize = m_mmf.CreateViewAccessor(0, 8, MemoryMappedFileAccess.Read);
-                //m_accessor = m_mmf.CreateViewAccessor(8, m_dataSize, MemoryMappedFileAccess.Read);
-                //m_dataPos = 0L;
+                try
+                {
+                    m_mmf = MemoryMappedFile.CreateFromFile(m_dataFilename, FileMode.Open, mapName, 8 + m_dataSize, MemoryMappedFileAccess.Read);
+                }
+                catch
+                {
+                    m_mmf = MemoryMappedFile.OpenExisting(mapName, MemoryMappedFileRights.Read);
+                }
+
+                m_accessorSize = m_mmf.CreateViewAccessor(0, 8, MemoryMappedFileAccess.Read);
+                m_accessor = m_mmf.CreateViewAccessor(8, m_dataSize, MemoryMappedFileAccess.Read);
+                m_dataPos = 0L;
             }
             else
             {
-                m_mmf = MemoryMappedFile.CreateFromFile(m_dataFilename, FileMode.OpenOrCreate, null, 8 + m_dataSize, MemoryMappedFileAccess.ReadWrite);
+                m_mmf = MemoryMappedFile.CreateFromFile(m_dataFilename, FileMode.OpenOrCreate, mapName, 8 + m_dataSize, MemoryMappedFileAccess.ReadWrite);
                 m_accessorSize = m_mmf.CreateViewAccessor(0, 8);
                 m_accessor = m_mmf.CreateViewAccessor(8, m_dataSize);
                 m_dataPos = dataFileIsNewlyCreated ? 0L : m_accessorSize.ReadInt64(0);
@@ -147,6 +171,7 @@ namespace Uncodium.SimpleStore
         public void Add(string key, object value, Func<byte[]> getEncodedValue)
         {
             if (m_isDisposed) throw new ObjectDisposedException("SimpleDiskStore");
+            if (m_readOnlySnapshot) throw new InvalidOperationException("Read-only store does not support add.");
             Interlocked.Increment(ref m_stats.CountAdd);
 
             byte[] buffer = null;
@@ -232,6 +257,7 @@ namespace Uncodium.SimpleStore
         public void Remove(string key)
         {
             if (m_isDisposed) throw new ObjectDisposedException("SimpleDiskStore");
+            if (m_readOnlySnapshot) throw new InvalidOperationException("Read-only store does not support remove.");
             lock (m_dbDiskLocation)
             {
                 m_dbIndex.Remove(key);
@@ -306,7 +332,7 @@ namespace Uncodium.SimpleStore
         {
             if (!m_indexHasChanged) return;
             
-            using (var f = File.Open(m_indexFilename, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var f = File.Open(m_indexFilename, FileMode.Create, FileAccess.Write, FileShare.Read))
             using (var bw = new BinaryWriter(f))
             {
                 bw.Write(m_dbIndex.Count);
