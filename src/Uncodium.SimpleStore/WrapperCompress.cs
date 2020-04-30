@@ -10,8 +10,8 @@ namespace Uncodium.SimpleStore
     /// </summary>
     public class WrapperCompress : ISimpleStore
     {
-        private ISimpleStore m_store;
-        private CompressionLevel m_compressionLevel;
+        private readonly ISimpleStore m_store;
+        private readonly CompressionLevel m_compressionLevel;
 
         /// <summary>
         /// </summary>
@@ -35,7 +35,9 @@ namespace Uncodium.SimpleStore
                 return;
             }
 
-            Func<byte[]> f = () =>
+            m_store.Add(key, value, f);
+
+            byte[] f()
             {
                 var ms = new MemoryStream();
                 var data = getEncodedValue();
@@ -48,9 +50,12 @@ namespace Uncodium.SimpleStore
                     }
                 }
                 return ms.ToArray();
-            };
-            m_store.Add(key, value, f);
+            }
         }
+
+        /// <summary>
+        /// </summary>
+        public bool Contains(string key) => m_store.Contains(key);
 
         /// <summary>
         /// </summary>

@@ -7,14 +7,14 @@ namespace Uncodium.SimpleStore
     /// </summary>
     public class WrapperRandomFail : ISimpleStore
     {
-        private Random m_random = new Random();
-        private ISimpleStore m_store;
-        private double m_pStats;
-        private double m_pAdd;
-        private double m_pGet;
-        private double m_pRemove;
-        private double m_pTryGetFromCache;
-        private double m_pFlush;
+        private readonly Random m_random = new Random();
+        private readonly ISimpleStore m_store;
+        private readonly double m_pStats;
+        private readonly double m_pAdd;
+        private readonly double m_pGet;
+        private readonly double m_pRemove;
+        private readonly double m_pTryGetFromCache;
+        private readonly double m_pFlush;
 
         /// <summary>
         /// </summary>
@@ -48,6 +48,11 @@ namespace Uncodium.SimpleStore
             if (m_random.NextDouble() < m_pAdd) throw new Exception();
             m_store.Add(key, value, getEncodedValue);
         }
+
+        /// <summary>
+        /// </summary>
+        public bool Contains(string key)
+            => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.Contains(key);
 
         /// <summary>
         /// </summary>

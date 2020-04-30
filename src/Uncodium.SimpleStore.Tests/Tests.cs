@@ -50,6 +50,18 @@ namespace Uncodium.SimpleStore.Tests
             { }
         }
 
+        [Test]
+        public void CanOpenDiskStoreTwiceReadonly()
+        {
+            using (var store = new SimpleDiskStore(TestStoreSmallPath))
+            {
+                using (var storeReadOnly = new SimpleDiskStore(TestStoreSmallPath))
+                {
+
+                }
+            }
+        }
+
         #endregion
 
         #region Add

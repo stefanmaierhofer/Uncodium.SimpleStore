@@ -10,10 +10,16 @@ namespace Uncodium.SimpleStore.Tests
     {
         static void Main()
         {
-            var dbDiskLocation = @"/some/path/to/nowhere";
-            using (var store = new SimpleDiskStore(dbDiskLocation, null))
+            var dbDiskLocation = @"T:\teststore";
+            using (var store = new SimpleDiskStore(dbDiskLocation))
             {
-                Console.WriteLine(store.Get("23531522-e181-4e4f-985f-4927296df9b1")?.Length ?? -1);
+                using (var readOnlyStore = new SimpleDiskStore(dbDiskLocation, readOnly: true))
+                {
+                    store.Add("foo", "bar");
+
+                    var v = readOnlyStore.Get("foo");
+                    Console.WriteLine(v);
+                }
             }
         }
     }

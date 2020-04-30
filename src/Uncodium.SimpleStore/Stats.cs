@@ -10,6 +10,10 @@
 
         /// <summary>
         /// </summary>
+        public long CountContains;
+
+        /// <summary>
+        /// </summary>
         public long CountGet;
 
         /// <summary>

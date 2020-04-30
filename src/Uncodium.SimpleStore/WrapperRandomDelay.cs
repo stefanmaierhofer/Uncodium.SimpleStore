@@ -8,24 +8,26 @@ namespace Uncodium.SimpleStore
     /// </summary>
     public class WrapperRandomDelay : ISimpleStore
     {
-        private Random m_random = new Random();
-        private ISimpleStore m_store;
-        private double m_dtStats;
-        private double m_dtAdd;
-        private double m_dtGet;
-        private double m_dtRemove;
-        private double m_dtTryGetFromCache;
-        private double m_dtFlush;
+        private readonly Random m_random = new Random();
+        private readonly ISimpleStore m_store;
+        private readonly double m_dtStats;
+        private readonly double m_dtAdd;
+        private readonly double m_dtContains;
+        private readonly double m_dtGet;
+        private readonly double m_dtRemove;
+        private readonly double m_dtTryGetFromCache;
+        private readonly double m_dtFlush;
 
         /// <summary>
         /// </summary>
         public WrapperRandomDelay(ISimpleStore store,
-            double dtStats, double dtAdd, double dtGet, double dtRemove, double dtTryGetFromCache, double dtFlush
+            double dtStats, double dtAdd, double dtContains, double dtGet, double dtRemove, double dtTryGetFromCache, double dtFlush
             )
         {
             m_store = store ?? throw new ArgumentNullException(nameof(store));
             m_dtStats = dtStats;
             m_dtAdd = dtAdd;
+            m_dtContains = dtContains;
             m_dtGet = dtGet;
             m_dtRemove = dtRemove;
             m_dtTryGetFromCache = dtTryGetFromCache;
@@ -34,7 +36,7 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
-        public WrapperRandomDelay(ISimpleStore store, double dt) : this(store, dt, dt, dt, dt, dt, dt)
+        public WrapperRandomDelay(ISimpleStore store, double dt) : this(store, dt, dt, dt, dt, dt, dt, dt)
         { }
 
         /// <summary>
@@ -54,6 +56,14 @@ namespace Uncodium.SimpleStore
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtAdd));
             m_store.Add(key, value, getEncodedValue);
+        }
+
+        /// <summary>
+        /// </summary>
+        public bool Contains(string key)
+        {
+            Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtContains));
+            return m_store.Contains(key);
         }
 
         /// <summary>

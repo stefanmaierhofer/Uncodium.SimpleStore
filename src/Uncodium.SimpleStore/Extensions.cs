@@ -47,8 +47,8 @@ namespace Uncodium.SimpleStore
         /// <summary>
         /// Each store operation is delayed between 0 and given duration in seconds.
         /// </summary>
-        public static ISimpleStore DelayRandomly(this ISimpleStore store, double dtStats, double dtAdd, double dtGet, double dtRemove, double dtTryGetFromCache, double dtFlush)
-            => new WrapperRandomDelay(store, dtStats, dtAdd, dtGet, dtRemove, dtTryGetFromCache, dtFlush);
+        public static ISimpleStore DelayRandomly(this ISimpleStore store, double dtStats, double dtAdd, double dtContains, double dtGet, double dtRemove, double dtTryGetFromCache, double dtFlush)
+            => new WrapperRandomDelay(store, dtStats, dtAdd, dtContains, dtGet, dtRemove, dtTryGetFromCache, dtFlush);
 
         /// <summary>
         /// Makes all store operations async.

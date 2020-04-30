@@ -10,8 +10,8 @@ namespace Uncodium.SimpleStore
     /// </summary>
     public class SimpleMemoryStore : ISimpleStore
     {
-        private Dictionary<string, Func<byte[]>> m_db;
-        private Dictionary<string, object> m_dbCache;
+        private readonly Dictionary<string, Func<byte[]>> m_db;
+        private readonly Dictionary<string, object> m_dbCache;
         private Stats m_stats;
 
         /// <summary>
@@ -38,6 +38,19 @@ namespace Uncodium.SimpleStore
                 m_dbCache[key] = value;
             }
             Interlocked.Increment(ref m_stats.CountAdd);
+        }
+
+        /// <summary>
+        /// </summary>
+        public bool Contains(string key)
+        {
+            bool result;
+            lock (m_db)
+            {
+                result = m_db.ContainsKey(key);
+            }
+            Interlocked.Increment(ref m_stats.CountContains);
+            return result;
         }
 
         /// <summary>

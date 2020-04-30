@@ -12,14 +12,15 @@ namespace Uncodium.SimpleStore
     /// </summary>
     public class SimpleDiskStore : ISimpleStore
     {
-        private string m_dbDiskLocation;
+        private readonly string m_dbDiskLocation;
+        private readonly bool m_readOnly;
         private string m_indexFilename;
         private string m_dataFilename;
 
         private Dictionary<string, (long, int)> m_dbIndex;
         private Dictionary<string, WeakReference<object>> m_dbCache;
         private HashSet<object> m_dbCacheKeepAlive;
-        private HashSet<Type> m_typesToKeepAlive;
+        private readonly HashSet<Type> m_typesToKeepAlive;
         private long m_dataSize;
         private long m_dataPos;
         private MemoryMappedFile m_mmf;
@@ -30,15 +31,16 @@ namespace Uncodium.SimpleStore
 
         private bool m_indexHasChanged = false;
         private bool m_isDisposed = false;
-        private CancellationTokenSource m_cts = new CancellationTokenSource();
+        private readonly CancellationTokenSource m_cts = new CancellationTokenSource();
 
         /// <summary>
         /// Creates store in folder 'dbDiskLocation'.
         /// Optional set of types that will be kept alive in memory.
         /// </summary>
-        public SimpleDiskStore(string dbDiskLocation, Type[] typesToKeepAlive)
+        public SimpleDiskStore(string dbDiskLocation, Type[] typesToKeepAlive, bool readOnly)
         {
             m_dbDiskLocation = dbDiskLocation;
+            m_readOnly = readOnly;
 
             if (typesToKeepAlive == null) typesToKeepAlive = new Type[0];
             m_typesToKeepAlive = new HashSet<Type>(typesToKeepAlive);
@@ -48,9 +50,20 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// Creates store in folder 'dbDiskLocation'.
+        /// Optional set of types that will be kept alive in memory.
         /// </summary>
-        public SimpleDiskStore(string dbDiskLocation) : this(dbDiskLocation, null) { }
-        
+        public SimpleDiskStore(string dbDiskLocation, Type[] typesToKeepAlive) : this(dbDiskLocation, typesToKeepAlive, false) { }
+
+        /// <summary>
+        /// Creates store in folder 'dbDiskLocation'.
+        /// </summary>
+        public SimpleDiskStore(string dbDiskLocation) : this(dbDiskLocation, null, false) { }
+
+        /// <summary>
+        /// Creates store in folder 'dbDiskLocation'.
+        /// </summary>
+        public SimpleDiskStore(string dbDiskLocation, bool readOnly) : this(dbDiskLocation, null, readOnly) { }
+
         private void Init()
         {
             m_indexFilename = Path.Combine(m_dbDiskLocation, "index.bin");
@@ -67,7 +80,7 @@ namespace Uncodium.SimpleStore
             m_dbCacheKeepAlive = new HashSet<object>();
             if (File.Exists(m_indexFilename))
             {
-                using (var f = File.Open(m_indexFilename, FileMode.Open, FileAccess.Read, FileShare.None))
+                using (var f = File.Open(m_indexFilename, FileMode.Open, FileAccess.Read, FileShare.Read))
                 using (var br = new BinaryReader(f))
                 {
                     var count = 0;
@@ -84,9 +97,6 @@ namespace Uncodium.SimpleStore
                             key = br.ReadString();
                             offset = br.ReadInt64();
                             size = br.ReadInt32();
-
-                            //if (key.StartsWith("5dce76d5-95e3-4566-aaaa-147a6abe3de9")) Console.WriteLine($"yes!    {key}");
-                            //Console.WriteLine($"[{i,10}] {key}  {offset,20:N0}   {size,20:N0}    {totalSize,20:N0}");
 
                             m_dbIndex[key] = (offset, size);
                         }
@@ -108,11 +118,21 @@ namespace Uncodium.SimpleStore
             m_dataSize = new FileInfo(m_dataFilename).Length;
             if (m_dataSize == 0) m_dataSize = 1024 * 1024; else m_dataSize -= 8;
 
-            m_mmf = MemoryMappedFile.CreateFromFile(m_dataFilename, FileMode.OpenOrCreate, null, 8 + m_dataSize, MemoryMappedFileAccess.ReadWrite);
-            m_accessorSize = m_mmf.CreateViewAccessor(0, 8);
-            m_accessor = m_mmf.CreateViewAccessor(8, m_dataSize);
-
-            m_dataPos = dataFileIsNewlyCreated ? 0L : m_accessorSize.ReadInt64(0);
+            if (m_readOnly)
+            {
+                throw new NotImplementedException();
+                //m_mmf = MemoryMappedFile.OpenExisting(m_dataFilename, MemoryMappedFileRights.Read);
+                //m_accessorSize = m_mmf.CreateViewAccessor(0, 8, MemoryMappedFileAccess.Read);
+                //m_accessor = m_mmf.CreateViewAccessor(8, m_dataSize, MemoryMappedFileAccess.Read);
+                //m_dataPos = 0L;
+            }
+            else
+            {
+                m_mmf = MemoryMappedFile.CreateFromFile(m_dataFilename, FileMode.OpenOrCreate, null, 8 + m_dataSize, MemoryMappedFileAccess.ReadWrite);
+                m_accessorSize = m_mmf.CreateViewAccessor(0, 8);
+                m_accessor = m_mmf.CreateViewAccessor(8, m_dataSize);
+                m_dataPos = dataFileIsNewlyCreated ? 0L : m_accessorSize.ReadInt64(0);
+            }
         }
 
         /// <summary>
@@ -167,6 +187,21 @@ namespace Uncodium.SimpleStore
                 m_dataPos += buffer.Length;
                 m_accessorSize.Write(0, m_dataPos);
             }
+        }
+
+        /// <summary>
+        /// </summary>
+        public bool Contains(string key)
+        {
+            if (m_isDisposed) throw new ObjectDisposedException("SimpleDiskStore");
+            bool result;
+            lock (m_dbDiskLocation)
+            {
+                result = m_dbIndex.ContainsKey(key);
+                m_indexHasChanged = true;
+            }
+            Interlocked.Increment(ref m_stats.CountContains);
+            return result;
         }
 
         /// <summary>
