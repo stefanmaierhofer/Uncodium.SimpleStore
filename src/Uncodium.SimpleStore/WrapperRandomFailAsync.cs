@@ -1,4 +1,28 @@
-﻿using System;
+﻿/*
+   MIT License
+   
+   Copyright (c) 2014,2015,2016,2017,2018,2019,2020 Stefan Maierhofer.
+   
+   Permission is hereby granted, free of charge, to any person obtaining a copy
+   of this software and associated documentation files (the "Software"), to deal
+   in the Software without restriction, including without limitation the rights
+   to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+   copies of the Software, and to permit persons to whom the Software is
+   furnished to do so, subject to the following conditions:
+   
+   The above copyright notice and this permission notice shall be included in all
+   copies or substantial portions of the Software.
+   
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
+*/
+
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -9,14 +33,14 @@ namespace Uncodium.SimpleStore
     /// </summary>
     public class WrapperRandomFailAsync : ISimpleStoreAsync
     {
-        private Random m_random = new Random();
-        private ISimpleStoreAsync m_store;
-        private double m_pStats;
-        private double m_pAdd;
-        private double m_pGet;
-        private double m_pRemove;
-        private double m_pTryGetFromCache;
-        private double m_pFlush;
+        private readonly Random m_random = new Random();
+        private readonly ISimpleStoreAsync m_store;
+        private readonly double m_pStats;
+        private readonly double m_pAdd;
+        private readonly double m_pGet;
+        private readonly double m_pRemove;
+        private readonly double m_pTryGetFromCache;
+        private readonly double m_pFlush;
 
         /// <summary>
         /// </summary>

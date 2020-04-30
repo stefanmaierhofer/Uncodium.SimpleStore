@@ -1,8 +1,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26403.7
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30002.166
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Uncodium.SimpleStore", "Uncodium.SimpleStore\Uncodium.SimpleStore.csproj", "{B780811E-A02E-4111-987B-9D65001BEFD2}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Uncodium.SimpleStore", "Uncodium.SimpleStore\Uncodium.SimpleStore.csproj", "{B780811E-A02E-4111-987B-9D65001BEFD2}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Uncodium.SimpleStore.Tests", "Uncodium.SimpleStore.Tests\Uncodium.SimpleStore.Tests.csproj", "{C1486AE8-930C-4AA7-B71A-A6F875F649FC}"
 EndProject
@@ -25,7 +25,7 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		EnterpriseLibraryConfigurationToolBinariesPathV6 = packages\EnterpriseLibrary.TransientFaultHandling.6.0.1304.0\lib\portable-net45+win+wp8;packages\EnterpriseLibrary.TransientFaultHandling.Data.6.0.1304.1\lib\NET45
 		SolutionGuid = {1E8F3EC7-B101-4CB4-8C22-9F884DDDEECB}
+		EnterpriseLibraryConfigurationToolBinariesPathV6 = packages\EnterpriseLibrary.TransientFaultHandling.6.0.1304.0\lib\portable-net45+win+wp8;packages\EnterpriseLibrary.TransientFaultHandling.Data.6.0.1304.1\lib\NET45
 	EndGlobalSection
 EndGlobal
