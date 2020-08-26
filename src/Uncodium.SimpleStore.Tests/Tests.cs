@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Uncodium.SimpleStore.Tests
@@ -263,6 +264,49 @@ namespace Uncodium.SimpleStore.Tests
             Task.WhenAll(ts).Wait();
 
             Assert.IsTrue(store.Stats.CountAdd == 200000);
+        }
+
+        [Test]
+        public void CanAddAndGetMultiThreadedDiskStore()
+        {
+            using var store = new SimpleDiskStore(TestStoreLargePath, null);
+            var stats0 = store.Stats;
+
+            var keys = new List<string>();
+
+            var ts = new List<Task>();
+            for (var t = 0; t < 4; t++)
+            {
+                ts.Add(Task.Run(() =>
+                {
+                    var r = new Random();
+                    for (var i = 0; i < 5000; i++)
+                    {
+                        if (r.NextDouble() < 0.5)
+                        {
+                            //Console.WriteLine($"W {Thread.CurrentThread.ManagedThreadId}");
+                            var key = Guid.NewGuid().ToString();
+                            lock (keys) keys.Add(key);
+                            var data = new byte[r.Next(100000)];
+                            store.Add(key, data);
+                        }
+                        else
+                        {
+                            if (keys.Count == 0) continue;
+                            //Console.WriteLine($"R {Thread.CurrentThread.ManagedThreadId}");
+                            string key;
+                            lock (keys) key = keys[r.Next(keys.Count)];
+                            var data = store.Get(key);
+                        }
+
+                        if (i % 1000 == 0) Console.WriteLine($"[{Thread.CurrentThread.ManagedThreadId}] {i}");
+                    }
+                }));
+            }
+
+            Task.WhenAll(ts).Wait();
+
+            Assert.IsTrue(store.Stats.CountAdd == keys.Count);
         }
 
         #endregion
