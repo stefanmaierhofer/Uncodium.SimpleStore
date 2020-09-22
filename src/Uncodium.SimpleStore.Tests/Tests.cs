@@ -55,6 +55,23 @@ namespace Uncodium.SimpleStore.Tests
             using var storeReadOnly = SimpleDiskStore.OpenReadOnlySnapshot(TestStoreSmallPath);
         }
 
+        [Test]
+        public void CreateDiskStoreCreatesFolderWithBinFile()
+        {
+            var path = Path.GetFullPath(Guid.NewGuid().ToString());
+
+            Assert.False(Directory.Exists(path));
+
+            var store = new SimpleDiskStore(path);
+
+            Assert.True(Directory.Exists(path));
+
+            store.Dispose();
+            Directory.Delete(path, true);
+            Thread.Sleep(250);
+            Assert.False(Directory.Exists(path));
+        }
+
         #endregion
 
         #region Add
