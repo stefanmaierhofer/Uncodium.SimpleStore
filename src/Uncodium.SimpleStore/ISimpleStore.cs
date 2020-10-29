@@ -23,6 +23,7 @@
 */
 
 using System;
+using System.IO;
 
 namespace Uncodium.SimpleStore
 {
@@ -55,6 +56,12 @@ namespace Uncodium.SimpleStore
         /// Get slice of value from key.
         /// </summary>
         byte[] GetSlice(string key, long offset, int length);
+
+        /// <summary>
+        /// Get read stream for value from key.
+        /// This is not thread-safe with respect to overwriting or removing existing values.
+        /// </summary>
+        Stream OpenReadStream(string key);
 
         /// <summary>
         /// Remove entry.

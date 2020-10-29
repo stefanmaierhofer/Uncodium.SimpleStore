@@ -179,6 +179,42 @@ namespace Uncodium.SimpleStore.Tests
 
         #endregion
 
+        #region OpenReadStream
+
+        private void CheckOpenReadStream(ISimpleStore store)
+        {
+            var key = Guid.NewGuid().ToString();
+            store.Add(key, new byte[] { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 });
+            using var stream = store.OpenReadStream(key);
+            using var br = new BinaryReader(stream);
+            Assert.IsTrue(ElementsEqual(br.ReadBytes(10), new byte[] { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }));
+
+            stream.Seek(0, SeekOrigin.Begin);
+            Assert.IsTrue(ElementsEqual(br.ReadBytes(1), new byte[] { 10 }));
+
+            stream.Seek(9, SeekOrigin.Begin);
+            Assert.IsTrue(ElementsEqual(br.ReadBytes(1), new byte[] { 19 }));
+
+            stream.Seek(4, SeekOrigin.Begin);
+            Assert.IsTrue(ElementsEqual(br.ReadBytes(4), new byte[] { 14, 15, 16, 17 }));
+        }
+
+        [Test]
+        public void CanOpenReadStreamMemStore()
+        {
+            using var store = new SimpleMemoryStore();
+            CheckGetSlice(store);
+        }
+
+        [Test]
+        public void CanOpenReadStreamDiskStore()
+        {
+            using var store = new SimpleDiskStore(TestStoreSmallPath, null);
+            CheckGetSlice(store);
+        }
+
+        #endregion
+
         #region Remove
 
         [Test]

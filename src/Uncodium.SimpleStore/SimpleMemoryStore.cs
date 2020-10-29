@@ -24,6 +24,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 
@@ -107,13 +108,33 @@ namespace Uncodium.SimpleStore
             {
                 if (m_db.TryGetValue(key, out Func<byte[]> f))
                 {
-                    Interlocked.Increment(ref m_stats.CountGet);
+                    Interlocked.Increment(ref m_stats.CountGetSlice);
                     var buffer = f?.Invoke();
                     if (offset >= buffer.Length) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be less than length of value buffer.");
                     if (offset + length > buffer.Length) throw new ArgumentOutOfRangeException(nameof(offset), "Offset + size exceeds length of value buffer.");
                     var result = new byte[length];
                     Array.ConstrainedCopy(buffer, (int)offset, result, 0, length);
                     return result;
+                }
+                else
+                {
+                    Interlocked.Increment(ref m_stats.CountGetInvalidKey);
+                    return null;
+                }
+            }
+        }
+
+        /// <summary>
+        /// </summary>
+        public Stream OpenReadStream(string key)
+        {
+            lock (m_db)
+            {
+                if (m_db.TryGetValue(key, out Func<byte[]> f))
+                {
+                    Interlocked.Increment(ref m_stats.CountOpenReadStream);
+                    var buffer = f?.Invoke();
+                    return new MemoryStream(buffer);
                 }
                 else
                 {

@@ -42,6 +42,14 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
+        public long CountGetSlice;
+
+        /// <summary>
+        /// </summary>
+        public long CountOpenReadStream;
+
+        /// <summary>
+        /// </summary>
         public long CountGetInvalidKey;
 
         /// <summary>

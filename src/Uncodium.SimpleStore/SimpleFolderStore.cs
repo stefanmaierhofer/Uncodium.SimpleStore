@@ -96,7 +96,7 @@ namespace Uncodium.SimpleStore
             if (offset < 0) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be greater or equal 0.");
             if (size < 1) throw new ArgumentOutOfRangeException(nameof(offset), "Size must be greater than 0.");
 
-            Interlocked.Increment(ref m_stats.CountGet);
+            Interlocked.Increment(ref m_stats.CountGetSlice);
             try
             {
                 using var fs = File.Open(GetFileNameFromId(id), FileMode.Open, FileAccess.Read, FileShare.Read);
@@ -105,6 +105,21 @@ namespace Uncodium.SimpleStore
                 var buffer = br.ReadBytes(size);
                 Interlocked.Increment(ref m_stats.CountGetCacheMiss);
                 return buffer;
+            }
+            catch
+            {
+                Interlocked.Increment(ref m_stats.CountGetInvalidKey);
+                return null;
+            }
+        }
+
+        /// <summary></summary>
+        public Stream OpenReadStream(string id)
+        {
+            Interlocked.Increment(ref m_stats.CountOpenReadStream);
+            try
+            {
+                return File.Open(GetFileNameFromId(id), FileMode.Open, FileAccess.Read, FileShare.Read);
             }
             catch
             {

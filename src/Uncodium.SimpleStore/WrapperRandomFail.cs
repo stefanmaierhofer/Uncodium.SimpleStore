@@ -23,6 +23,7 @@
 */
 
 using System;
+using System.IO;
 
 namespace Uncodium.SimpleStore
 {
@@ -87,6 +88,11 @@ namespace Uncodium.SimpleStore
         /// </summary>
         public byte[] GetSlice(string key, long offset, int length)
             => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetSlice(key, offset, length);
+
+        /// <summary>
+        /// </summary>
+        public Stream OpenReadStream(string key)
+            => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.OpenReadStream(key);
 
         /// <summary>
         /// </summary>

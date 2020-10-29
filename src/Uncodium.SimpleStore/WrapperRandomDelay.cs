@@ -23,6 +23,7 @@
 */
 
 using System;
+using System.IO;
 using System.Threading;
 
 namespace Uncodium.SimpleStore
@@ -104,6 +105,14 @@ namespace Uncodium.SimpleStore
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet));
             return m_store.GetSlice(key, offset, length);
+        }
+
+        /// <summary>
+        /// </summary>
+        public Stream OpenReadStream(string key)
+        {
+            Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet));
+            return m_store.OpenReadStream(key);
         }
 
         /// <summary>

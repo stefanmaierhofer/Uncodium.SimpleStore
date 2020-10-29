@@ -295,8 +295,27 @@ namespace Uncodium.SimpleStore
                     var buffer = new byte[length];
                     var readcount = m_accessor.ReadArray(entry.Item1 + offset, buffer, 0, length);
                     if (readcount != length) throw new InvalidOperationException();
-                    Interlocked.Increment(ref m_stats.CountGet);
+                    Interlocked.Increment(ref m_stats.CountGetSlice);
                     return buffer;
+                }
+                else
+                {
+                    Interlocked.Increment(ref m_stats.CountGetInvalidKey);
+                    return null;
+                }
+            }
+        }
+
+        /// <summary>
+        /// </summary>
+        public Stream OpenReadStream(string key)
+        {
+            if (m_isDisposed) throw new ObjectDisposedException("SimpleDiskStore");
+            lock (m_dbDiskLocation)
+            {
+                if (m_dbIndex.TryGetValue(key, out (long, int) entry))
+                {
+                    return m_mmf.CreateViewStream(8 + entry.Item1, entry.Item2, MemoryMappedFileAccess.Read);
                 }
                 else
                 {

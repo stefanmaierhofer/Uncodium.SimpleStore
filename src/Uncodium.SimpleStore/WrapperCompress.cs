@@ -25,6 +25,7 @@
 using System;
 using System.IO;
 using System.IO.Compression;
+using System.Text;
 
 namespace Uncodium.SimpleStore
 {
@@ -105,6 +106,17 @@ namespace Uncodium.SimpleStore
         public byte[] GetSlice(string key, long offset, int length)
         {
             throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// </summary>
+        public Stream OpenReadStream(string key)
+        {
+            var buffer = m_store.Get(key);
+            if (buffer == null) return null;
+            var ms = new MemoryStream(buffer, 4, buffer.Length - 4);
+            var zs = new GZipStream(ms, CompressionMode.Decompress);
+            return zs;
         }
 
         /// <summary>
