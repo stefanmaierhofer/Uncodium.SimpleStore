@@ -91,6 +91,29 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary></summary>
+        public byte[] GetSlice(string id, long offset, int size)
+        {
+            if (offset < 0) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be greater or equal 0.");
+            if (size < 1) throw new ArgumentOutOfRangeException(nameof(offset), "Size must be greater than 0.");
+
+            Interlocked.Increment(ref m_stats.CountGet);
+            try
+            {
+                using var fs = File.Open(GetFileNameFromId(id), FileMode.Open, FileAccess.Read, FileShare.Read);
+                fs.Seek(offset, SeekOrigin.Begin);
+                using var br = new BinaryReader(fs);
+                var buffer = br.ReadBytes(size);
+                Interlocked.Increment(ref m_stats.CountGetCacheMiss);
+                return buffer;
+            }
+            catch
+            {
+                Interlocked.Increment(ref m_stats.CountGetInvalidKey);
+                return null;
+            }
+        }
+
+        /// <summary></summary>
         public void Remove(string id)
         {
             try

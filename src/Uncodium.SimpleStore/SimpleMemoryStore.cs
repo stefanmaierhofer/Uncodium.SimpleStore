@@ -98,6 +98,33 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
+        public byte[] GetSlice(string key, long offset, int length)
+        {
+            if (offset < 0) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be greater or equal 0.");
+            if (length < 1) throw new ArgumentOutOfRangeException(nameof(offset), "Size must be greater than 0.");
+
+            lock (m_db)
+            {
+                if (m_db.TryGetValue(key, out Func<byte[]> f))
+                {
+                    Interlocked.Increment(ref m_stats.CountGet);
+                    var buffer = f?.Invoke();
+                    if (offset >= buffer.Length) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be less than length of value buffer.");
+                    if (offset + length > buffer.Length) throw new ArgumentOutOfRangeException(nameof(offset), "Offset + size exceeds length of value buffer.");
+                    var result = new byte[length];
+                    Array.ConstrainedCopy(buffer, (int)offset, result, 0, length);
+                    return result;
+                }
+                else
+                {
+                    Interlocked.Increment(ref m_stats.CountGetInvalidKey);
+                    return null;
+                }
+            }
+        }
+
+        /// <summary>
+        /// </summary>
         public void Remove(string key)
         {
             lock (m_db)

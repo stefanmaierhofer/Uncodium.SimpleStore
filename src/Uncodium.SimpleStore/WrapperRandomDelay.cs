@@ -100,6 +100,14 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
+        public byte[] GetSlice(string key, long offset, int length)
+        {
+            Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet));
+            return m_store.GetSlice(key, offset, length);
+        }
+
+        /// <summary>
+        /// </summary>
         public void Remove(string key)
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtRemove));

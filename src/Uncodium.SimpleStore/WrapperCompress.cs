@@ -102,6 +102,13 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
+        public byte[] GetSlice(string key, long offset, int length)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// </summary>
         public void Remove(string key)
         {
             m_store.Remove(key);

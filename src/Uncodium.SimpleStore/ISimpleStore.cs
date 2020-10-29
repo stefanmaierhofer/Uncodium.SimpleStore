@@ -52,6 +52,11 @@ namespace Uncodium.SimpleStore
         byte[] Get(string key);
 
         /// <summary>
+        /// Get slice of value from key.
+        /// </summary>
+        byte[] GetSlice(string key, long offset, int length);
+
+        /// <summary>
         /// Remove entry.
         /// </summary>
         void Remove(string key);

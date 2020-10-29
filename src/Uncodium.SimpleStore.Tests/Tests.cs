@@ -146,6 +146,39 @@ namespace Uncodium.SimpleStore.Tests
 
         #endregion
 
+        #region GetSlice
+
+        private bool ElementsEqual(byte[] xs, byte[] ys)
+        {
+            if (xs == null || ys == null || xs.Length != ys.Length) return false;
+            for (var i = 0; i < xs.Length; i++) if (xs[i] != ys[i]) return false;
+            return true;
+        }
+        private void CheckGetSlice(ISimpleStore store)
+        {
+            var key = Guid.NewGuid().ToString();
+            store.Add(key, new byte[] { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 });
+            Assert.IsTrue(ElementsEqual(store.GetSlice(key, 0, 10), new byte[] { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }));
+            Assert.IsTrue(ElementsEqual(store.GetSlice(key, 0, 1), new byte[] { 10 }));
+            Assert.IsTrue(ElementsEqual(store.GetSlice(key, 9, 1), new byte[] { 19 }));
+            Assert.IsTrue(ElementsEqual(store.GetSlice(key, 4, 4), new byte[] { 14, 15, 16, 17 }));
+        }
+        [Test]
+        public void CanGetSliceMemStore()
+        {
+            using var store = new SimpleMemoryStore();
+            CheckGetSlice(store);
+        }
+
+        [Test]
+        public void CanGetSliceDiskStore()
+        {
+            using var store = new SimpleDiskStore(TestStoreSmallPath, null);
+            CheckGetSlice(store);
+        }
+
+        #endregion
+
         #region Remove
 
         [Test]

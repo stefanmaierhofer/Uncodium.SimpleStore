@@ -85,6 +85,11 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
+        public byte[] GetSlice(string key, long offset, int length)
+            => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetSlice(key, offset, length);
+
+        /// <summary>
+        /// </summary>
         public void Remove(string key)
         {
             if (m_random.NextDouble() < m_pRemove) throw new Exception();

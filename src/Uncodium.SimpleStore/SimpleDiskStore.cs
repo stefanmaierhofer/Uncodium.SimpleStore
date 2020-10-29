@@ -278,6 +278,36 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// </summary>
+        public byte[] GetSlice(string key, long offset, int length)
+        {
+            if (m_isDisposed) throw new ObjectDisposedException("SimpleDiskStore");
+
+            if (offset < 0) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be greater or equal 0.");
+            if (length < 1) throw new ArgumentOutOfRangeException(nameof(offset), "Size must be greater than 0.");
+
+            lock (m_dbDiskLocation)
+            {
+                if (m_dbIndex.TryGetValue(key, out (long, int) entry))
+                {
+                    if (offset >= entry.Item2) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be less than length of value buffer.");
+                    if (offset + length > entry.Item2) throw new ArgumentOutOfRangeException(nameof(offset), "Offset + size exceeds length of value buffer.");
+
+                    var buffer = new byte[length];
+                    var readcount = m_accessor.ReadArray(entry.Item1 + offset, buffer, 0, length);
+                    if (readcount != length) throw new InvalidOperationException();
+                    Interlocked.Increment(ref m_stats.CountGet);
+                    return buffer;
+                }
+                else
+                {
+                    Interlocked.Increment(ref m_stats.CountGetInvalidKey);
+                    return null;
+                }
+            }
+        }
+
+        /// <summary>
+        /// </summary>
         public void Remove(string key)
         {
             if (m_isDisposed) throw new ObjectDisposedException("SimpleDiskStore");
