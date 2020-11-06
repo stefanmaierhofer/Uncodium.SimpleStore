@@ -48,12 +48,14 @@ namespace Uncodium.SimpleStore
         bool Contains(string key);
 
         /// <summary>
-        /// Get value from key.
+        /// Get value from key,
+        /// or null if key does not exist.
         /// </summary>
         byte[] Get(string key);
 
         /// <summary>
-        /// Get slice of value from key.
+        /// Get slice of value from key,
+        /// or null if key does not exist.
         /// </summary>
         byte[] GetSlice(string key, long offset, int length);
 
@@ -69,6 +71,7 @@ namespace Uncodium.SimpleStore
         void Remove(string key);
 
         /// <summary>
+        /// 
         /// </summary>
         object TryGetFromCache(string key);
 

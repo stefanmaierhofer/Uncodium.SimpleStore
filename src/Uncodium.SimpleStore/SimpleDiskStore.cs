@@ -40,6 +40,7 @@ namespace Uncodium.SimpleStore
         private readonly bool m_readOnlySnapshot;
         private string m_indexFilename;
         private string m_dataFilename;
+        private string m_logFilename;
 
         private Dictionary<string, (long, int)> m_dbIndex;
         private Dictionary<string, WeakReference<object>> m_dbCache;
@@ -107,6 +108,7 @@ namespace Uncodium.SimpleStore
         {
             m_indexFilename = Path.Combine(m_dbDiskLocation, "index.bin");
             m_dataFilename = Path.Combine(m_dbDiskLocation, "data.bin");
+            m_logFilename = Path.Combine(m_dbDiskLocation, "log.txt");
             var dataFileIsNewlyCreated = false;
             if (!Directory.Exists(m_dbDiskLocation)) Directory.CreateDirectory(m_dbDiskLocation);
             if (!File.Exists(m_dataFilename))
@@ -119,34 +121,32 @@ namespace Uncodium.SimpleStore
             m_dbCacheKeepAlive = new HashSet<object>();
             if (File.Exists(m_indexFilename))
             {
-                using (var f = File.Open(m_indexFilename, FileMode.Open, FileAccess.Read, FileShare.Read))
-                using (var br = new BinaryReader(f))
+                using var f = File.Open(m_indexFilename, FileMode.Open, FileAccess.Read, FileShare.Read);
+                using var br = new BinaryReader(f);
+                var count = 0;
+                var i = 0;
+                var key = string.Empty;
+                var offset = 0L;
+                var size = 0;
+                try
                 {
-                    var count = 0;
-                    var i = 0;
-                    var key = string.Empty;
-                    var offset = 0L;
-                    var size = 0;
-                    try
+                    count = br.ReadInt32();
+                    m_dbIndex = new Dictionary<string, (long, int)>(count);
+                    for (i = 0; i < count; i++)
                     {
-                        count = br.ReadInt32();
-                        m_dbIndex = new Dictionary<string, (long, int)>(count);
-                        for (i = 0; i < count; i++)
-                        {
-                            key = br.ReadString();
-                            offset = br.ReadInt64();
-                            size = br.ReadInt32();
+                        key = br.ReadString();
+                        offset = br.ReadInt64();
+                        size = br.ReadInt32();
 
-                            m_dbIndex[key] = (offset, size);
-                        }
+                        m_dbIndex[key] = (offset, size);
                     }
-                    catch (Exception e)
-                    {
-                        Console.Error.WriteLine($"[CRITICAL ERROR] Damaged index file {m_indexFilename}");
-                        Console.Error.WriteLine($"[CRITICAL ERROR] Could read {i:N0}/{count:N0} index entries.");
-                        Console.Error.WriteLine($"[CRITICAL ERROR] Last entry: {key} @ +{offset:N0} with size {size:N0} bytes.");
-                        Console.Error.WriteLine($"[CRITICAL ERROR] {e}");
-                    }
+                }
+                catch (Exception e)
+                {
+                    Console.Error.WriteLine($"[CRITICAL ERROR] Damaged index file {m_indexFilename}");
+                    Console.Error.WriteLine($"[CRITICAL ERROR] Could read {i:N0}/{count:N0} index entries.");
+                    Console.Error.WriteLine($"[CRITICAL ERROR] Last entry: {key} @ +{offset:N0} with size {size:N0} bytes.");
+                    Console.Error.WriteLine($"[CRITICAL ERROR] {e}");
                 }
             }
             else
@@ -401,22 +401,41 @@ namespace Uncodium.SimpleStore
             }
         }
 
+        private readonly SemaphoreSlim m_flushIndexSemaphore = new SemaphoreSlim(1);
         private void FlushIndex()
         {
-            if (!m_indexHasChanged) return;
-            
-            using (var f = File.Open(m_indexFilename, FileMode.Create, FileAccess.Write, FileShare.Read))
-            using (var bw = new BinaryWriter(f))
+            if (m_flushIndexSemaphore.Wait(0))
             {
-                bw.Write(m_dbIndex.Count);
-                foreach (var kv in m_dbIndex)
+                lock (m_dbDiskLocation)
                 {
-                    bw.Write(kv.Key);
-                    bw.Write(kv.Value.Item1);
-                    bw.Write(kv.Value.Item2);
+                    if (!m_indexHasChanged) return;
+                    using (var f = File.Open(m_indexFilename, FileMode.Create, FileAccess.Write, FileShare.Read))
+                    using (var bw = new BinaryWriter(f))
+                    {
+                        bw.Write(m_dbIndex.Count);
+                        foreach (var kv in m_dbIndex)
+                        {
+                            bw.Write(kv.Key);
+                            bw.Write(kv.Value.Item1);
+                            bw.Write(kv.Value.Item2);
+                        }
+                    }
+                    m_indexHasChanged = false;
                 }
             }
-            m_indexHasChanged = false;
+            else
+            {
+                Log($"Concurrent flush attempt detected.");
+            }
+        }
+
+        private void Log(string s)
+        {
+            Console.WriteLine($"[{DateTimeOffset.Now}][WARNING][Uncodium.SimpleDiskStore] {s}");
+            lock (m_logFilename)
+            {
+                File.AppendAllLines(m_logFilename, new[] { $"[{DateTimeOffset.Now}] {s}" });
+            }
         }
     }
 }

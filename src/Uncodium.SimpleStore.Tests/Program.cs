@@ -1,12 +1,58 @@
-﻿using System;
+﻿using NUnit.Framework.Internal;
+using System;
 using System.Text;
+using System.Threading;
 
 namespace Uncodium.SimpleStore.Tests
 {
     class Program
     {
+
+        static void TestConcurrentCallsToFlush()
+        {
+            var dbDiskLocation = @"T:\teststore";
+            Console.WriteLine("open store");
+            var store = new SimpleDiskStore(dbDiskLocation);
+            Console.WriteLine("add many entries");
+            for (var i = 0; i < 2_000_000; i++) store.Add(Guid.NewGuid().ToString(), new[] { (byte)42 });
+            
+
+            var go = new ManualResetEventSlim();
+
+            var t0 = new Thread(() =>
+            {
+                go.Wait();
+                for (var i = 0; i < 5; i++)
+                {
+                    Console.WriteLine("flush0 begin");
+                    store.Flush();
+                    Console.WriteLine("flush0 end");
+                }
+
+            });
+            t0.Start();
+
+            var t1 = new Thread(() =>
+            {
+                go.Wait();
+                for (var i = 0; i < 5; i++)
+                {
+                    Console.WriteLine("flush1 begin");
+                    store.Flush();
+                    Console.WriteLine("flush1 end");
+                }
+            });
+            t1.Start();
+
+            Console.WriteLine("press enter to flush concurrently ...");
+            Console.ReadLine();
+            go.Set();
+        }
+
         static void Main()
         {
+            TestConcurrentCallsToFlush();
+
             //var dbDiskLocation = @"T:\teststore";
 
             //var store = new SimpleDiskStore(dbDiskLocation);
@@ -27,7 +73,7 @@ namespace Uncodium.SimpleStore.Tests
 
 
 
-            new Tests().CanAddAndGetMultiThreadedDiskStore();
+            //new Tests().CanAddAndGetMultiThreadedDiskStore();
         }
     }
 }
