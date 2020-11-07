@@ -446,19 +446,26 @@ namespace Uncodium.SimpleStore
                 {
                     if (m_flushIndexSemaphore.Wait(1000))
                     {
-                        if (!m_readOnlySnapshot)
+                        try
                         {
-                            m_accessor.Flush();
-                            m_accessorSize.Flush();
-                            FlushIndex(isDisposing: true);
+                            if (!m_readOnlySnapshot)
+                            {
+                                m_accessor.Flush();
+                                m_accessorSize.Flush();
+                                FlushIndex(isDisposing: true);
+                            }
+
+                            m_accessor.Dispose();
+                            m_accessorSize.Dispose();
+                            m_mmf.Dispose();
+                            m_cts.Cancel();
+
+                            return;
                         }
-
-                        m_accessor.Dispose();
-                        m_accessorSize.Dispose();
-                        m_mmf.Dispose();
-                        m_cts.Cancel();
-
-                        return;
+                        finally
+                        {
+                            m_flushIndexSemaphore.Release();
+                        }
                     }
                     else
                     {
@@ -534,6 +541,10 @@ namespace Uncodium.SimpleStore
                             $"[CRITICAL ERROR] {e}"
                         );
                         throw;
+                    }
+                    finally
+                    {
+                        if (!isDisposing) m_flushIndexSemaphore.Release();
                     }
                 }
             }
