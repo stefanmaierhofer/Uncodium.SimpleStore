@@ -71,7 +71,7 @@ namespace Uncodium.SimpleStore
         void Remove(string key);
 
         /// <summary>
-        /// 
+        /// Returns decoded value from cache, or null if not available.
         /// </summary>
         object TryGetFromCache(string key);
 
@@ -84,5 +84,17 @@ namespace Uncodium.SimpleStore
         /// Commit pending changes to storage.
         /// </summary>
         void Flush();
+
+        /// <summary>
+        /// Gets latest key added to the store.
+        /// </summary>
+        string LatestKeyAdded { get; }
+
+        /// <summary>
+        /// Gets latest key flushed to backing storage.
+        /// In SimpleDiskStore and SimpleFolderStore this is a file on disk.
+        /// In SimpleMemoryStore this is memory, so LatestKeyFlushed is always identical to LatestKeyAdded.
+        /// </summary>
+        string LatestKeyFlushed { get; }
     }
 }

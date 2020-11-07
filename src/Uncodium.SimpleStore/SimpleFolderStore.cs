@@ -22,8 +22,11 @@
    SOFTWARE.
 */
 
+#pragma warning disable CS1591
+
 using System;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace Uncodium.SimpleStore
@@ -39,7 +42,11 @@ namespace Uncodium.SimpleStore
         public string Folder { get; }
 
         private string GetFileNameFromId(string id) => Path.Combine(Folder, id);
-        private Stats m_stats = new Stats { LatestKeyAdded = "<unknown>" };
+        private Stats m_stats;
+
+        private bool m_isDisposed = false;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void CheckDisposed() { if (m_isDisposed) throw new ObjectDisposedException(nameof(SimpleFolderStore)); }
 
         /// <summary>
         /// Creates a store in the given folder.
@@ -50,33 +57,45 @@ namespace Uncodium.SimpleStore
             if (!Directory.Exists(Folder)) Directory.CreateDirectory(folder);
         }
 
-        /// <summary></summary>
         public Stats Stats => m_stats;
 
-        /// <summary></summary>
+        public string LatestKeyAdded { get; private set; }
+
+        public string LatestKeyFlushed { get; private set; }
+
         public void Add(string key, object value, Func<byte[]> getEncodedValue)
         {
+            CheckDisposed();
+
             Interlocked.Increment(ref m_stats.CountAdd);
             File.WriteAllBytes(GetFileNameFromId(key), getEncodedValue());
-            m_stats.LatestKeyAdded = key;
+            LatestKeyAdded = key;
+            LatestKeyFlushed = key;
         }
 
-        /// <summary></summary>
         public bool Contains(string key)
         {
+            CheckDisposed();
             Interlocked.Increment(ref m_stats.CountContains);
             return File.Exists(GetFileNameFromId(key));
         }
 
-        /// <summary></summary>
-        public void Dispose() { }
+        public void Dispose()
+        {
+            CheckDisposed();
+            m_isDisposed = true;
+        }
 
-        /// <summary></summary>
-        public void Flush() { Interlocked.Increment(ref m_stats.CountFlush); }
+        public void Flush() 
+        {
+            CheckDisposed();
+            Interlocked.Increment(ref m_stats.CountFlush);
+        }
 
-        /// <summary></summary>
         public byte[] Get(string key)
         {
+            CheckDisposed();
+
             Interlocked.Increment(ref m_stats.CountGet);
             try
             {
@@ -91,9 +110,10 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        /// <summary></summary>
         public byte[] GetSlice(string key, long offset, int size)
         {
+            CheckDisposed();
+
             if (offset < 0) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be greater or equal 0.");
             if (size < 1) throw new ArgumentOutOfRangeException(nameof(offset), "Size must be greater than 0.");
 
@@ -114,9 +134,10 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        /// <summary></summary>
         public Stream OpenReadStream(string key)
         {
+            CheckDisposed();
+
             Interlocked.Increment(ref m_stats.CountOpenReadStream);
             try
             {
@@ -129,9 +150,10 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        /// <summary></summary>
         public void Remove(string key)
         {
+            CheckDisposed();
+
             try
             {
                 File.Delete(GetFileNameFromId(key));
@@ -143,14 +165,18 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        /// <summary></summary>
         public string[] SnapshotKeys()
         {
+            CheckDisposed();
+
             Interlocked.Increment(ref m_stats.CountSnapshotKeys);
             return Directory.GetFiles(Folder);
         }
 
-        /// <summary></summary>
-        public object TryGetFromCache(string key) => null;
+        public object TryGetFromCache(string key)
+        {
+            CheckDisposed();
+            return null;
+        }
     }
 }

@@ -22,7 +22,10 @@
    SOFTWARE.
 */
 
+#pragma warning disable CS1591
+
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -42,8 +45,6 @@ namespace Uncodium.SimpleStore
         private readonly double m_pTryGetFromCache;
         private readonly double m_pFlush;
 
-        /// <summary>
-        /// </summary>
         public WrapperRandomFailAsync(ISimpleStoreAsync store,
             double pStats, double pAdd, double pGet, double pRemove, double pTryGetFromCache, double pFlush
             )
@@ -57,43 +58,45 @@ namespace Uncodium.SimpleStore
             m_pFlush = pFlush;
         }
 
-        /// <summary>
-        /// </summary>
         public WrapperRandomFailAsync(ISimpleStoreAsync store, double pFail) : this(store, pFail, pFail, pFail, pFail, pFail, pFail)
         { }
 
-        /// <summary>
-        /// </summary>
         public Task<Stats> GetStatsAsync(CancellationToken ct)
             => m_random.NextDouble() < m_pStats ? throw new Exception() : m_store.GetStatsAsync(ct);
 
-        /// <summary>
-        /// </summary>
         public Task AddAsync(string key, object value, Func<byte[]> getEncodedValue, CancellationToken ct)
             => m_random.NextDouble() < m_pAdd ? throw new Exception() : m_store.AddAsync(key, value, getEncodedValue, ct);
 
-        /// <summary>
-        /// </summary>
         public Task<byte[]> GetAsync(string key, CancellationToken ct)
             => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetAsync(key, ct);
 
-        /// <summary>
-        /// </summary>
         public Task RemoveAsync(string key, CancellationToken ct)
             => m_random.NextDouble() < m_pRemove ? throw new Exception() : m_store.RemoveAsync(key, ct);
 
-        /// <summary>
-        /// </summary>
         public Task<object> TryGetFromCacheAsync(string key, CancellationToken ct)
             => m_random.NextDouble() < m_pTryGetFromCache ? throw new Exception() : m_store.TryGetFromCacheAsync(key, ct);
 
-        /// <summary>
-        /// </summary>
         public Task FlushAsync(CancellationToken ct)
             => m_random.NextDouble() < m_pFlush ? throw new Exception() : m_store.FlushAsync(ct);
 
-        /// <summary>
-        /// </summary>
         public void Dispose() => m_store.Dispose();
+
+        public Task<bool> ContainsAsync(string key, CancellationToken ct)
+            => m_random.NextDouble() < m_pRemove ? throw new Exception() : m_store.ContainsAsync(key, ct);
+
+        public Task<byte[]> GetSliceAsync(string key, long offset, int length, CancellationToken ct)
+            => m_random.NextDouble() < m_pRemove ? throw new Exception() : m_store.GetSliceAsync(key, offset, length, ct);
+
+        public Task<Stream> OpenReadStreamAsync(string key, CancellationToken ct)
+            => m_random.NextDouble() < m_pRemove ? throw new Exception() : m_store.OpenReadStreamAsync(key, ct);
+
+        public Task<string[]> SnapshotKeysAsync(CancellationToken ct)
+            => m_random.NextDouble() < m_pRemove ? throw new Exception() : m_store.SnapshotKeysAsync(ct);
+
+        public Task<string> GetLatestKeyAddedAsync(CancellationToken ct)
+            => m_random.NextDouble() < m_pRemove ? throw new Exception() : m_store.GetLatestKeyAddedAsync( ct);
+
+        public Task<string> GetLatestKeyFlushedAsync(CancellationToken ct)
+            => m_random.NextDouble() < m_pRemove ? throw new Exception() : m_store.GetLatestKeyFlushedAsync( ct);
     }
 }

@@ -22,7 +22,10 @@
    SOFTWARE.
 */
 
+#pragma warning disable CS1591
+
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -42,8 +45,6 @@ namespace Uncodium.SimpleStore
         private readonly double m_dtTryGetFromCache;
         private readonly double m_dtFlush;
 
-        /// <summary>
-        /// </summary>
         public WrapperRandomDelayAsync(ISimpleStoreAsync store,
             double dtStats, double dtAdd, double dtGet, double dtRemove, double dtTryGetFromCache, double dtFlush
             )
@@ -57,61 +58,81 @@ namespace Uncodium.SimpleStore
             m_dtFlush = dtFlush;
         }
 
-        /// <summary>
-        /// </summary>
         public WrapperRandomDelayAsync(ISimpleStoreAsync store, double dt) : this(store, dt, dt, dt, dt, dt, dt)
         { }
 
-        /// <summary>
-        /// </summary>
         public async Task<Stats> GetStatsAsync(CancellationToken ct)
         {
             await Task.Delay(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtStats), ct);
             return await m_store.GetStatsAsync(ct);
         }
 
-        /// <summary>
-        /// </summary>
         public async Task AddAsync(string key, object value, Func<byte[]> getEncodedValue, CancellationToken ct)
         {
             await Task.Delay(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtAdd), ct);
             await m_store.AddAsync(key, value, getEncodedValue, ct);
         }
 
-        /// <summary>
-        /// </summary>
         public async Task<byte[]> GetAsync(string key, CancellationToken ct)
         {
             await Task.Delay(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet), ct);
             return await m_store.GetAsync(key, ct);
         }
 
-        /// <summary>
-        /// </summary>
         public async Task RemoveAsync(string key, CancellationToken ct)
         {
             await Task.Delay(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtRemove), ct);
             await m_store.RemoveAsync(key, ct);
         }
 
-        /// <summary>
-        /// </summary>
         public async Task<object> TryGetFromCacheAsync(string key, CancellationToken ct)
         {
             await Task.Delay(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtTryGetFromCache), ct);
             return await m_store.TryGetFromCacheAsync(key, ct);
         }
 
-        /// <summary>
-        /// </summary>
         public async Task FlushAsync(CancellationToken ct)
         {
             await Task.Delay(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtFlush), ct);
             await m_store.FlushAsync(ct);
         }
 
-        /// <summary>
-        /// </summary>
         public void Dispose() => m_store.Dispose();
+
+        public async Task<bool> ContainsAsync(string key, CancellationToken ct)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtFlush), ct);
+            return await m_store.ContainsAsync(key, ct);
+        }
+
+        public async Task<byte[]> GetSliceAsync(string key, long offset, int length, CancellationToken ct)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtFlush), ct);
+            return await m_store.GetSliceAsync(key, offset, length, ct);
+        }
+
+        public async Task<Stream> OpenReadStreamAsync(string key, CancellationToken ct)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtFlush), ct);
+            return await m_store.OpenReadStreamAsync(key, ct);
+        }
+
+        public async Task<string[]> SnapshotKeysAsync(CancellationToken ct)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtFlush), ct);
+            return await m_store.SnapshotKeysAsync(ct);
+        }
+
+        public async Task<string> GetLatestKeyAddedAsync(CancellationToken ct)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtFlush), ct);
+            return await m_store.GetLatestKeyAddedAsync( ct);
+        }
+
+        public async Task<string> GetLatestKeyFlushedAsync(CancellationToken ct)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtFlush), ct);
+            return await m_store.GetLatestKeyFlushedAsync( ct);
+        }
     }
 }

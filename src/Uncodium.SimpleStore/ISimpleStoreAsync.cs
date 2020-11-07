@@ -23,6 +23,7 @@
 */
 
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -38,12 +39,30 @@ namespace Uncodium.SimpleStore
         Task<Stats> GetStatsAsync(CancellationToken ct);
 
         /// <summary>
+        /// Adds key/value 
         /// </summary>
         Task AddAsync(string key, object value, Func<byte[]> getEncodedValue, CancellationToken ct);
 
         /// <summary>
+        /// True if key is contained in store.
+        /// </summary>
+        Task<bool> ContainsAsync(string key, CancellationToken ct);
+
+        /// <summary>
         /// </summary>
         Task<byte[]> GetAsync(string key, CancellationToken ct);
+
+        /// <summary>
+        /// Get slice of value from key,
+        /// or null if key does not exist.
+        /// </summary>
+        Task<byte[]> GetSliceAsync(string key, long offset, int length, CancellationToken ct);
+
+        /// <summary>
+        /// Get read stream for value from key.
+        /// This is not thread-safe with respect to overwriting or removing existing values.
+        /// </summary>
+        Task<Stream> OpenReadStreamAsync(string key, CancellationToken ct);
 
         /// <summary>
         /// </summary>
@@ -52,9 +71,24 @@ namespace Uncodium.SimpleStore
         /// <summary>
         /// </summary>
         Task<object> TryGetFromCacheAsync(string key, CancellationToken ct);
+        
+        /// <summary>
+        /// Gets a snapshot of all existing keys.
+        /// </summary>
+        Task<string[]> SnapshotKeysAsync(CancellationToken ct);
 
         /// <summary>
         /// </summary>
         Task FlushAsync(CancellationToken ct);
+
+        /// <summary>
+        /// Gets latest key added to the store.
+        /// </summary>
+        Task<string> GetLatestKeyAddedAsync(CancellationToken ct);
+
+        /// <summary>
+        /// Gets latest key flushed to backing storage.
+        /// </summary>
+        Task<string> GetLatestKeyFlushedAsync(CancellationToken ct);
     }
 }

@@ -22,10 +22,11 @@
    SOFTWARE.
 */
 
+#pragma warning disable CS1591
+
 using System;
 using System.IO;
 using System.IO.Compression;
-using System.Text;
 
 namespace Uncodium.SimpleStore
 {
@@ -37,20 +38,18 @@ namespace Uncodium.SimpleStore
         private readonly ISimpleStore m_store;
         private readonly CompressionLevel m_compressionLevel;
 
-        /// <summary>
-        /// </summary>
         public WrapperCompress(ISimpleStore store, CompressionLevel compressionLevel)
         {
             m_store = store ?? throw new ArgumentNullException(nameof(store));
             m_compressionLevel = compressionLevel;
         }
 
-        /// <summary>
-        /// </summary>
         public Stats Stats => m_store.Stats;
 
-        /// <summary>
-        /// </summary>
+        public string LatestKeyAdded => m_store.LatestKeyAdded;
+
+        public string LatestKeyFlushed => m_store.LatestKeyFlushed;
+
         public void Add(string key, object value, Func<byte[]> getEncodedValue)
         {
             if (getEncodedValue == null)
@@ -75,12 +74,8 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        /// <summary>
-        /// </summary>
         public bool Contains(string key) => m_store.Contains(key);
 
-        /// <summary>
-        /// </summary>
         public byte[] Get(string key)
         {
             var buffer = m_store.Get(key);
@@ -95,15 +90,11 @@ namespace Uncodium.SimpleStore
             return data;
         }
 
-        /// <summary>
-        /// </summary>
         public byte[] GetSlice(string key, long offset, int length)
         {
             throw new NotImplementedException();
         }
 
-        /// <summary>
-        /// </summary>
         public Stream OpenReadStream(string key)
         {
             var buffer = m_store.Get(key);
@@ -113,33 +104,23 @@ namespace Uncodium.SimpleStore
             return zs;
         }
 
-        /// <summary>
-        /// </summary>
         public void Remove(string key)
         {
             m_store.Remove(key);
         }
 
-        /// <summary>
-        /// </summary>
         public object TryGetFromCache(string key)
         {
             return m_store.TryGetFromCache(key);
         }
 
-        /// <summary>
-        /// </summary>
         public string[] SnapshotKeys() => m_store.SnapshotKeys();
 
-        /// <summary>
-        /// </summary>
         public void Flush()
         {
             m_store.Flush();
         }
 
-        /// <summary>
-        /// </summary>
         public void Dispose() => m_store.Dispose();
     }
 }

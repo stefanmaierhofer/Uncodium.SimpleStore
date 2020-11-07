@@ -22,26 +22,27 @@
    SOFTWARE.
 */
 
+#pragma warning disable CS1591
+
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace Uncodium.SimpleStore
 {
-    /// <summary>
-    /// 
-    /// </summary>
     public class SimpleMemoryStore : ISimpleStore
     {
         private readonly Dictionary<string, Func<byte[]>> m_db;
         private readonly Dictionary<string, object> m_dbCache;
-        private Stats m_stats = new Stats { LatestKeyAdded = "<unknown>" };
+        private Stats m_stats;
 
-        /// <summary>
-        /// 
-        /// </summary>
+        private bool m_isDisposed = false;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void CheckDisposed() { if (m_isDisposed) throw new ObjectDisposedException(nameof(SimpleMemoryStore)); }
+
         public SimpleMemoryStore()
         {
             m_db = new Dictionary<string, Func<byte[]>>();
@@ -53,23 +54,28 @@ namespace Uncodium.SimpleStore
         /// </summary>
         public Stats Stats => m_stats;
 
-        /// <summary>
-        /// </summary>
+        public string LatestKeyAdded { get; private set; }
+
+        public string LatestKeyFlushed { get; private set; }
+
         public void Add(string key, object value, Func<byte[]> getEncodedValue = null)
         {
+            CheckDisposed();
+
             lock (m_db)
             {
                 m_db[key] = getEncodedValue;
                 m_dbCache[key] = value;
-                m_stats.LatestKeyAdded = key;
+                LatestKeyAdded = key;
+                LatestKeyFlushed = key;
             }
             Interlocked.Increment(ref m_stats.CountAdd);
         }
 
-        /// <summary>
-        /// </summary>
         public bool Contains(string key)
         {
+            CheckDisposed();
+
             bool result;
             lock (m_db)
             {
@@ -79,10 +85,10 @@ namespace Uncodium.SimpleStore
             return result;
         }
 
-        /// <summary>
-        /// </summary>
         public byte[] Get(string key)
         {
+            CheckDisposed();
+
             lock (m_db)
             {
                 if (m_db.TryGetValue(key, out Func<byte[]> f))
@@ -98,10 +104,10 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        /// <summary>
-        /// </summary>
         public byte[] GetSlice(string key, long offset, int length)
         {
+            CheckDisposed();
+
             if (offset < 0) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be greater or equal 0.");
             if (length < 1) throw new ArgumentOutOfRangeException(nameof(offset), "Size must be greater than 0.");
 
@@ -125,10 +131,10 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        /// <summary>
-        /// </summary>
         public Stream OpenReadStream(string key)
         {
+            CheckDisposed();
+
             lock (m_db)
             {
                 if (m_db.TryGetValue(key, out Func<byte[]> f))
@@ -145,10 +151,10 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        /// <summary>
-        /// </summary>
         public void Remove(string key)
         {
+            CheckDisposed();
+
             lock (m_db)
             {
                 if (m_db.Remove(key))
@@ -163,10 +169,10 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        /// <summary>
-        /// </summary>
         public object TryGetFromCache(string key)
         {
+            CheckDisposed();
+
             lock (m_db)
             {
                 if (m_dbCache.TryGetValue(key, out object value))
@@ -180,10 +186,10 @@ namespace Uncodium.SimpleStore
             return null;
         }
 
-        /// <summary>
-        /// </summary>
         public string[] SnapshotKeys()
         {
+            CheckDisposed();
+
             lock (m_db)
             {
                 Interlocked.Increment(ref m_stats.CountSnapshotKeys);
@@ -191,17 +197,16 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        /// <summary>
-        /// </summary>
         public void Flush()
         {
+            CheckDisposed();
             Interlocked.Increment(ref m_stats.CountFlush);
         }
 
-        /// <summary>
-        /// </summary>
         public void Dispose()
         {
+            CheckDisposed();
+            m_isDisposed = true;
         }
     }
 }

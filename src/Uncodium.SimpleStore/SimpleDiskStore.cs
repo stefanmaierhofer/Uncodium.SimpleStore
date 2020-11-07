@@ -22,12 +22,15 @@
    SOFTWARE.
 */
 
+#pragma warning disable CS1591
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.MemoryMappedFiles;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace Uncodium.SimpleStore
@@ -53,11 +56,14 @@ namespace Uncodium.SimpleStore
         private MemoryMappedViewAccessor m_accessorSize;
         private MemoryMappedViewAccessor m_accessor;
 
-        private Stats m_stats = new Stats { LatestKeyAdded = "<unknown>" };
+        private Stats m_stats;
 
         private bool m_indexHasChanged = false;
-        private bool m_isDisposed = false;
         private readonly CancellationTokenSource m_cts = new CancellationTokenSource();
+
+        private bool m_isDisposed = false;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void CheckDisposed() { if (m_isDisposed) throw new ObjectDisposedException(nameof(SimpleDiskStore)); }
 
         /// <summary>
         /// Creates store in folder 'dbDiskLocation'.
@@ -214,12 +220,24 @@ namespace Uncodium.SimpleStore
         public Stats Stats => m_stats;
 
         /// <summary>
+        /// Gets latest key added to the store.
+        /// May not yet have been flused to disk.
+        /// </summary>
+        public string LatestKeyAdded { get; private set; }
+
+        /// <summary>
+        /// Gets latest key flushed to disk.
+        /// </summary>
+        public string LatestKeyFlushed { get; private set; }
+
+        /// <summary>
         /// Adds key/value pair to store.
         /// If 'getEncodedValue' is null, than value will not be written to disk.
         /// </summary>
         public void Add(string key, object value, Func<byte[]> getEncodedValue)
         {
-            if (m_isDisposed) throw new ObjectDisposedException("SimpleDiskStore");
+            CheckDisposed();
+
             if (m_readOnlySnapshot) throw new InvalidOperationException("Read-only store does not support add.");
 
             Interlocked.Increment(ref m_stats.CountAdd);
@@ -275,15 +293,17 @@ namespace Uncodium.SimpleStore
                 m_dataPos += buffer.Length;
                 m_accessorSize.Write(0, m_dataPos);
 
-                m_stats.LatestKeyAdded = key;
+                LatestKeyAdded = key;
             }
         }
 
         /// <summary>
+        /// True if key is contained in store.
         /// </summary>
         public bool Contains(string key)
         {
-            if (m_isDisposed) throw new ObjectDisposedException("SimpleDiskStore");
+            CheckDisposed();
+
             bool result;
             lock (m_dbDiskLocation)
             {
@@ -295,10 +315,13 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
+        /// Get value from key,
+        /// or null if key does not exist.
         /// </summary>
         public byte[] Get(string key)
         {
-            if (m_isDisposed) throw new ObjectDisposedException("SimpleDiskStore");
+            CheckDisposed();
+
             lock (m_dbDiskLocation)
             {
                 if (m_dbIndex.TryGetValue(key, out (long, int) entry))
@@ -318,10 +341,12 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
+        /// Get slice of value from key,
+        /// or null if key does not exist.
         /// </summary>
         public byte[] GetSlice(string key, long offset, int length)
         {
-            if (m_isDisposed) throw new ObjectDisposedException("SimpleDiskStore");
+            CheckDisposed();
 
             if (offset < 0) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be greater or equal 0.");
             if (length < 1) throw new ArgumentOutOfRangeException(nameof(offset), "Size must be greater than 0.");
@@ -348,10 +373,13 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
+        /// Get read stream for value from key.
+        /// This is not thread-safe with respect to overwriting or removing existing values.
         /// </summary>
         public Stream OpenReadStream(string key)
         {
-            if (m_isDisposed) throw new ObjectDisposedException("SimpleDiskStore");
+            CheckDisposed();
+
             lock (m_dbDiskLocation)
             {
                 if (m_dbIndex.TryGetValue(key, out (long, int) entry))
@@ -367,10 +395,12 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
+        /// Remove entry.
         /// </summary>
         public void Remove(string key)
         {
-            if (m_isDisposed) throw new ObjectDisposedException("SimpleDiskStore");
+            CheckDisposed();
+
             if (m_readOnlySnapshot) throw new InvalidOperationException("Read-only store does not support remove.");
             lock (m_dbDiskLocation)
             {
@@ -381,10 +411,12 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
+        /// Returns decoded value from cache, or null if not available.
         /// </summary>
         public object TryGetFromCache(string key)
         {
-            if (m_isDisposed) throw new ObjectDisposedException("SimpleDiskStore");
+            CheckDisposed();
+
             lock (m_dbCache)
             {
                 if (m_dbCache.TryGetValue(key, out WeakReference<object> weakRef))
@@ -401,6 +433,7 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
+        /// Gets a snapshot of all existing keys.
         /// </summary>
         public string[] SnapshotKeys()
         {
@@ -412,10 +445,11 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
+        /// Commit pending changes to storage.
         /// </summary>
         public void Flush()
         {
-            if (m_isDisposed) throw new ObjectDisposedException("DiskStorage");
+            CheckDisposed();
 
             if (m_readOnlySnapshot)
             {
@@ -429,11 +463,9 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        /// <summary>
-        /// </summary>
         public void Dispose()
         {
-            if (m_isDisposed) throw new ObjectDisposedException("DiskStorage");
+            CheckDisposed();
 
             var token = Guid.NewGuid();
             if (!m_readOnlySnapshot) Log(
@@ -448,6 +480,8 @@ namespace Uncodium.SimpleStore
                     {
                         try
                         {
+                            CheckDisposed();
+
                             if (!m_readOnlySnapshot)
                             {
                                 m_accessor.Flush();
@@ -476,7 +510,7 @@ namespace Uncodium.SimpleStore
                 {
                     m_isDisposed = true;
                     Log(
-                        $"shutdown {token} - latest known key is {m_stats.LatestKeyAdded},",
+                        $"shutdown {token} - latest known key is {LatestKeyAdded},",
                         $"shutdown {token} - should be the same key as indicated above in \"(2/2) flush index to disk (end)\"",
                         $"shutdown {token} (end)"
                         );
@@ -487,6 +521,8 @@ namespace Uncodium.SimpleStore
         private readonly SemaphoreSlim m_flushIndexSemaphore = new SemaphoreSlim(1);
         private void FlushIndex(bool isDisposing = false)
         {
+            CheckDisposed();
+
             if (m_readOnlySnapshot) return;
 
             if (isDisposing || m_flushIndexSemaphore.Wait(0))
@@ -495,10 +531,12 @@ namespace Uncodium.SimpleStore
                 {
                     try
                     {
+                        CheckDisposed();
+
                         var sw = new Stopwatch();
                         sw.Start();
 
-                        var latestKeyAdded = m_stats.LatestKeyAdded;
+                        var latestKeyAdded = LatestKeyAdded;
                         Log(
                             $"(1/2) flush index to disk (begin)",
                             $"      total number of keys: {m_dbIndex.Count:N0}",
@@ -522,16 +560,18 @@ namespace Uncodium.SimpleStore
                             $"(2/2) flush index to disk (end)",
                             $"      total duration      : {sw.Elapsed}",
                             $"      total number of keys: {m_dbIndex.Count:N0}",
-                            $"      latest key added    : {m_stats.LatestKeyAdded}"
+                            $"      latest key added    : {LatestKeyAdded}"
                             );
 
-                        if (latestKeyAdded != m_stats.LatestKeyAdded)
+                        if (latestKeyAdded != LatestKeyAdded)
                         {
                             Log(
                                 $"[CRITICAL ERROR] One or more keys have been added while flushing index to file.",
                                 $"[CRITICAL ERROR] Error fc85712e-26b1-414a-97eb-22faf87c5718."
                                 );
                         }
+
+                        LatestKeyFlushed = latestKeyAdded;
                     }
                     catch (Exception e)
                     {

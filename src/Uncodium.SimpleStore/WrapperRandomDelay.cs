@@ -22,6 +22,8 @@
    SOFTWARE.
 */
 
+#pragma warning disable CS1591
+
 using System;
 using System.IO;
 using System.Threading;
@@ -43,8 +45,6 @@ namespace Uncodium.SimpleStore
         private readonly double m_dtTryGetFromCache;
         private readonly double m_dtFlush;
 
-        /// <summary>
-        /// </summary>
         public WrapperRandomDelay(ISimpleStore store,
             double dtStats, double dtAdd, double dtContains, double dtGet, double dtRemove, double dtTryGetFromCache, double dtFlush
             )
@@ -59,13 +59,9 @@ namespace Uncodium.SimpleStore
             m_dtFlush = dtFlush;
         }
 
-        /// <summary>
-        /// </summary>
         public WrapperRandomDelay(ISimpleStore store, double dt) : this(store, dt, dt, dt, dt, dt, dt, dt)
         { }
 
-        /// <summary>
-        /// </summary>
         public Stats Stats
         {
             get
@@ -75,76 +71,60 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        /// <summary>
-        /// </summary>
+        public string LatestKeyAdded => m_store.LatestKeyAdded;
+
+        public string LatestKeyFlushed => m_store.LatestKeyFlushed;
+
         public void Add(string key, object value, Func<byte[]> getEncodedValue)
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtAdd));
             m_store.Add(key, value, getEncodedValue);
         }
 
-        /// <summary>
-        /// </summary>
         public bool Contains(string key)
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtContains));
             return m_store.Contains(key);
         }
 
-        /// <summary>
-        /// </summary>
         public byte[] Get(string key)
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet));
             return m_store.Get(key);
         }
 
-        /// <summary>
-        /// </summary>
         public byte[] GetSlice(string key, long offset, int length)
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet));
             return m_store.GetSlice(key, offset, length);
         }
 
-        /// <summary>
-        /// </summary>
         public Stream OpenReadStream(string key)
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet));
             return m_store.OpenReadStream(key);
         }
 
-        /// <summary>
-        /// </summary>
         public void Remove(string key)
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtRemove));
             m_store.Remove(key);
         }
 
-        /// <summary>
-        /// </summary>
         public object TryGetFromCache(string key)
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtTryGetFromCache));
             return m_store.TryGetFromCache(key);
         }
 
-        /// <summary>
-        /// </summary>
         public string[] SnapshotKeys() => m_store.SnapshotKeys();
 
-        /// <summary>
-        /// </summary>
         public void Flush()
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtFlush));
             m_store.Flush();
         }
 
-        /// <summary>
-        /// </summary>
         public void Dispose() => m_store.Dispose();
     }
 }

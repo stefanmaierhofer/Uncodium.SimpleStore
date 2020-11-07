@@ -22,192 +22,97 @@
    SOFTWARE.
 */
 
+#pragma warning disable CS1591
+
 using System;
+using System.IO;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Uncodium.SimpleStore
 {
-    /// <summary>
-    /// </summary>
     public class WrapperAsync : ISimpleStoreAsync
     {
         private readonly ISimpleStore m_store;
 
-        /// <summary>
-        /// </summary>
+        private bool m_isDisposed = false;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void CheckDisposed() { if (m_isDisposed) throw new ObjectDisposedException(nameof(WrapperAsync)); }
+
         public WrapperAsync(ISimpleStore store)
         {
             m_store = store ?? throw new ArgumentNullException(nameof(store));
         }
 
-        /// <summary>
-        /// </summary>
         public Task AddAsync(string key, object value, Func<byte[]> getEncodedValue, CancellationToken ct)
-        {
-            var tcs = new TaskCompletionSource<int>();
-            Task.Run(() =>
-            {
-                try
-                {
-                    m_store.Add(key, value, getEncodedValue);
-                    if (ct.IsCancellationRequested)
-                    {
-                        tcs.SetCanceled();
-                    }
-                    else
-                    {
-                        tcs.SetResult(0);
-                    }
-                }
-                catch (Exception e)
-                {
-                    tcs.SetException(e);
-                }
-            }, ct);
-            return tcs.Task;
-        }
+            => Wrap(() => { m_store.Add(key, value, getEncodedValue); return 0; }, ct);
 
-        /// <summary>
-        /// </summary>
         public Task<byte[]> GetAsync(string key, CancellationToken ct)
-        {
-            var tcs = new TaskCompletionSource<byte[]>();
-            Task.Run(() =>
-            {
-                try
-                {
-                    var result = m_store.Get(key);
-                    if (ct.IsCancellationRequested)
-                    {
-                        tcs.SetCanceled();
-                    }
-                    else
-                    {
-                        tcs.SetResult(result);
-                    }
-                }
-                catch (Exception e)
-                {
-                    tcs.SetException(e);
-                }
-            }, ct);
-            return tcs.Task;
-        }
+            => Wrap(() => m_store.Get(key), ct);
 
-        /// <summary>
-        /// </summary>
         public Task<Stats> GetStatsAsync(CancellationToken ct)
-        {
-            var tcs = new TaskCompletionSource<Stats>();
-            Task.Run(() =>
-            {
-                try
-                {
-                    var result = m_store.Stats;
-                    if (ct.IsCancellationRequested)
-                    {
-                        tcs.SetCanceled();
-                    }
-                    else
-                    {
-                        tcs.SetResult(result);
-                    }
-                }
-                catch (Exception e)
-                {
-                    tcs.SetException(e);
-                }
-            }, ct);
-            return tcs.Task;
-        }
+            => Wrap(() => m_store.Stats, ct);
 
-        /// <summary>
-        /// </summary>
         public Task RemoveAsync(string key, CancellationToken ct)
-        {
-            var tcs = new TaskCompletionSource<int>();
-            Task.Run(() =>
-            {
-                try
-                {
-                    m_store.Remove(key);
-                    if (ct.IsCancellationRequested)
-                    {
-                        tcs.SetCanceled();
-                    }
-                    else
-                    {
-                        tcs.SetResult(0);
-                    }
-                }
-                catch (Exception e)
-                {
-                    tcs.SetException(e);
-                }
-            }, ct);
-            return tcs.Task;
-        }
+            => Wrap(() => { m_store.Remove(key); return 0; }, ct);
 
-        /// <summary>
-        /// </summary>
         public Task<object> TryGetFromCacheAsync(string key, CancellationToken ct)
-        {
-            var tcs = new TaskCompletionSource<object>();
-            Task.Run(() =>
-            {
-                try
-                {
-                    var result = m_store.TryGetFromCache(key);
-                    if (ct.IsCancellationRequested)
-                    {
-                        tcs.SetCanceled();
-                    }
-                    else
-                    {
-                        tcs.SetResult(result);
-                    }
-                }
-                catch (Exception e)
-                {
-                    tcs.SetException(e);
-                }
-            }, ct);
-            return tcs.Task;
-        }
+            => Wrap(() => m_store.TryGetFromCache(key), ct);
 
-        /// <summary>
-        /// </summary>
         public Task FlushAsync(CancellationToken ct)
-        {
-            var tcs = new TaskCompletionSource<int>();
-            Task.Run(() =>
-            {
-                try
-                {
-                    m_store.Flush();
-                    if (ct.IsCancellationRequested)
-                    {
-                        tcs.SetCanceled();
-                    }
-                    else
-                    {
-                        tcs.SetResult(0);
-                    }
-                }
-                catch (Exception e)
-                {
-                    tcs.SetException(e);
-                }
-            }, ct);
-            return tcs.Task;
-        }
+            => Wrap(() => { m_store.Flush(); return 0; }, ct);
 
-        /// <summary>
-        /// </summary>
+        public Task<bool> ContainsAsync(string key, CancellationToken ct)
+            => Wrap(() => m_store.Contains(key), ct);
+
+        public Task<byte[]> GetSliceAsync(string key, long offset, int length, CancellationToken ct)
+            => Wrap(() => m_store.GetSlice(key, offset, length), ct);
+
+        public Task<Stream> OpenReadStreamAsync(string key, CancellationToken ct)
+            => Wrap(() => m_store.OpenReadStream(key), ct);
+
+        public Task<string[]> SnapshotKeysAsync(CancellationToken ct)
+            => Wrap(() => m_store.SnapshotKeys(), ct);
+
+        public Task<string> GetLatestKeyAddedAsync(CancellationToken ct)
+            => Wrap(() => m_store.LatestKeyAdded, ct);
+
+        public Task<string> GetLatestKeyFlushedAsync(CancellationToken ct)
+            => Wrap(() => m_store.LatestKeyFlushed, ct);
+
         public void Dispose()
         {
+            CheckDisposed();
             m_store.Dispose();
+            m_isDisposed = true;
+        }
+
+        private Task<T> Wrap<T>(Func<T> getResult, CancellationToken ct)
+        {
+            CheckDisposed();
+
+            var tcs = new TaskCompletionSource<T>();
+            Task.Run(() =>
+            {
+                try
+                {
+                    var result = getResult();
+                    if (ct.IsCancellationRequested)
+                    {
+                        tcs.SetCanceled();
+                    }
+                    else
+                    {
+                        tcs.SetResult(result);
+                    }
+                }
+                catch (Exception e)
+                {
+                    tcs.SetException(e);
+                }
+            }, ct);
+            return tcs.Task;
         }
     }
 }
