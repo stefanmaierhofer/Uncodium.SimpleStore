@@ -39,7 +39,7 @@ namespace Uncodium.SimpleStore
         public string Folder { get; }
 
         private string GetFileNameFromId(string id) => Path.Combine(Folder, id);
-        private Stats m_stats = new Stats();
+        private Stats m_stats = new Stats { LatestKeyAdded = "<unknown>" };
 
         /// <summary>
         /// Creates a store in the given folder.
@@ -54,17 +54,18 @@ namespace Uncodium.SimpleStore
         public Stats Stats => m_stats;
 
         /// <summary></summary>
-        public void Add(string id, object value, Func<byte[]> getEncodedValue)
+        public void Add(string key, object value, Func<byte[]> getEncodedValue)
         {
             Interlocked.Increment(ref m_stats.CountAdd);
-            File.WriteAllBytes(GetFileNameFromId(id), getEncodedValue());
+            File.WriteAllBytes(GetFileNameFromId(key), getEncodedValue());
+            m_stats.LatestKeyAdded = key;
         }
 
         /// <summary></summary>
-        public bool Contains(string id)
+        public bool Contains(string key)
         {
             Interlocked.Increment(ref m_stats.CountContains);
-            return File.Exists(GetFileNameFromId(id));
+            return File.Exists(GetFileNameFromId(key));
         }
 
         /// <summary></summary>
@@ -74,12 +75,12 @@ namespace Uncodium.SimpleStore
         public void Flush() { Interlocked.Increment(ref m_stats.CountFlush); }
 
         /// <summary></summary>
-        public byte[] Get(string id)
+        public byte[] Get(string key)
         {
             Interlocked.Increment(ref m_stats.CountGet);
             try
             {
-                var buffer = File.ReadAllBytes(GetFileNameFromId(id));
+                var buffer = File.ReadAllBytes(GetFileNameFromId(key));
                 Interlocked.Increment(ref m_stats.CountGetCacheMiss);
                 return buffer;
             }
@@ -91,7 +92,7 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary></summary>
-        public byte[] GetSlice(string id, long offset, int size)
+        public byte[] GetSlice(string key, long offset, int size)
         {
             if (offset < 0) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be greater or equal 0.");
             if (size < 1) throw new ArgumentOutOfRangeException(nameof(offset), "Size must be greater than 0.");
@@ -99,7 +100,7 @@ namespace Uncodium.SimpleStore
             Interlocked.Increment(ref m_stats.CountGetSlice);
             try
             {
-                using var fs = File.Open(GetFileNameFromId(id), FileMode.Open, FileAccess.Read, FileShare.Read);
+                using var fs = File.Open(GetFileNameFromId(key), FileMode.Open, FileAccess.Read, FileShare.Read);
                 fs.Seek(offset, SeekOrigin.Begin);
                 using var br = new BinaryReader(fs);
                 var buffer = br.ReadBytes(size);
@@ -114,12 +115,12 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary></summary>
-        public Stream OpenReadStream(string id)
+        public Stream OpenReadStream(string key)
         {
             Interlocked.Increment(ref m_stats.CountOpenReadStream);
             try
             {
-                return File.Open(GetFileNameFromId(id), FileMode.Open, FileAccess.Read, FileShare.Read);
+                return File.Open(GetFileNameFromId(key), FileMode.Open, FileAccess.Read, FileShare.Read);
             }
             catch
             {
@@ -129,11 +130,11 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary></summary>
-        public void Remove(string id)
+        public void Remove(string key)
         {
             try
             {
-                File.Delete(GetFileNameFromId(id));
+                File.Delete(GetFileNameFromId(key));
                 Interlocked.Increment(ref m_stats.CountRemove);
             }
             catch
@@ -150,6 +151,6 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary></summary>
-        public object TryGetFromCache(string id) => null;
+        public object TryGetFromCache(string key) => null;
     }
 }

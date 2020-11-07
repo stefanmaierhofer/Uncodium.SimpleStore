@@ -24,6 +24,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.MemoryMappedFiles;
 using System.Linq;
@@ -52,7 +53,7 @@ namespace Uncodium.SimpleStore
         private MemoryMappedViewAccessor m_accessorSize;
         private MemoryMappedViewAccessor m_accessor;
 
-        private Stats m_stats;
+        private Stats m_stats = new Stats { LatestKeyAdded = "<unknown>" };
 
         private bool m_indexHasChanged = false;
         private bool m_isDisposed = false;
@@ -107,8 +108,9 @@ namespace Uncodium.SimpleStore
         private void Init()
         {
             m_indexFilename = Path.Combine(m_dbDiskLocation, "index.bin");
-            m_dataFilename = Path.Combine(m_dbDiskLocation, "data.bin");
-            m_logFilename = Path.Combine(m_dbDiskLocation, "log.txt");
+            m_dataFilename  = Path.Combine(m_dbDiskLocation, "data.bin");
+            m_logFilename   = Path.Combine(m_dbDiskLocation, "log.txt");
+
             var dataFileIsNewlyCreated = false;
             if (!Directory.Exists(m_dbDiskLocation)) Directory.CreateDirectory(m_dbDiskLocation);
             if (!File.Exists(m_dataFilename))
@@ -116,11 +118,20 @@ namespace Uncodium.SimpleStore
                 File.WriteAllBytes(m_dataFilename, new byte[0]);
                 dataFileIsNewlyCreated = true;
             }
-            
+
+            Log(
+                "",
+                "================================",
+                "          starting up           ",
+                "================================",
+                ""
+                );
+
             m_dbCache = new Dictionary<string, WeakReference<object>>();
             m_dbCacheKeepAlive = new HashSet<object>();
             if (File.Exists(m_indexFilename))
             {
+                Log("read existing index ...");
                 using var f = File.Open(m_indexFilename, FileMode.Open, FileAccess.Read, FileShare.Read);
                 using var br = new BinaryReader(f);
                 var count = 0;
@@ -131,6 +142,8 @@ namespace Uncodium.SimpleStore
                 try
                 {
                     count = br.ReadInt32();
+                    Log($"entries: {count:N0}");
+                    var sw = new Stopwatch(); sw.Start();
                     m_dbIndex = new Dictionary<string, (long, int)>(count);
                     for (i = 0; i < count; i++)
                     {
@@ -140,13 +153,21 @@ namespace Uncodium.SimpleStore
 
                         m_dbIndex[key] = (offset, size);
                     }
+                    sw.Stop();
+                    Log(
+                        $"read existing index in {sw.Elapsed}",
+                        $"that's appr. {(int)(count/sw.Elapsed.TotalSeconds):N0} entries/second"
+                        );
                 }
                 catch (Exception e)
                 {
-                    Console.Error.WriteLine($"[CRITICAL ERROR] Damaged index file {m_indexFilename}");
-                    Console.Error.WriteLine($"[CRITICAL ERROR] Could read {i:N0}/{count:N0} index entries.");
-                    Console.Error.WriteLine($"[CRITICAL ERROR] Last entry: {key} @ +{offset:N0} with size {size:N0} bytes.");
-                    Console.Error.WriteLine($"[CRITICAL ERROR] {e}");
+                    Log(
+                        $"[CRITICAL ERROR] Damaged index file {m_indexFilename}",
+                        $"[CRITICAL ERROR] Error a7814485-0e86-422e-92f0-9a4a31216a27.",
+                        $"[CRITICAL ERROR] Could read {i:N0}/{count:N0} index entries.",
+                        $"[CRITICAL ERROR] Last entry: {key} @ +{offset:N0} with size {size:N0} bytes.",
+                        $"[CRITICAL ERROR] {e}"
+                    );
                 }
             }
             else
@@ -180,6 +201,10 @@ namespace Uncodium.SimpleStore
                 m_accessorSize = m_mmf.CreateViewAccessor(0, 8);
                 m_accessor = m_mmf.CreateViewAccessor(8, m_dataSize);
                 m_dataPos = dataFileIsNewlyCreated ? 0L : m_accessorSize.ReadInt64(0);
+                Log(
+                    $"reserved space        : {m_dataSize:N0} bytes",
+                    $"current write position: {m_dataPos:N0}"
+                    );
             }
         }
 
@@ -196,6 +221,7 @@ namespace Uncodium.SimpleStore
         {
             if (m_isDisposed) throw new ObjectDisposedException("SimpleDiskStore");
             if (m_readOnlySnapshot) throw new InvalidOperationException("Read-only store does not support add.");
+
             Interlocked.Increment(ref m_stats.CountAdd);
 
             byte[] buffer = null;
@@ -216,25 +242,40 @@ namespace Uncodium.SimpleStore
             {
                 if (m_dataPos + buffer.Length > m_dataSize)
                 {
-                    if (m_dataSize < 1024 * 1024 * 1024)
+                    try
                     {
-                        m_dataSize *= 2;
+                        if (m_dataSize < 1024 * 1024 * 1024)
+                        {
+                            m_dataSize *= 2;
+                        }
+                        else
+                        {
+                            m_dataSize += 1024 * 1024 * 1024;
+                        }
+                        Log($"resize data file to {m_dataSize / (1024 * 1024 * 1024.0):0.000} GiB");
+                        m_accessorSize.Dispose(); m_accessor.Dispose(); m_mmf.Dispose();
+                        m_mmf = MemoryMappedFile.CreateFromFile(m_dataFilename, FileMode.OpenOrCreate, null, 8 + m_dataSize, MemoryMappedFileAccess.ReadWrite);
+                        m_accessorSize = m_mmf.CreateViewAccessor(0, 8);
+                        m_accessor = m_mmf.CreateViewAccessor(8, m_dataSize);
                     }
-                    else
+                    catch (Exception e)
                     {
-                        m_dataSize += 1024 * 1024 * 1024;
+                        Log(
+                            $"[CRITICAL ERROR] Exception occured while resizing disk store.",
+                            $"[CRITICAL ERROR] Error ada9ed54-d748-4aef-b922-0bf93468fad8.",
+                            $"[CRITICAL ERROR] {e}"
+                        );
+
+                        throw;
                     }
-                    //Console.WriteLine($"[SimpleDiskStore] RESIZE to {m_dataSize / (1024 * 1024 * 1024.0):0.000} GiB");
-                    m_accessorSize.Dispose(); m_accessor.Dispose(); m_mmf.Dispose();
-                    m_mmf = MemoryMappedFile.CreateFromFile(m_dataFilename, FileMode.OpenOrCreate, null, 8 + m_dataSize, MemoryMappedFileAccess.ReadWrite);
-                    m_accessorSize = m_mmf.CreateViewAccessor(0, 8);
-                    m_accessor = m_mmf.CreateViewAccessor(8, m_dataSize);
                 }
                 m_accessor.WriteArray(m_dataPos, buffer, 0, buffer.Length);
                 m_dbIndex[key] = (m_dataPos, buffer.Length);
                 m_indexHasChanged = true;
                 m_dataPos += buffer.Length;
                 m_accessorSize.Write(0, m_dataPos);
+
+                m_stats.LatestKeyAdded = key;
             }
         }
 
@@ -375,67 +416,149 @@ namespace Uncodium.SimpleStore
         public void Flush()
         {
             if (m_isDisposed) throw new ObjectDisposedException("DiskStorage");
-            m_accessor.Flush();
-            m_accessorSize.Flush();
-            FlushIndex();
+
+            if (m_readOnlySnapshot)
+            {
+                return;
+            }
+            else
+            {
+                m_accessor.Flush();
+                m_accessorSize.Flush();
+                FlushIndex();
+            }
         }
 
         /// <summary>
         /// </summary>
         public void Dispose()
         {
-            try
+            if (m_isDisposed) throw new ObjectDisposedException("DiskStorage");
+
+            var token = Guid.NewGuid();
+            if (!m_readOnlySnapshot) Log(
+                $"shutdown {token} (begin)"
+                );
+
+            while (true)
             {
-                if (m_isDisposed) throw new ObjectDisposedException("DiskStorage");
-                m_accessor.Flush();
-                m_accessor.Dispose();
-                m_accessorSize.Flush();
-                m_accessorSize.Dispose();
-                m_mmf.Dispose();
-                FlushIndex();
-                m_cts.Cancel();
-            }
-            finally
-            {
-                m_isDisposed = true;
+                try
+                {
+                    if (m_flushIndexSemaphore.Wait(1000))
+                    {
+                        if (!m_readOnlySnapshot)
+                        {
+                            m_accessor.Flush();
+                            m_accessorSize.Flush();
+                            FlushIndex(isDisposing: true);
+                        }
+
+                        m_accessor.Dispose();
+                        m_accessorSize.Dispose();
+                        m_mmf.Dispose();
+                        m_cts.Cancel();
+
+                        return;
+                    }
+                    else
+                    {
+                        Log($"shutdown {token} is waiting for index being flushed to disk");
+                    }
+                }
+                finally
+                {
+                    m_isDisposed = true;
+                    Log(
+                        $"shutdown {token} - latest known key is {m_stats.LatestKeyAdded},",
+                        $"shutdown {token} - should be the same key as indicated above in \"(2/2) flush index to disk (end)\"",
+                        $"shutdown {token} (end)"
+                        );
+                }
             }
         }
 
         private readonly SemaphoreSlim m_flushIndexSemaphore = new SemaphoreSlim(1);
-        private void FlushIndex()
+        private void FlushIndex(bool isDisposing = false)
         {
-            if (m_flushIndexSemaphore.Wait(0))
+            if (m_readOnlySnapshot) return;
+
+            if (isDisposing || m_flushIndexSemaphore.Wait(0))
             {
                 lock (m_dbDiskLocation)
                 {
-                    if (!m_indexHasChanged) return;
-                    using (var f = File.Open(m_indexFilename, FileMode.Create, FileAccess.Write, FileShare.Read))
-                    using (var bw = new BinaryWriter(f))
+                    try
                     {
-                        bw.Write(m_dbIndex.Count);
-                        foreach (var kv in m_dbIndex)
+                        var sw = new Stopwatch();
+                        sw.Start();
+
+                        var latestKeyAdded = m_stats.LatestKeyAdded;
+                        Log(
+                            $"(1/2) flush index to disk (begin)",
+                            $"      total number of keys: {m_dbIndex.Count:N0}",
+                            $"      latest key added    : {latestKeyAdded}"
+                            );
+
+                        if (!m_indexHasChanged) return;
+                        using (var f = File.Open(m_indexFilename, FileMode.Create, FileAccess.Write, FileShare.Read))
+                        using (var bw = new BinaryWriter(f))
                         {
-                            bw.Write(kv.Key);
-                            bw.Write(kv.Value.Item1);
-                            bw.Write(kv.Value.Item2);
+                            bw.Write(m_dbIndex.Count);
+                            foreach (var kv in m_dbIndex)
+                            {
+                                bw.Write(kv.Key);
+                                bw.Write(kv.Value.Item1);
+                                bw.Write(kv.Value.Item2);
+                            }
+                        }
+                        m_indexHasChanged = false;
+                        Log(
+                            $"(2/2) flush index to disk (end)",
+                            $"      total duration      : {sw.Elapsed}",
+                            $"      total number of keys: {m_dbIndex.Count:N0}",
+                            $"      latest key added    : {m_stats.LatestKeyAdded}"
+                            );
+
+                        if (latestKeyAdded != m_stats.LatestKeyAdded)
+                        {
+                            Log(
+                                $"[CRITICAL ERROR] One or more keys have been added while flushing index to file.",
+                                $"[CRITICAL ERROR] Error fc85712e-26b1-414a-97eb-22faf87c5718."
+                                );
                         }
                     }
-                    m_indexHasChanged = false;
+                    catch (Exception e)
+                    {
+                        Log(
+                            $"[CRITICAL ERROR] Exception occured while flushing index to disk.",
+                            $"[CRITICAL ERROR] Error 150dffaa-982f-43a9-b9e4-db8bf6116296.",
+                            $"[CRITICAL ERROR] {e}"
+                        );
+                        throw;
+                    }
                 }
             }
             else
             {
-                Log($"Concurrent flush attempt detected.");
+                Log($"[WARNING] Concurrent flush attempt detected. Warning dff7d6ca-6451-4258-993a-e1448e58e3b7.");
             }
         }
 
-        private void Log(string s)
+        private void Log(params string[] lines)
         {
-            Console.WriteLine($"[{DateTimeOffset.Now}][WARNING][Uncodium.SimpleDiskStore] {s}");
-            lock (m_logFilename)
+            if (!m_readOnlySnapshot)
             {
-                File.AppendAllLines(m_logFilename, new[] { $"[{DateTimeOffset.Now}] {s}" });
+                lock (m_logFilename)
+                {
+                    File.AppendAllLines(m_logFilename, lines.Select(line => $"[{DateTimeOffset.Now}] {line}"));
+                }
             }
+
+#if DEBUG
+            foreach (var line in lines)
+            {
+                Console.WriteLine($"[Uncodium.SimpleDiskStore][{DateTimeOffset.Now}] {line}");
+            }
+#endif
         }
     }
 }

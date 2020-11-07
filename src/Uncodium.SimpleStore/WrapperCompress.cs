@@ -68,10 +68,8 @@ namespace Uncodium.SimpleStore
                 using (var bw = new BinaryWriter(ms))
                 {
                     bw.Write(data.Length);
-                    using (var zs = new GZipStream(ms, m_compressionLevel, false))
-                    {
-                        zs.Write(data, 0, data.Length);
-                    }
+                    using var zs = new GZipStream(ms, m_compressionLevel, false);
+                    zs.Write(data, 0, data.Length);
                 }
                 return ms.ToArray();
             }
@@ -88,17 +86,13 @@ namespace Uncodium.SimpleStore
             var buffer = m_store.Get(key);
             if (buffer == null) return null;
             var ms = new MemoryStream(buffer);
-            using (var br = new BinaryReader(ms))
-            {
-                var count = br.ReadInt32();
-                var data = new byte[count];
-                using (var zs = new GZipStream(ms, CompressionMode.Decompress))
-                {
-                    var l = zs.Read(data, 0, count);
-                    if (l != count) throw new Exception($"Read {l} bytes instead of {count} bytes.");
-                    return data;
-                }
-            }
+            using var br = new BinaryReader(ms);
+            var count = br.ReadInt32();
+            var data = new byte[count];
+            using var zs = new GZipStream(ms, CompressionMode.Decompress);
+            var l = zs.Read(data, 0, count);
+            if (l != count) throw new Exception($"Read {l} bytes instead of {count} bytes.");
+            return data;
         }
 
         /// <summary>

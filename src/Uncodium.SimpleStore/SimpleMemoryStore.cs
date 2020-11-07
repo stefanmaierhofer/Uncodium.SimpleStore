@@ -37,7 +37,7 @@ namespace Uncodium.SimpleStore
     {
         private readonly Dictionary<string, Func<byte[]>> m_db;
         private readonly Dictionary<string, object> m_dbCache;
-        private Stats m_stats;
+        private Stats m_stats = new Stats { LatestKeyAdded = "<unknown>" };
 
         /// <summary>
         /// 
@@ -61,6 +61,7 @@ namespace Uncodium.SimpleStore
             {
                 m_db[key] = getEncodedValue;
                 m_dbCache[key] = value;
+                m_stats.LatestKeyAdded = key;
             }
             Interlocked.Increment(ref m_stats.CountAdd);
         }

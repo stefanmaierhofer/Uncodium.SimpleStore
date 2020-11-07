@@ -12,9 +12,9 @@ namespace Uncodium.SimpleStore.Tests
         {
             var dbDiskLocation = @"T:\teststore";
             Console.WriteLine("open store");
-            var store = new SimpleDiskStore(dbDiskLocation);
+            using var store = new SimpleDiskStore(dbDiskLocation);
             Console.WriteLine("add many entries");
-            for (var i = 0; i < 2_000_000; i++) store.Add(Guid.NewGuid().ToString(), new[] { (byte)42 });
+            for (var i = 0; i < 1_000_000; i++) store.Add(Guid.NewGuid().ToString(), new[] { (byte)42 });
             
 
             var go = new ManualResetEventSlim();
@@ -47,6 +47,8 @@ namespace Uncodium.SimpleStore.Tests
             Console.WriteLine("press enter to flush concurrently ...");
             Console.ReadLine();
             go.Set();
+
+            //for (var i = 0; i < 1_000_000; i++) store.Add(Guid.NewGuid().ToString(), new[] { (byte)42 });
         }
 
         static void Main()

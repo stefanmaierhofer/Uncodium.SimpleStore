@@ -79,5 +79,9 @@ namespace Uncodium.SimpleStore
         /// <summary>
         /// </summary>
         public long CountFlush;
+
+        /// <summary>
+        /// </summary>
+        public string LatestKeyAdded;
     }
 }
