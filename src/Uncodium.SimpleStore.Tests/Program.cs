@@ -48,7 +48,7 @@ namespace Uncodium.SimpleStore.Tests
             Console.ReadLine();
             go.Set();
 
-            //for (var i = 0; i < 1_000_000; i++) store.Add(Guid.NewGuid().ToString(), new[] { (byte)42 });
+            for (var i = 0; i < 1_000_000; i++) store.Add(Guid.NewGuid().ToString(), new[] { (byte)42 });
         }
 
         static void Main()

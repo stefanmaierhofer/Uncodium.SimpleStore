@@ -474,46 +474,41 @@ namespace Uncodium.SimpleStore
 
             while (true)
             {
-                try
+                if (m_flushIndexSemaphore.Wait(1000))
                 {
-                    if (m_flushIndexSemaphore.Wait(1000))
+                    try
                     {
-                        try
+                        CheckDisposed();
+
+                        if (!m_readOnlySnapshot)
                         {
-                            CheckDisposed();
-
-                            if (!m_readOnlySnapshot)
-                            {
-                                m_accessor.Flush();
-                                m_accessorSize.Flush();
-                                FlushIndex(isDisposing: true);
-                            }
-
-                            m_accessor.Dispose();
-                            m_accessorSize.Dispose();
-                            m_mmf.Dispose();
-                            m_cts.Cancel();
-
-                            return;
+                            m_accessor.Flush();
+                            m_accessorSize.Flush();
+                            FlushIndex(isDisposing: true);
                         }
-                        finally
-                        {
-                            m_flushIndexSemaphore.Release();
-                        }
+
+                        m_accessor.Dispose();
+                        m_accessorSize.Dispose();
+                        m_mmf.Dispose();
+                        m_cts.Cancel();
+
+                        Log(
+                            $"shutdown {token} - latest known key is {LatestKeyAdded},",
+                            $"shutdown {token} - should be the same key as indicated above in \"(2/2) flush index to disk (end)\"",
+                            $"shutdown {token} (end)"
+                            );
+
+                        return;
                     }
-                    else
+                    finally
                     {
-                        Log($"shutdown {token} is waiting for index being flushed to disk");
+                        m_flushIndexSemaphore.Release();
+                        m_isDisposed = true;
                     }
                 }
-                finally
+                else
                 {
-                    m_isDisposed = true;
-                    Log(
-                        $"shutdown {token} - latest known key is {LatestKeyAdded},",
-                        $"shutdown {token} - should be the same key as indicated above in \"(2/2) flush index to disk (end)\"",
-                        $"shutdown {token} (end)"
-                        );
+                    Log($"shutdown {token} is waiting for index being flushed to disk");
                 }
             }
         }
