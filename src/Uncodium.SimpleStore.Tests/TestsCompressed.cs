@@ -33,22 +33,19 @@ namespace Uncodium.SimpleStore.Tests
         [Test]
         public void CanCreateMemStore()
         {
-            using (var store = new SimpleMemoryStore().Compress(CompressionLevel.Fastest))
-            { }
+            using var store = new SimpleMemoryStore().Compress(CompressionLevel.Fastest);
         }
 
         [Test]
         public void CanCreateDiskStore()
         {
-            using (var store = new SimpleDiskStore(TestStoreSmallPath, null).Compress(CompressionLevel.Fastest))
-            { }
+            using var store = new SimpleDiskStore(TestStoreSmallPath).Compress(CompressionLevel.Fastest);
         }
         
         [Test]
         public void CanCreateDiskStore2()
         {
-            using (var store = new SimpleDiskStore(TestStoreSmallPath).Compress(CompressionLevel.Fastest))
-            { }
+            using var store = new SimpleDiskStore(TestStoreSmallPath).Compress(CompressionLevel.Fastest);
         }
 
         #endregion
@@ -59,30 +56,24 @@ namespace Uncodium.SimpleStore.Tests
         public void CanAddMemStore()
         {
             var key = Guid.NewGuid().ToString();
-            using (var store = new SimpleMemoryStore().Compress(CompressionLevel.Fastest))
-            {
-                store.Add(key, "b", null);
-            }
+            using var store = new SimpleMemoryStore().Compress(CompressionLevel.Fastest);
+            store.Add(key, "b", null);
         }
 
         [Test]
         public void CanAddDiskStore()
         {
             var key = Guid.NewGuid().ToString();
-            using (var store = new SimpleDiskStore(TestStoreSmallPath, null).Compress(CompressionLevel.Fastest))
-            {
-                store.Add(key, "b", () => Encoding.UTF8.GetBytes("b"));
-            }
+            using var store = new SimpleDiskStore(TestStoreSmallPath).Compress(CompressionLevel.Fastest);
+            store.Add(key, "b", () => Encoding.UTF8.GetBytes("b"));
         }
 
         [Test]
         public void CanAddDiskStore2()
         {
             var key = Guid.NewGuid().ToString();
-            using (var store = new SimpleDiskStore(TestStoreSmallPath, null).Compress(CompressionLevel.Fastest))
-            {
-                store.Add(key, "b");
-            }
+            using var store = new SimpleDiskStore(TestStoreSmallPath).Compress(CompressionLevel.Fastest);
+            store.Add(key, "b");
         }
 
         #endregion
@@ -93,48 +84,40 @@ namespace Uncodium.SimpleStore.Tests
         public void CanGetMemStore()
         {
             var key = Guid.NewGuid().ToString();
-            using (var store = new SimpleMemoryStore().Compress(CompressionLevel.Fastest))
-            {
-                store.Add(key, "b", null);
-                var x = store.Get(key);
-                Assert.IsTrue(x == null);
-            }
+            using var store = new SimpleMemoryStore().Compress(CompressionLevel.Fastest);
+            store.Add(key, "b", null);
+            var x = store.Get(key);
+            Assert.IsTrue(x == null);
         }
 
         [Test]
         public void CanGetMemStore2()
         {
             var key = Guid.NewGuid().ToString();
-            using (var store = new SimpleMemoryStore().Compress(CompressionLevel.Fastest))
-            {
-                store.Add(key, "b", () => Encoding.UTF8.GetBytes("b"));
-                var x = store.Get(key);
-                Assert.IsTrue(Encoding.UTF8.GetString(x) == "b");
-            }
+            using var store = new SimpleMemoryStore().Compress(CompressionLevel.Fastest);
+            store.Add(key, "b", () => Encoding.UTF8.GetBytes("b"));
+            var x = store.Get(key);
+            Assert.IsTrue(Encoding.UTF8.GetString(x) == "b");
         }
 
         [Test]
         public void CanGetDiskStore()
         {
             var key = Guid.NewGuid().ToString();
-            using (var store = new SimpleDiskStore(TestStoreSmallPath, null).Compress(CompressionLevel.Fastest))
-            {
-                store.Add(key, "b", null);
-                var x = store.Get(key);
-                Assert.IsTrue(x == null);
-            }
+            using var store = new SimpleDiskStore(TestStoreSmallPath).Compress(CompressionLevel.Fastest);
+            store.Add(key, "b", null);
+            var x = store.Get(key);
+            Assert.IsTrue(x == null);
         }
 
         [Test]
         public void CanGetDiskStore2()
         {
             var key = Guid.NewGuid().ToString();
-            using (var store = new SimpleDiskStore(TestStoreSmallPath, null).Compress(CompressionLevel.Fastest))
-            {
-                store.Add(key, "b", () => Encoding.UTF8.GetBytes("b"));
-                var x = store.Get(key);
-                Assert.IsTrue(Encoding.UTF8.GetString(x) == "b");
-            }
+            using var store = new SimpleDiskStore(TestStoreSmallPath).Compress(CompressionLevel.Fastest);
+            store.Add(key, "b", () => Encoding.UTF8.GetBytes("b"));
+            var x = store.Get(key);
+            Assert.IsTrue(Encoding.UTF8.GetString(x) == "b");
         }
 
         #endregion
@@ -145,64 +128,56 @@ namespace Uncodium.SimpleStore.Tests
         public void CanRemoveMemStore()
         {
             var key = Guid.NewGuid().ToString();
-            using (var store = new SimpleMemoryStore().Compress(CompressionLevel.Fastest))
-            {
-                store.Add(key, "b", null);
-                var x = store.Get(key);
-                Assert.IsTrue(x == null);
+            using var store = new SimpleMemoryStore().Compress(CompressionLevel.Fastest);
+            store.Add(key, "b", null);
+            var x = store.Get(key);
+            Assert.IsTrue(x == null);
 
-                store.Remove(key);
-                var y = store.Get(key);
-                Assert.IsTrue(y == null);
-            }
+            store.Remove(key);
+            var y = store.Get(key);
+            Assert.IsTrue(y == null);
         }
 
         [Test]
         public void CanRemoveMemStore2()
         {
             var key = Guid.NewGuid().ToString();
-            using (var store = new SimpleMemoryStore().Compress(CompressionLevel.Fastest))
-            {
-                store.Add(key, "b", () => Encoding.UTF8.GetBytes("b"));
-                var x = store.Get(key);
-                Assert.IsTrue(Encoding.UTF8.GetString(x) == "b");
+            using var store = new SimpleMemoryStore().Compress(CompressionLevel.Fastest);
+            store.Add(key, "b", () => Encoding.UTF8.GetBytes("b"));
+            var x = store.Get(key);
+            Assert.IsTrue(Encoding.UTF8.GetString(x) == "b");
 
-                store.Remove(key);
-                var y = store.Get(key);
-                Assert.IsTrue(y == null);
-            }
+            store.Remove(key);
+            var y = store.Get(key);
+            Assert.IsTrue(y == null);
         }
 
         [Test]
         public void CanRemoveDiskStore()
         {
             var key = Guid.NewGuid().ToString();
-            using (var store = new SimpleDiskStore(TestStoreSmallPath, null).Compress(CompressionLevel.Fastest))
-            {
-                store.Add(key, "b", null);
-                var x = store.Get(key);
-                Assert.IsTrue(x == null);
+            using var store = new SimpleDiskStore(TestStoreSmallPath).Compress(CompressionLevel.Fastest);
+            store.Add(key, "b", null);
+            var x = store.Get(key);
+            Assert.IsTrue(x == null);
 
-                store.Remove(key);
-                var y = store.Get(key);
-                Assert.IsTrue(y == null);
-            }
+            store.Remove(key);
+            var y = store.Get(key);
+            Assert.IsTrue(y == null);
         }
 
         [Test]
         public void CanRemoveDiskStore2()
         {
             var key = Guid.NewGuid().ToString();
-            using (var store = new SimpleDiskStore(TestStoreSmallPath, null).Compress(CompressionLevel.Fastest))
-            {
-                store.Add(key, "b", () => Encoding.UTF8.GetBytes("b"));
-                var x = store.Get(key);
-                Assert.IsTrue(Encoding.UTF8.GetString(x) == "b");
+            using var store = new SimpleDiskStore(TestStoreSmallPath).Compress(CompressionLevel.Fastest);
+            store.Add(key, "b", () => Encoding.UTF8.GetBytes("b"));
+            var x = store.Get(key);
+            Assert.IsTrue(Encoding.UTF8.GetString(x) == "b");
 
-                store.Remove(key);
-                var y = store.Get(key);
-                Assert.IsTrue(y == null);
-            }
+            store.Remove(key);
+            var y = store.Get(key);
+            Assert.IsTrue(y == null);
         }
 
         #endregion
@@ -213,24 +188,20 @@ namespace Uncodium.SimpleStore.Tests
         public void CanTryGetFromCacheMemStore()
         {
             var key = Guid.NewGuid().ToString();
-            using (var store = new SimpleMemoryStore().Compress(CompressionLevel.Fastest))
-            {
-                store.Add(key, "b", null);
-                var x = (string)store.TryGetFromCache(key);
-                Assert.IsTrue(x == "b");
-            }
+            using var store = new SimpleMemoryStore().Compress(CompressionLevel.Fastest);
+            store.Add(key, "b", null);
+            var x = (string)store.TryGetFromCache(key);
+            Assert.IsTrue(x == "b");
         }
 
         [Test]
         public void CanTryGetFromCacheDiskStore()
         {
             var key = Guid.NewGuid().ToString();
-            using (var store = new SimpleDiskStore(TestStoreSmallPath, null).Compress(CompressionLevel.Fastest))
-            {
-                store.Add(key, "b", null);
-                var x = (string)store.TryGetFromCache(key);
-                Assert.IsTrue(x == "b");
-            }
+            using var store = new SimpleDiskStore(TestStoreSmallPath).Compress(CompressionLevel.Fastest);
+            store.Add(key, "b", null);
+            var x = (string)store.TryGetFromCache(key);
+            Assert.IsTrue(x == "b");
         }
 
         #endregion
@@ -240,56 +211,52 @@ namespace Uncodium.SimpleStore.Tests
         [Test]
         public void CanAddParallelMemStore()
         {
-            using (var store = new SimpleMemoryStore().Compress(CompressionLevel.Fastest))
+            using var store = new SimpleMemoryStore().Compress(CompressionLevel.Fastest);
+            var stats0 = store.Stats;
+            Assert.IsTrue(stats0.CountAdd == 0);
+
+            var ts = new List<Task>();
+            for (var t = 0; t < 4; t++)
             {
-                var stats0 = store.Stats;
-                Assert.IsTrue(stats0.CountAdd == 0);
-
-                var ts = new List<Task>();
-                for (var t = 0; t < 4; t++)
+                ts.Add(Task.Run(() =>
                 {
-                    ts.Add(Task.Run(() =>
+                    for (var i = 0; i < 250000; i++)
                     {
-                        for (var i = 0; i < 250000; i++)
-                        {
-                            var key = Guid.NewGuid().ToString();
-                            store.Add(key, "value");
-                        }
-                    }));
-                }
-
-                Task.WhenAll(ts).Wait();
-
-                Assert.IsTrue(store.Stats.CountAdd == 1000000);
+                        var key = Guid.NewGuid().ToString();
+                        store.Add(key, "value");
+                    }
+                }));
             }
+
+            Task.WhenAll(ts).Wait();
+
+            Assert.IsTrue(store.Stats.CountAdd == 1000000);
         }
 
         [Test]
         public void CanAddParallelDiskStore()
         {
-            using (var store = new SimpleDiskStore(TestStoreLargePath, null).Compress(CompressionLevel.Fastest))
+            using var store = new SimpleDiskStore(TestStoreLargePath).Compress(CompressionLevel.Fastest);
+            var stats0 = store.Stats;
+            Assert.IsTrue(stats0.CountAdd == 0);
+
+            var ts = new List<Task>();
+            for (var t = 0; t < 4; t++)
             {
-                var stats0 = store.Stats;
-                Assert.IsTrue(stats0.CountAdd == 0);
-                
-                var ts = new List<Task>();
-                for (var t = 0; t < 4; t++)
+                ts.Add(Task.Run(() =>
                 {
-                    ts.Add(Task.Run(() =>
+                    for (var i = 0; i < 50000; i++)
                     {
-                        for (var i = 0; i < 50000; i++)
-                        {
-                            var key = Guid.NewGuid().ToString();
-                            var data = new byte[1024];
-                            store.Add(key, data);
-                        }
-                    }));
-                }
-
-                Task.WhenAll(ts).Wait();
-
-                Assert.IsTrue(store.Stats.CountAdd == 200000);
+                        var key = Guid.NewGuid().ToString();
+                        var data = new byte[1024];
+                        store.Add(key, data);
+                    }
+                }));
             }
+
+            Task.WhenAll(ts).Wait();
+
+            Assert.IsTrue(store.Stats.CountAdd == 200000);
         }
 
         #endregion

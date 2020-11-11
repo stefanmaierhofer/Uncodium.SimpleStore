@@ -7,12 +7,16 @@ namespace Uncodium.SimpleStore.Tests
 {
     class Program
     {
-
         static void TestConcurrentCallsToFlush()
         {
             var dbDiskLocation = @"T:\teststore";
             Console.WriteLine("open store");
-            using var store = new SimpleDiskStore(dbDiskLocation);
+            using var store = new SimpleDiskStore(dbDiskLocation, lines =>
+            {
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                foreach (var line in lines) Console.WriteLine(line);
+                Console.ResetColor();
+            });
             Console.WriteLine("add many entries");
             for (var i = 0; i < 1_000_000; i++) store.Add(Guid.NewGuid().ToString(), new[] { (byte)42 });
             
@@ -49,6 +53,12 @@ namespace Uncodium.SimpleStore.Tests
             go.Set();
 
             for (var i = 0; i < 1_000_000; i++) store.Add(Guid.NewGuid().ToString(), new[] { (byte)42 });
+
+            store.Dispose();
+
+            store.Flush();
+
+            store.Dispose();
         }
 
         static void Main()

@@ -40,11 +40,12 @@ namespace Uncodium.SimpleStore
     /// </summary>
     public class SimpleDiskStore : ISimpleStore
     {
+        #region Private
+
         private readonly string m_dbDiskLocation;
         private readonly bool m_readOnlySnapshot;
         private string m_indexFilename;
         private string m_dataFilename;
-        private string m_logFilename;
 
         private Dictionary<string, (long, int)> m_dbIndex;
         private Dictionary<string, WeakReference<object>> m_dbCache;
@@ -60,17 +61,116 @@ namespace Uncodium.SimpleStore
 
         private bool m_indexHasChanged = false;
         private readonly CancellationTokenSource m_cts = new CancellationTokenSource();
+        private readonly SemaphoreSlim m_flushIndexSemaphore = new SemaphoreSlim(1);
+
+        #endregion
+
+        #region Disposal
 
         private bool m_isDisposed = false;
+        private string m_disposeStackTrace = null;
+        private bool m_loggedDisposeStackTrace = false;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void CheckDisposed() { if (m_isDisposed) throw new ObjectDisposedException(nameof(SimpleDiskStore)); }
+        private void CheckDisposed() 
+        {
+            if (m_isDisposed)
+            {
+                if (!m_loggedDisposeStackTrace)
+                {
+                    Log($"Trying to dispose store, that has already been disposed at {m_disposeStackTrace}");
+                    m_loggedDisposeStackTrace = true;
+                }
+                throw new ObjectDisposedException(nameof(SimpleDiskStore));
+            }
+        }
+
+        public void Dispose()
+        {
+            CheckDisposed();
+
+            var token = Guid.NewGuid();
+            if (!m_readOnlySnapshot) Log(
+                $"shutdown {token} (begin)"
+                );
+
+            while (true)
+            {
+                if (m_flushIndexSemaphore.Wait(1000))
+                {
+                    try
+                    {
+                        CheckDisposed();
+
+                        if (!m_readOnlySnapshot)
+                        {
+                            m_accessor.Flush();
+                            m_accessorSize.Flush();
+                            FlushIndex(isDisposing: true);
+                        }
+
+                        m_accessor.Dispose();
+                        m_accessorSize.Dispose();
+                        m_mmf.Dispose();
+                        m_cts.Cancel();
+
+                        Log(
+                            $"shutdown {token} - latest known key is {LatestKeyAdded},",
+                            $"shutdown {token} - should be the same key as indicated above in \"(2/2) flush index to disk (end)\"",
+                            $"shutdown {token} (end)"
+                            );
+
+                        return;
+                    }
+                    finally
+                    {
+                        m_flushIndexSemaphore.Release();
+                        m_disposeStackTrace = Environment.StackTrace;
+                        m_isDisposed = true;
+                    }
+                }
+                else
+                {
+                    Log($"shutdown {token} is waiting for index being flushed to disk");
+                }
+            }
+        }
+
+
+        #endregion
+
+        #region Logging
+
+        private readonly Action<string[]> f_logLines = null;
+
+        private void Log(params string[] lines)
+        {
+            if (!m_readOnlySnapshot)
+            {
+                lock (f_logLines)
+                {
+                    f_logLines(lines);
+                }
+            }
+
+#if DEBUG
+            foreach (var line in lines)
+            {
+                Console.WriteLine($"[Uncodium.SimpleDiskStore][{DateTimeOffset.Now}] {line}");
+            }
+#endif
+        }
+
+        #endregion
+
+        #region Construction
 
         /// <summary>
         /// Creates store in folder 'dbDiskLocation'.
         /// Optional set of types that will be kept alive in memory.
         /// Optionally opens current state read-only.
+        /// Optionally a logger can be supplied which replaces the default logger to log.txt.
         /// </summary>
-        private SimpleDiskStore(string dbDiskLocation, Type[] typesToKeepAlive, bool readOnlySnapshot)
+        private SimpleDiskStore(string dbDiskLocation, Type[] typesToKeepAlive, bool readOnlySnapshot, Action<string[]> logLines)
         {
             m_dbDiskLocation = dbDiskLocation;
             m_readOnlySnapshot = readOnlySnapshot;
@@ -78,22 +178,58 @@ namespace Uncodium.SimpleStore
             if (typesToKeepAlive == null) typesToKeepAlive = new Type[0];
             m_typesToKeepAlive = new HashSet<Type>(typesToKeepAlive);
 
+            if (logLines != null)
+            {
+                f_logLines = logLines;
+            }
+            else
+            {
+                var logFilename = Path.Combine(m_dbDiskLocation, "log.txt");
+                f_logLines = lines => File.AppendAllLines(logFilename, lines.Select(line => $"[{DateTimeOffset.Now}] {line}"));
+            }
+
             Init();
         }
 
         /// <summary>
         /// Creates store in folder 'dbDiskLocation'.
         /// Optional set of types that will be kept alive in memory.
+        /// Optionally opens current state read-only.
+        /// </summary>
+        private SimpleDiskStore(string dbDiskLocation, Type[] typesToKeepAlive, bool readOnlySnapshot)
+            : this(dbDiskLocation, typesToKeepAlive, readOnlySnapshot: readOnlySnapshot, logLines: null)
+        { }
+
+        /// <summary>
+        /// Creates store in folder 'dbDiskLocation'.
+        /// Optional set of types that will be kept alive in memory.
         /// </summary>
         public SimpleDiskStore(string dbDiskLocation, Type[] typesToKeepAlive) 
-            : this(dbDiskLocation, typesToKeepAlive, readOnlySnapshot: false)
+            : this(dbDiskLocation, typesToKeepAlive, readOnlySnapshot: false, logLines: null)
+        { }
+
+        /// <summary>
+        /// Creates store in folder 'dbDiskLocation'.
+        /// Optional set of types that will be kept alive in memory.
+        /// Optionally a logger can be supplied which replaces the default logger to log.txt.
+        /// </summary>
+        public SimpleDiskStore(string dbDiskLocation, Type[] typesToKeepAlive, Action<string[]> logLines)
+            : this(dbDiskLocation, typesToKeepAlive, readOnlySnapshot: false, logLines: logLines)
         { }
 
         /// <summary>
         /// Creates store in folder 'dbDiskLocation'.
         /// </summary>
         public SimpleDiskStore(string dbDiskLocation) 
-            : this(dbDiskLocation, typesToKeepAlive: null, readOnlySnapshot: false) 
+            : this(dbDiskLocation, typesToKeepAlive: null, readOnlySnapshot: false, logLines: null) 
+        { }
+
+        /// <summary>
+        /// Creates store in folder 'dbDiskLocation'.
+        /// Optionally a logger can be supplied which replaces the default logger to log.txt.
+        /// </summary>
+        public SimpleDiskStore(string dbDiskLocation, Action<string[]> logLines)
+            : this(dbDiskLocation, typesToKeepAlive: null, readOnlySnapshot: false, logLines: logLines)
         { }
 
         /// <summary>
@@ -115,7 +251,6 @@ namespace Uncodium.SimpleStore
         {
             m_indexFilename = Path.Combine(m_dbDiskLocation, "index.bin");
             m_dataFilename  = Path.Combine(m_dbDiskLocation, "data.bin");
-            m_logFilename   = Path.Combine(m_dbDiskLocation, "log.txt");
 
             var dataFileIsNewlyCreated = false;
             if (!Directory.Exists(m_dbDiskLocation)) Directory.CreateDirectory(m_dbDiskLocation);
@@ -213,6 +348,8 @@ namespace Uncodium.SimpleStore
                     );
             }
         }
+
+        #endregion
 
         /// <summary>
         /// Various counts and other statistics.
@@ -463,57 +600,6 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        public void Dispose()
-        {
-            CheckDisposed();
-
-            var token = Guid.NewGuid();
-            if (!m_readOnlySnapshot) Log(
-                $"shutdown {token} (begin)"
-                );
-
-            while (true)
-            {
-                if (m_flushIndexSemaphore.Wait(1000))
-                {
-                    try
-                    {
-                        CheckDisposed();
-
-                        if (!m_readOnlySnapshot)
-                        {
-                            m_accessor.Flush();
-                            m_accessorSize.Flush();
-                            FlushIndex(isDisposing: true);
-                        }
-
-                        m_accessor.Dispose();
-                        m_accessorSize.Dispose();
-                        m_mmf.Dispose();
-                        m_cts.Cancel();
-
-                        Log(
-                            $"shutdown {token} - latest known key is {LatestKeyAdded},",
-                            $"shutdown {token} - should be the same key as indicated above in \"(2/2) flush index to disk (end)\"",
-                            $"shutdown {token} (end)"
-                            );
-
-                        return;
-                    }
-                    finally
-                    {
-                        m_flushIndexSemaphore.Release();
-                        m_isDisposed = true;
-                    }
-                }
-                else
-                {
-                    Log($"shutdown {token} is waiting for index being flushed to disk");
-                }
-            }
-        }
-
-        private readonly SemaphoreSlim m_flushIndexSemaphore = new SemaphoreSlim(1);
         private void FlushIndex(bool isDisposing = false)
         {
             CheckDisposed();
@@ -587,24 +673,6 @@ namespace Uncodium.SimpleStore
             {
                 Log($"[WARNING] Concurrent flush attempt detected. Warning dff7d6ca-6451-4258-993a-e1448e58e3b7.");
             }
-        }
-
-        private void Log(params string[] lines)
-        {
-            if (!m_readOnlySnapshot)
-            {
-                lock (m_logFilename)
-                {
-                    File.AppendAllLines(m_logFilename, lines.Select(line => $"[{DateTimeOffset.Now}] {line}"));
-                }
-            }
-
-#if DEBUG
-            foreach (var line in lines)
-            {
-                Console.WriteLine($"[Uncodium.SimpleDiskStore][{DateTimeOffset.Now}] {line}");
-            }
-#endif
         }
     }
 }

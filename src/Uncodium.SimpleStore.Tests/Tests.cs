@@ -39,7 +39,7 @@ namespace Uncodium.SimpleStore.Tests
         [Test]
         public void CanCreateDiskStore()
         {
-            using var store = new SimpleDiskStore(TestStoreSmallPath, null);
+            using var store = new SimpleDiskStore(TestStoreSmallPath);
         }
         
         [Test]
@@ -88,7 +88,7 @@ namespace Uncodium.SimpleStore.Tests
         public void CanAddDiskStore()
         {
             var key = Guid.NewGuid().ToString();
-            using var store = new SimpleDiskStore(TestStoreSmallPath, null);
+            using var store = new SimpleDiskStore(TestStoreSmallPath);
             store.Add(key, "b", () => Encoding.UTF8.GetBytes("b"));
         }
 
@@ -96,7 +96,7 @@ namespace Uncodium.SimpleStore.Tests
         public void CanAddDiskStore2()
         {
             var key = Guid.NewGuid().ToString();
-            using var store = new SimpleDiskStore(TestStoreSmallPath, null);
+            using var store = new SimpleDiskStore(TestStoreSmallPath);
             store.Add(key, "b");
         }
 
@@ -128,7 +128,7 @@ namespace Uncodium.SimpleStore.Tests
         public void CanGetDiskStore()
         {
             var key = Guid.NewGuid().ToString();
-            using var store = new SimpleDiskStore(TestStoreSmallPath, null);
+            using var store = new SimpleDiskStore(TestStoreSmallPath);
             store.Add(key, "b", null);
             var x = store.Get(key);
             Assert.IsTrue(x == null);
@@ -138,7 +138,7 @@ namespace Uncodium.SimpleStore.Tests
         public void CanGetDiskStore2()
         {
             var key = Guid.NewGuid().ToString();
-            using var store = new SimpleDiskStore(TestStoreSmallPath, null);
+            using var store = new SimpleDiskStore(TestStoreSmallPath);
             store.Add(key, "b", () => Encoding.UTF8.GetBytes("b"));
             var x = store.Get(key);
             Assert.IsTrue(Encoding.UTF8.GetString(x) == "b");
@@ -173,7 +173,7 @@ namespace Uncodium.SimpleStore.Tests
         [Test]
         public void CanGetSliceDiskStore()
         {
-            using var store = new SimpleDiskStore(TestStoreSmallPath, null);
+            using var store = new SimpleDiskStore(TestStoreSmallPath);
             CheckGetSlice(store);
         }
 
@@ -209,7 +209,7 @@ namespace Uncodium.SimpleStore.Tests
         [Test]
         public void CanOpenReadStreamDiskStore()
         {
-            using var store = new SimpleDiskStore(TestStoreSmallPath, null);
+            using var store = new SimpleDiskStore(TestStoreSmallPath);
             CheckGetSlice(store);
         }
 
@@ -249,7 +249,7 @@ namespace Uncodium.SimpleStore.Tests
         public void CanRemoveDiskStore()
         {
             var key = Guid.NewGuid().ToString();
-            using var store = new SimpleDiskStore(TestStoreSmallPath, null);
+            using var store = new SimpleDiskStore(TestStoreSmallPath);
             store.Add(key, "b", null);
             var x = store.Get(key);
             Assert.IsTrue(x == null);
@@ -263,7 +263,7 @@ namespace Uncodium.SimpleStore.Tests
         public void CanRemoveDiskStore2()
         {
             var key = Guid.NewGuid().ToString();
-            using var store = new SimpleDiskStore(TestStoreSmallPath, null);
+            using var store = new SimpleDiskStore(TestStoreSmallPath);
             store.Add(key, "b", () => Encoding.UTF8.GetBytes("b"));
             var x = store.Get(key);
             Assert.IsTrue(Encoding.UTF8.GetString(x) == "b");
@@ -291,7 +291,7 @@ namespace Uncodium.SimpleStore.Tests
         public void CanTryGetFromCacheDiskStore()
         {
             var key = Guid.NewGuid().ToString();
-            using var store = new SimpleDiskStore(TestStoreSmallPath, null);
+            using var store = new SimpleDiskStore(TestStoreSmallPath);
             store.Add(key, "b", null);
             var x = (string)store.TryGetFromCache(key);
             Assert.IsTrue(x == "b");
@@ -329,7 +329,7 @@ namespace Uncodium.SimpleStore.Tests
         [Test]
         public void CanAddParallelDiskStore()
         {
-            using var store = new SimpleDiskStore(TestStoreLargePath, null);
+            using var store = new SimpleDiskStore(TestStoreLargePath);
             var stats0 = store.Stats;
             Assert.IsTrue(stats0.CountAdd == 0);
 
@@ -355,7 +355,7 @@ namespace Uncodium.SimpleStore.Tests
         [Test]
         public void CanAddAndGetMultiThreadedDiskStore()
         {
-            using var store = new SimpleDiskStore(TestStoreLargePath, null);
+            using var store = new SimpleDiskStore(TestStoreLargePath);
             var stats0 = store.Stats;
 
             var keys = new List<string>();
