@@ -26,3 +26,4 @@ obj/
 /.paket/Paket.Restore.targets
 /src/teststore*
 /.paket/.store
+.ionide
