@@ -31,7 +31,9 @@ namespace Uncodium.SimpleStore
         public long CountAdd;
         public long CountContains;
         public long CountGet;
+        public long CountGetWithException;
         public long CountGetSlice;
+        public long CountGetSliceWithException;
         public long CountOpenReadStream;
         public long CountGetInvalidKey;
         public long CountGetCacheHit;

@@ -461,13 +461,26 @@ namespace Uncodium.SimpleStore
 
             lock (m_dbDiskLocation)
             {
-                if (m_dbIndex.TryGetValue(key, out (long, int) entry))
+                if (m_dbIndex.TryGetValue(key, out (long offset, int size) entry))
                 {
-                    var buffer = new byte[entry.Item2];
-                    var readcount = m_accessor.ReadArray(entry.Item1, buffer, 0, buffer.Length);
-                    if (readcount != buffer.Length) throw new InvalidOperationException();
-                    Interlocked.Increment(ref m_stats.CountGet);
-                    return buffer;
+                    try
+                    {
+                        var buffer = new byte[entry.size];
+                        var readcount = m_accessor.ReadArray(entry.offset, buffer, 0, buffer.Length);
+                        if (readcount != buffer.Length) throw new InvalidOperationException();
+                        Interlocked.Increment(ref m_stats.CountGet);
+                        return buffer;
+                    }
+                    catch (Exception e)
+                    {
+                        var count = Interlocked.Increment(ref m_stats.CountGetWithException);
+                        Log($"[CRITICAL ERROR] Get(key={key}) failed.",
+                            $"[CRITICAL ERROR] entry = {{offset={entry.offset}, size={entry.size}}}",
+                            $"[CRITICAL ERROR] So far, {count} Get-calls failed.",
+                            $"[CRITICAL ERROR] exception = {e}"
+                            );
+                        return null;
+                    }
                 }
                 else
                 {
@@ -490,16 +503,29 @@ namespace Uncodium.SimpleStore
 
             lock (m_dbDiskLocation)
             {
-                if (m_dbIndex.TryGetValue(key, out (long, int) entry))
+                if (m_dbIndex.TryGetValue(key, out (long offset, int size) entry))
                 {
-                    if (offset >= entry.Item2) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be less than length of value buffer.");
-                    if (offset + length > entry.Item2) throw new ArgumentOutOfRangeException(nameof(offset), "Offset + size exceeds length of value buffer.");
+                    if (offset >= entry.size) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be less than length of value buffer.");
+                    if (offset + length > entry.size) throw new ArgumentOutOfRangeException(nameof(offset), "Offset + size exceeds length of value buffer.");
 
-                    var buffer = new byte[length];
-                    var readcount = m_accessor.ReadArray(entry.Item1 + offset, buffer, 0, length);
-                    if (readcount != length) throw new InvalidOperationException();
-                    Interlocked.Increment(ref m_stats.CountGetSlice);
-                    return buffer;
+                    try
+                    {
+                        var buffer = new byte[length];
+                        var readcount = m_accessor.ReadArray(entry.offset + offset, buffer, 0, length);
+                        if (readcount != length) throw new InvalidOperationException();
+                        Interlocked.Increment(ref m_stats.CountGetSlice);
+                        return buffer;
+                    }
+                    catch (Exception e)
+                    {
+                        var count = Interlocked.Increment(ref m_stats.CountGetSliceWithException);
+                        Log($"[CRITICAL ERROR] GetSlice(key={key}, offset={offset}, length={length}) failed.",
+                            $"[CRITICAL ERROR] entry = {{offset={entry.offset}, size={entry.size}}}",
+                            $"[CRITICAL ERROR] So far, {count} GetSlice-calls failed.",
+                            $"[CRITICAL ERROR] exception = {e}"
+                            );
+                        return null;
+                    }
                 }
                 else
                 {
