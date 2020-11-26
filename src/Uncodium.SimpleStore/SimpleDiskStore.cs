@@ -60,8 +60,8 @@ namespace Uncodium.SimpleStore
         private Stats m_stats;
 
         private bool m_indexHasChanged = false;
-        private readonly CancellationTokenSource m_cts = new CancellationTokenSource();
-        private readonly SemaphoreSlim m_flushIndexSemaphore = new SemaphoreSlim(1);
+        private readonly CancellationTokenSource m_cts = new();
+        private readonly SemaphoreSlim m_flushIndexSemaphore = new(1);
 
         #endregion
 
@@ -90,7 +90,10 @@ namespace Uncodium.SimpleStore
 
             var token = Guid.NewGuid();
             if (!m_readOnlySnapshot) Log(
-                $"shutdown {token} (begin)"
+                $"",
+                $"shutdown {token} (begin)",
+                $"reserved space        : {m_dataSize,20:N0} bytes",
+                $"used space            : {m_dataPos,20:N0} bytes"
                 );
 
             while (true)
@@ -238,14 +241,14 @@ namespace Uncodium.SimpleStore
         /// Optional set of types that will be kept alive in memory.
         /// </summary>
         public static SimpleDiskStore OpenReadOnlySnapshot(string dbDiskLocation, Type[] typesToKeepAlive)
-            => new SimpleDiskStore(dbDiskLocation, typesToKeepAlive, readOnlySnapshot: true);
+            => new(dbDiskLocation, typesToKeepAlive, readOnlySnapshot: true);
 
         /// <summary>
         /// Opens store in folder 'dbDiskLocation' in read-only snapshot mode.
         /// This means that no store entries that are added after the call to OpenReadOnlySnapshot will be(come) visible.
         /// </summary>
         public static SimpleDiskStore OpenReadOnlySnapshot(string dbDiskLocation)
-            => new SimpleDiskStore(dbDiskLocation, typesToKeepAlive: null, readOnlySnapshot: true);
+            => new(dbDiskLocation, typesToKeepAlive: null, readOnlySnapshot: true);
 
         private void Init()
         {
@@ -261,11 +264,11 @@ namespace Uncodium.SimpleStore
             }
 
             Log(
-                "",
-                "================================",
-                "          starting up           ",
-                "================================",
-                ""
+                $"",
+                $"====================================",
+                $"  starting up (version {Global.Version})",
+                $"====================================",
+                $""
                 );
 
             m_dbCache = new Dictionary<string, WeakReference<object>>();
@@ -343,8 +346,8 @@ namespace Uncodium.SimpleStore
                 m_accessor = m_mmf.CreateViewAccessor(8, m_dataSize);
                 m_dataPos = dataFileIsNewlyCreated ? 0L : m_accessorSize.ReadInt64(0);
                 Log(
-                    $"reserved space        : {m_dataSize:N0} bytes",
-                    $"current write position: {m_dataPos:N0}"
+                    $"reserved space        : {m_dataSize,20:N0} bytes",
+                    $"used space            : {m_dataPos,20:N0} bytes"
                     );
             }
         }
@@ -366,6 +369,21 @@ namespace Uncodium.SimpleStore
         /// Gets latest key flushed to disk.
         /// </summary>
         public string LatestKeyFlushed { get; private set; }
+
+        /// <summary>
+        /// Total bytes used for blob storage.
+        /// </summary>
+        public long GetUsedBytes() => m_dataPos;
+
+        /// <summary>
+        /// Total bytes reserved for blob storage.
+        /// </summary>
+        public long GetReservedBytes() => m_dataSize;
+
+        /// <summary>
+        /// Current version.
+        /// </summary>
+        public string Version => Global.Version;
 
         /// <summary>
         /// Adds key/value pair to store.

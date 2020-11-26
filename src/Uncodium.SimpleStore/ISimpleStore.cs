@@ -28,7 +28,6 @@ using System.IO;
 namespace Uncodium.SimpleStore
 {
     /// <summary>
-    /// 
     /// </summary>
     public interface ISimpleStore : IDisposable
     {
@@ -96,5 +95,20 @@ namespace Uncodium.SimpleStore
         /// In SimpleMemoryStore this is memory, so LatestKeyFlushed is always identical to LatestKeyAdded.
         /// </summary>
         string LatestKeyFlushed { get; }
+
+        /// <summary>
+        /// Total bytes used for blob storage.
+        /// </summary>
+        long GetUsedBytes();
+
+        /// <summary>
+        /// Total bytes reserved for blob storage.
+        /// </summary>
+        long GetReservedBytes();
+
+        /// <summary>
+        /// Current version.
+        /// </summary>
+        string Version { get; }
     }
 }

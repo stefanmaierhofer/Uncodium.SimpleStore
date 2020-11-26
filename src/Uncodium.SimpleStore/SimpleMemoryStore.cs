@@ -58,6 +58,8 @@ namespace Uncodium.SimpleStore
 
         public string LatestKeyFlushed { get; private set; }
 
+        public string Version => Global.Version;
+
         public void Add(string key, object value, Func<byte[]> getEncodedValue = null)
         {
             CheckDisposed();
@@ -208,5 +210,9 @@ namespace Uncodium.SimpleStore
             CheckDisposed();
             m_isDisposed = true;
         }
+
+        public long GetUsedBytes() => m_db.Values.Select(f => f().Length).Sum();
+
+        public long GetReservedBytes() => GetUsedBytes();
     }
 }

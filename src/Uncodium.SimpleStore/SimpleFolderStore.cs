@@ -26,6 +26,7 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 
@@ -62,6 +63,13 @@ namespace Uncodium.SimpleStore
         public string LatestKeyAdded { get; private set; }
 
         public string LatestKeyFlushed { get; private set; }
+
+        public long GetUsedBytes() 
+            => Directory.EnumerateFiles(Folder).Select(s => new FileInfo(s).Length).Sum();
+
+        public long GetReservedBytes() => GetUsedBytes();
+
+        public string Version => Global.Version;
 
         public void Add(string key, object value, Func<byte[]> getEncodedValue)
         {

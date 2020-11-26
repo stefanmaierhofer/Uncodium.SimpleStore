@@ -50,6 +50,8 @@ namespace Uncodium.SimpleStore
 
         public string LatestKeyFlushed => m_store.LatestKeyFlushed;
 
+        public string Version => m_store.Version;
+
         public void Add(string key, object value, Func<byte[]> getEncodedValue)
         {
             if (getEncodedValue == null)
@@ -122,5 +124,9 @@ namespace Uncodium.SimpleStore
         }
 
         public void Dispose() => m_store.Dispose();
+
+        public long GetUsedBytes() => m_store.GetUsedBytes();
+
+        public long GetReservedBytes() => GetUsedBytes();
     }
 }

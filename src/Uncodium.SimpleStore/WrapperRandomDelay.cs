@@ -35,7 +35,7 @@ namespace Uncodium.SimpleStore
     /// </summary>
     public class WrapperRandomDelay : ISimpleStore
     {
-        private readonly Random m_random = new Random();
+        private readonly Random m_random = new();
         private readonly ISimpleStore m_store;
         private readonly double m_dtStats;
         private readonly double m_dtAdd;
@@ -74,6 +74,8 @@ namespace Uncodium.SimpleStore
         public string LatestKeyAdded => m_store.LatestKeyAdded;
 
         public string LatestKeyFlushed => m_store.LatestKeyFlushed;
+
+        public string Version => m_store.Version;
 
         public void Add(string key, object value, Func<byte[]> getEncodedValue)
         {
@@ -126,5 +128,17 @@ namespace Uncodium.SimpleStore
         }
 
         public void Dispose() => m_store.Dispose();
+
+        public long GetUsedBytes()
+        {
+            Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtFlush));
+            return m_store.GetUsedBytes();
+        }
+
+        public long GetReservedBytes()
+        {
+            Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtFlush));
+            return m_store.GetReservedBytes();
+        }
     }
 }

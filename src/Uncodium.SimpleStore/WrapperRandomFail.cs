@@ -34,7 +34,7 @@ namespace Uncodium.SimpleStore
     /// </summary>
     public class WrapperRandomFail : ISimpleStore
     {
-        private readonly Random m_random = new Random();
+        private readonly Random m_random = new();
         private readonly ISimpleStore m_store;
         private readonly double m_pStats;
         private readonly double m_pAdd;
@@ -65,6 +65,8 @@ namespace Uncodium.SimpleStore
         public string LatestKeyAdded => m_store.LatestKeyAdded;
 
         public string LatestKeyFlushed => m_store.LatestKeyFlushed;
+
+        public string Version => m_store.Version;
 
         public void Add(string key, object value, Func<byte[]> getEncodedValue)
         {
@@ -102,5 +104,11 @@ namespace Uncodium.SimpleStore
         }
 
         public void Dispose() => m_store.Dispose();
+
+        public long GetUsedBytes()
+            => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetUsedBytes();
+
+        public long GetReservedBytes()
+            => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetReservedBytes();
     }
 }
