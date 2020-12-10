@@ -317,6 +317,10 @@ namespace Uncodium.SimpleStore
             else
             {
                 m_dbIndex = new Dictionary<string, (long, int)>();
+
+                using var f = File.Open(m_indexFilename, FileMode.Create, FileAccess.Write, FileShare.Read);
+                using var bw = new BinaryWriter(f);
+                bw.Write(m_dbIndex.Count);
             }
 
             m_dataSize = new FileInfo(m_dataFilename).Length;

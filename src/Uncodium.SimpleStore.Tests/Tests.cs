@@ -43,9 +43,25 @@ namespace Uncodium.SimpleStore.Tests
         }
         
         [Test]
-        public void CanCreateDiskStore2()
+        public void DiskStoreCreatesIndexFileImmediatelyOnStoreCreation()
         {
-            using var store = new SimpleDiskStore(TestStoreSmallPath);
+            var folder = Path.GetFullPath($"store_{Guid.NewGuid()}");
+
+            try
+            {
+                var store = new SimpleDiskStore(folder);
+                Assert.True(File.Exists(Path.Combine(folder, "index.bin")));
+                store.Dispose();
+
+                var store2 = new SimpleDiskStore(folder);
+                Assert.True(store2.SnapshotKeys().Length == 0);
+                store2.Dispose();
+
+            }
+            finally
+            {
+                Directory.Delete(folder, true);
+            }
         }
 
         [Test]
