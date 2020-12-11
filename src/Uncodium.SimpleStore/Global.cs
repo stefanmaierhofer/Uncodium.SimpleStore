@@ -8,6 +8,6 @@
         /// <summary>
         /// Current version.
         /// </summary>
-        public const string Version = "2.1.8";
+        public const string Version = "2.1.10";
     }
 }

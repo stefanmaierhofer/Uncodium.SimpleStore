@@ -31,6 +31,7 @@ using System.IO;
 using System.IO.MemoryMappedFiles;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices.ComTypes;
 using System.Threading;
 
 namespace Uncodium.SimpleStore
@@ -340,14 +341,14 @@ namespace Uncodium.SimpleStore
                 }
 
                 m_accessorSize = m_mmf.CreateViewAccessor(0, 8, MemoryMappedFileAccess.Read);
-                m_accessor = m_mmf.CreateViewAccessor(8, m_dataSize, MemoryMappedFileAccess.Read);
+                m_accessor = m_mmf.CreateViewAccessor(8, m_dataSize - 8, MemoryMappedFileAccess.Read);
                 m_dataPos = 0L;
             }
             else
             {
                 m_mmf = MemoryMappedFile.CreateFromFile(m_dataFilename, FileMode.OpenOrCreate, mapName, 8 + m_dataSize, MemoryMappedFileAccess.ReadWrite);
                 m_accessorSize = m_mmf.CreateViewAccessor(0, 8);
-                m_accessor = m_mmf.CreateViewAccessor(8, m_dataSize);
+                m_accessor = m_mmf.CreateViewAccessor(8, m_dataSize - 8);
                 m_dataPos = dataFileIsNewlyCreated ? 0L : m_accessorSize.ReadInt64(0);
                 Log(
                     $"reserved space        : {m_dataSize,20:N0} bytes",
@@ -355,6 +356,84 @@ namespace Uncodium.SimpleStore
                     );
             }
         }
+
+        #endregion
+
+        #region Memory-mapped file
+
+        private bool m_mmfIsClosedForResize = false;
+        public bool SimulateFullDiskOnNextResize { get; set; }
+
+        private void EnsureSpaceFor(long numberOfBytes)
+        {
+            if (SimulateFullDiskOnNextResize || m_dataPos + numberOfBytes > m_dataSize)
+            {
+                try
+                {
+                    if (m_dataSize < 1024 * 1024 * 1024)
+                    {
+                        m_dataSize *= 2;
+                    }
+                    else
+                    {
+                        m_dataSize += 1024 * 1024 * 1024;
+                    }
+
+                    Log($"resize data file to {m_dataSize / (1024 * 1024 * 1024.0):0.000} GiB");
+                    lock (m_dbDiskLocation)
+                    {
+                        m_accessorSize.Dispose(); m_accessor.Dispose(); m_mmf.Dispose();
+                        m_mmfIsClosedForResize = true;
+                        ReOpenMemoryMappedFile();
+                    }
+                }
+                catch (Exception e)
+                {
+                    Log(
+                        $"[CRITICAL ERROR] Exception occured while resizing disk store.",
+                        $"[CRITICAL ERROR] Error ada9ed54-d748-4aef-b922-0bf93468fad8.",
+                        $"[CRITICAL ERROR] {e}"
+                    );
+
+                    throw;
+                }
+            }
+        }
+
+        private void ReOpenMemoryMappedFile()
+        {
+            lock (m_dbDiskLocation)
+            {
+                if (m_mmfIsClosedForResize)
+                {
+                    var capacity = 8 + m_dataSize;
+
+                    if (SimulateFullDiskOnNextResize)
+                    {
+                        var driveName = Path.GetFullPath(m_dataFilename)[0].ToString();
+                        var freeSpaceInBytes = new DriveInfo(driveName).AvailableFreeSpace;
+                        capacity = freeSpaceInBytes * 2; // force out of space
+                    }
+
+
+                    m_mmf = MemoryMappedFile.CreateFromFile(m_dataFilename, FileMode.OpenOrCreate, null, capacity, MemoryMappedFileAccess.ReadWrite);
+                    m_accessorSize = m_mmf.CreateViewAccessor(0, 8);
+                    m_accessor = m_mmf.CreateViewAccessor(8, capacity - 8);
+
+                    m_mmfIsClosedForResize = false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// If mmf is closed because a previous resize failed due to insufficient disk space,
+        /// this will retry to open the mmf (maybe there is more disk space now).
+        /// </summary>
+        private void EnsureMemoryMappedFileIsOpen()
+        {
+            if (m_mmfIsClosedForResize) ReOpenMemoryMappedFile();
+        }
+
 
         #endregion
 
@@ -417,35 +496,9 @@ namespace Uncodium.SimpleStore
 
             lock (m_dbDiskLocation)
             {
-                if (m_dataPos + buffer.Length > m_dataSize)
-                {
-                    try
-                    {
-                        if (m_dataSize < 1024 * 1024 * 1024)
-                        {
-                            m_dataSize *= 2;
-                        }
-                        else
-                        {
-                            m_dataSize += 1024 * 1024 * 1024;
-                        }
-                        Log($"resize data file to {m_dataSize / (1024 * 1024 * 1024.0):0.000} GiB");
-                        m_accessorSize.Dispose(); m_accessor.Dispose(); m_mmf.Dispose();
-                        m_mmf = MemoryMappedFile.CreateFromFile(m_dataFilename, FileMode.OpenOrCreate, null, 8 + m_dataSize, MemoryMappedFileAccess.ReadWrite);
-                        m_accessorSize = m_mmf.CreateViewAccessor(0, 8);
-                        m_accessor = m_mmf.CreateViewAccessor(8, m_dataSize);
-                    }
-                    catch (Exception e)
-                    {
-                        Log(
-                            $"[CRITICAL ERROR] Exception occured while resizing disk store.",
-                            $"[CRITICAL ERROR] Error ada9ed54-d748-4aef-b922-0bf93468fad8.",
-                            $"[CRITICAL ERROR] {e}"
-                        );
+                EnsureMemoryMappedFileIsOpen();
+                EnsureSpaceFor(numberOfBytes: buffer.Length);
 
-                        throw;
-                    }
-                }
                 m_accessor.WriteArray(m_dataPos, buffer, 0, buffer.Length);
                 m_dbIndex[key] = (m_dataPos, buffer.Length);
                 m_indexHasChanged = true;
@@ -466,6 +519,7 @@ namespace Uncodium.SimpleStore
             bool result;
             lock (m_dbDiskLocation)
             {
+                EnsureMemoryMappedFileIsOpen();
                 result = m_dbIndex.ContainsKey(key);
                 m_indexHasChanged = true;
             }
@@ -483,6 +537,7 @@ namespace Uncodium.SimpleStore
 
             lock (m_dbDiskLocation)
             {
+                EnsureMemoryMappedFileIsOpen();
                 if (m_dbIndex.TryGetValue(key, out (long offset, int size) entry))
                 {
                     try
@@ -525,6 +580,7 @@ namespace Uncodium.SimpleStore
 
             lock (m_dbDiskLocation)
             {
+                EnsureMemoryMappedFileIsOpen();
                 if (m_dbIndex.TryGetValue(key, out (long offset, int size) entry))
                 {
                     if (offset >= entry.size) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be less than length of value buffer.");
@@ -567,6 +623,7 @@ namespace Uncodium.SimpleStore
 
             lock (m_dbDiskLocation)
             {
+                EnsureMemoryMappedFileIsOpen();
                 if (m_dbIndex.TryGetValue(key, out (long, int) entry))
                 {
                     return m_mmf.CreateViewStream(8 + entry.Item1, entry.Item2, MemoryMappedFileAccess.Read);
@@ -589,6 +646,7 @@ namespace Uncodium.SimpleStore
             if (m_readOnlySnapshot) throw new InvalidOperationException("Read-only store does not support remove.");
             lock (m_dbDiskLocation)
             {
+                EnsureMemoryMappedFileIsOpen();
                 m_dbIndex.Remove(key);
                 m_indexHasChanged = true;
             }
@@ -642,9 +700,13 @@ namespace Uncodium.SimpleStore
             }
             else
             {
-                m_accessor.Flush();
-                m_accessorSize.Flush();
-                FlushIndex();
+                lock (m_dbDiskLocation)
+                {
+                    EnsureMemoryMappedFileIsOpen();
+                    m_accessor.Flush();
+                    m_accessorSize.Flush();
+                    FlushIndex();
+                }
             }
         }
 
