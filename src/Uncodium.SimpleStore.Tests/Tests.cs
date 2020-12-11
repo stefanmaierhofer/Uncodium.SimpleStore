@@ -68,7 +68,8 @@ namespace Uncodium.SimpleStore.Tests
         public void CanOpenDiskStoreTwiceReadonly()
         {
             using var store = new SimpleDiskStore(TestStoreSmallPath);
-            using var storeReadOnly = SimpleDiskStore.OpenReadOnlySnapshot(TestStoreSmallPath);
+            using var storeReadOnly1 = SimpleDiskStore.OpenReadOnlySnapshot(TestStoreSmallPath);
+            using var storeReadOnly2 = SimpleDiskStore.OpenReadOnlySnapshot(TestStoreSmallPath);
         }
 
         [Test]
