@@ -31,7 +31,6 @@ using System.IO;
 using System.IO.MemoryMappedFiles;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices.ComTypes;
 using System.Threading;
 
 namespace Uncodium.SimpleStore
@@ -43,19 +42,116 @@ namespace Uncodium.SimpleStore
     {
         #region Private
 
+        private class Header
+        {
+            public const int DefaultHeaderSizeInBytes = 1024;
+            public const int DefaultIndexPageSizeInBytes = 64 * 1024;
+            public static readonly Guid MagicBytesVersion1 = Guid.Parse("ff682f91-ad99-4135-a5d4-15ef97ed7cde");
+
+            private readonly MemoryMappedViewAccessor m_accessor;
+            private readonly long m_offset;
+
+            // [ 0] 16 bytes
+            public Guid MagicBytes
+            {
+                get { m_accessor.Read(m_offset, out Guid x); return x; }
+                //set => m_accessor.Write(m_offset, ref value);
+            }
+            // [16] 4 bytes
+            public int HeaderSizeInBytes
+            {
+                get => m_accessor.ReadInt32(m_offset + 16);
+                //set => m_accessor.Write(m_offset + 16, value);
+            }
+            // [20] 4 bytes
+            public int IndexPageSizeInBytes
+            {
+                get => m_accessor.ReadInt32(m_offset + 20);
+                //set => m_accessor.Write(m_offset + 20, value);
+            }
+            // [24] 8 bytes
+            public long TotalFileSize
+            {
+                get => m_accessor.ReadInt64(m_offset + 24);
+                set => m_accessor.Write(m_offset + 24, value);
+            }
+            // [32] 8 bytes
+            public long TotalIndexEntries
+            {
+                get => m_accessor.ReadInt64(m_offset + 32);
+                set => m_accessor.Write(m_offset + 32, value);
+            }
+            // [40] 8 bytes
+            public long DataCursorOffset
+            {
+                get => m_accessor.ReadInt64(m_offset + 40);
+                set => m_accessor.Write(m_offset + 40, value);
+            }
+            // [48] 8 bytes
+            public long IndexRootPageOffset
+            {
+                get => m_accessor.ReadInt64(m_offset + 48);
+                set => m_accessor.Write(m_offset + 48, value);
+            }
+            // [56] 16 bytes (8 + 8)
+            public DateTimeOffset Created
+            {
+                get => new(m_accessor.ReadInt64(m_offset + 56), new TimeSpan(m_accessor.ReadInt64(m_offset + 64)));
+                //set { m_accessor.Write(m_offset + 56, Created.Ticks); m_accessor.Write(m_offset + 64, Created.Offset.Ticks); }
+            }
+
+            public Header(MemoryMappedViewAccessor accessor)
+            {
+                m_accessor = accessor;
+                m_offset = m_accessor.ReadInt64(0L);
+
+                var magicBuffer = new byte[16];
+                if (m_accessor.ReadArray(m_offset, magicBuffer, 0, 16) != 16) throw new Exception("Reading header failed.");
+                if (new Guid(magicBuffer) != MagicBytesVersion1) throw new Exception("Header does not start with magic bytes.");
+            }
+
+            /// <summary>
+            /// Returns file size in bytes.
+            /// </summary>
+            public static void CreateEmptyDataFile(string dataFileName)
+            {
+                using var f = File.Open(dataFileName, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                using var w = new BinaryWriter(f);
+
+                var indexRootPageOffset = 8L + DefaultHeaderSizeInBytes;
+                var cursorPos           = 8L + DefaultHeaderSizeInBytes + DefaultIndexPageSizeInBytes;
+                var totalFileSize       = 8L + DefaultHeaderSizeInBytes + DefaultIndexPageSizeInBytes;
+                var totalIndexEntries   = 0L;
+
+                w.Write(8L);                                // header offset (in bytes)
+                w.Write(MagicBytesVersion1.ToByteArray());  // MagicBytesVersion1
+                w.Write(DefaultHeaderSizeInBytes);          // HeaderSizeInBytes
+                w.Write(DefaultIndexPageSizeInBytes);       // IndexPageSizeInBytes
+                w.Write(totalFileSize);                     // TotalFileSize
+                w.Write(totalIndexEntries);                 // TotalIndexEntries
+                w.Write(cursorPos);                         // CursorPos
+                w.Write(indexRootPageOffset);               // IndexPos
+                w.Write(DateTimeOffset.Now.Ticks);          // Created.Ticks
+                w.Write(DateTimeOffset.Now.Offset.Ticks);   //        .Offset
+
+                w.BaseStream.Position = indexRootPageOffset;
+                w.Write(new byte[DefaultIndexPageSizeInBytes]);
+
+                w.Flush();
+            }
+        }
+
         private readonly string m_dbDiskLocation;
         private readonly bool m_readOnlySnapshot;
-        private string m_indexFilename;
-        private string m_dataFilename;
+        private string m_indexFilenameObsolete;
+        private string m_dataFileName;
 
         private Dictionary<string, (long, int)> m_dbIndex;
         private Dictionary<string, WeakReference<object>> m_dbCache;
         private HashSet<object> m_dbCacheKeepAlive;
         private readonly HashSet<Type> m_typesToKeepAlive;
-        private long m_dataSize;
-        private long m_dataPos;
+        private Header m_header;
         private MemoryMappedFile m_mmf;
-        private MemoryMappedViewAccessor m_accessorSize;
         private MemoryMappedViewAccessor m_accessor;
 
         private Stats m_stats;
@@ -93,8 +189,8 @@ namespace Uncodium.SimpleStore
             if (!m_readOnlySnapshot) Log(
                 $"",
                 $"shutdown {token} (begin)",
-                $"reserved space        : {m_dataSize,20:N0} bytes",
-                $"used space            : {m_dataPos,20:N0} bytes"
+                $"reserved space        : {m_header.TotalFileSize,20:N0} bytes",
+                $"used space            : {m_header.DataCursorOffset,20:N0} bytes (including index)"
                 );
 
             while (true)
@@ -108,12 +204,9 @@ namespace Uncodium.SimpleStore
                         if (!m_readOnlySnapshot)
                         {
                             m_accessor.Flush();
-                            m_accessorSize.Flush();
-                            FlushIndex(isDisposing: true);
                         }
 
                         m_accessor.Dispose();
-                        m_accessorSize.Dispose();
                         m_mmf.Dispose();
                         m_cts.Cancel();
 
@@ -138,7 +231,6 @@ namespace Uncodium.SimpleStore
                 }
             }
         }
-
 
         #endregion
 
@@ -166,7 +258,9 @@ namespace Uncodium.SimpleStore
 
         #endregion
 
-        #region Construction
+        #region Creation
+
+        #region Constructors
 
         /// <summary>
         /// Creates store in folder 'dbDiskLocation'.
@@ -251,17 +345,61 @@ namespace Uncodium.SimpleStore
         public static SimpleDiskStore OpenReadOnlySnapshot(string dbDiskLocation)
             => new(dbDiskLocation, typesToKeepAlive: null, readOnlySnapshot: true);
 
+        #endregion
+
+        private void ParseDeprecatedIndexFile(string indexFileName)
+        {
+            Log("parsing deprecated index file ...");
+            using var f = File.Open(indexFileName, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var br = new BinaryReader(f);
+            var count = 0;
+            var i = 0;
+            var key = string.Empty;
+            var offset = 0L;
+            var size = 0;
+            try
+            {
+                count = br.ReadInt32();
+                Log($"entries: {count:N0}");
+                var sw = new Stopwatch(); sw.Start();
+                m_dbIndex = new Dictionary<string, (long, int)>(count);
+                for (i = 0; i < count; i++)
+                {
+                    key = br.ReadString();
+                    offset = br.ReadInt64();
+                    size = br.ReadInt32();
+
+                    m_dbIndex[key] = (offset, size);
+                }
+                sw.Stop();
+                Log(
+                    $"read existing index in {sw.Elapsed}",
+                    $"that's appr. {(int)(count / sw.Elapsed.TotalSeconds):N0} entries/second"
+                    );
+            }
+            catch (Exception e)
+            {
+                Log(
+                    $"[CRITICAL ERROR] Damaged index file {indexFileName}",
+                    $"[CRITICAL ERROR] Error a7814485-0e86-422e-92f0-9a4a31216a27.",
+                    $"[CRITICAL ERROR] Could read {i:N0}/{count:N0} index entries.",
+                    $"[CRITICAL ERROR] Last entry: {key} @ +{offset:N0} with size {size:N0} bytes.",
+                    $"[CRITICAL ERROR] {e}"
+                );
+            }
+        }
+
         private void Init()
         {
-            m_indexFilename = Path.Combine(m_dbDiskLocation, "index.bin");
-            m_dataFilename  = Path.Combine(m_dbDiskLocation, "data.bin");
+            m_indexFilenameObsolete = Path.Combine(m_dbDiskLocation, "index.bin");
+            m_dataFileName  = Path.Combine(m_dbDiskLocation, "data.bin");
 
-            var dataFileIsNewlyCreated = false;
             if (!Directory.Exists(m_dbDiskLocation)) Directory.CreateDirectory(m_dbDiskLocation);
-            if (!File.Exists(m_dataFilename))
+
+            if (!File.Exists(m_dataFileName))
             {
-                File.WriteAllBytes(m_dataFilename, new byte[0]);
-                dataFileIsNewlyCreated = true;
+                Header.CreateEmptyDataFile(m_dataFileName);
+                m_dbIndex = new Dictionary<string, (long, int)>();
             }
 
             Log(
@@ -274,85 +412,39 @@ namespace Uncodium.SimpleStore
 
             m_dbCache = new Dictionary<string, WeakReference<object>>();
             m_dbCacheKeepAlive = new HashSet<object>();
-            if (File.Exists(m_indexFilename))
-            {
-                Log("read existing index ...");
-                using var f = File.Open(m_indexFilename, FileMode.Open, FileAccess.Read, FileShare.Read);
-                using var br = new BinaryReader(f);
-                var count = 0;
-                var i = 0;
-                var key = string.Empty;
-                var offset = 0L;
-                var size = 0;
-                try
-                {
-                    count = br.ReadInt32();
-                    Log($"entries: {count:N0}");
-                    var sw = new Stopwatch(); sw.Start();
-                    m_dbIndex = new Dictionary<string, (long, int)>(count);
-                    for (i = 0; i < count; i++)
-                    {
-                        key = br.ReadString();
-                        offset = br.ReadInt64();
-                        size = br.ReadInt32();
 
-                        m_dbIndex[key] = (offset, size);
-                    }
-                    sw.Stop();
-                    Log(
-                        $"read existing index in {sw.Elapsed}",
-                        $"that's appr. {(int)(count/sw.Elapsed.TotalSeconds):N0} entries/second"
-                        );
-                }
-                catch (Exception e)
-                {
-                    Log(
-                        $"[CRITICAL ERROR] Damaged index file {m_indexFilename}",
-                        $"[CRITICAL ERROR] Error a7814485-0e86-422e-92f0-9a4a31216a27.",
-                        $"[CRITICAL ERROR] Could read {i:N0}/{count:N0} index entries.",
-                        $"[CRITICAL ERROR] Last entry: {key} @ +{offset:N0} with size {size:N0} bytes.",
-                        $"[CRITICAL ERROR] {e}"
-                    );
-                }
-            }
-            else
+            if (File.Exists(m_indexFilenameObsolete))
             {
-                m_dbIndex = new Dictionary<string, (long, int)>();
-
-                using var f = File.Open(m_indexFilename, FileMode.Create, FileAccess.Write, FileShare.Read);
-                using var bw = new BinaryWriter(f);
-                bw.Write(m_dbIndex.Count);
+                ParseDeprecatedIndexFile(m_indexFilenameObsolete);
+                throw new NotImplementedException("Convert index to new format.");
             }
 
-            m_dataSize = new FileInfo(m_dataFilename).Length;
-            if (m_dataSize == 0) m_dataSize = 1024 * 1024; else m_dataSize -= 8;
+            var totalDataFileSizeInBytes = new FileInfo(m_dataFileName).Length;
 
-            var mapName = m_dataFilename.ToMd5Hash().ToString();
+            var mapName = m_dataFileName.ToMd5Hash().ToString();
 
             if (m_readOnlySnapshot)
             {
                 try
                 {
-                    m_mmf = MemoryMappedFile.CreateFromFile(m_dataFilename, FileMode.Open, mapName, 8 + m_dataSize, MemoryMappedFileAccess.Read);
+                    m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.Open, mapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.Read);
                 }
                 catch
                 {
                     m_mmf = MemoryMappedFile.OpenExisting(mapName, MemoryMappedFileRights.Read);
                 }
 
-                m_accessorSize = m_mmf.CreateViewAccessor(0, 8, MemoryMappedFileAccess.Read);
-                m_accessor = m_mmf.CreateViewAccessor(8, m_dataSize - 8, MemoryMappedFileAccess.Read);
-                m_dataPos = 0L;
+                m_accessor = m_mmf.CreateViewAccessor(0, totalDataFileSizeInBytes, MemoryMappedFileAccess.Read);
+                m_header = new (m_accessor);
             }
             else
             {
-                m_mmf = MemoryMappedFile.CreateFromFile(m_dataFilename, FileMode.OpenOrCreate, mapName, 8 + m_dataSize, MemoryMappedFileAccess.ReadWrite);
-                m_accessorSize = m_mmf.CreateViewAccessor(0, 8);
-                m_accessor = m_mmf.CreateViewAccessor(8, m_dataSize - 8);
-                m_dataPos = dataFileIsNewlyCreated ? 0L : m_accessorSize.ReadInt64(0);
+                m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.OpenOrCreate, mapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.ReadWrite);
+                m_accessor = m_mmf.CreateViewAccessor(0, totalDataFileSizeInBytes);
+                m_header = new (m_accessor);
                 Log(
-                    $"reserved space        : {m_dataSize,20:N0} bytes",
-                    $"used space            : {m_dataPos,20:N0} bytes"
+                    $"reserved space        : {m_header.TotalFileSize,20:N0} bytes",
+                    $"used space            : {m_header.DataCursorOffset,20:N0} bytes"
                     );
             }
         }
@@ -366,25 +458,29 @@ namespace Uncodium.SimpleStore
 
         private void EnsureSpaceFor(long numberOfBytes)
         {
-            if (SimulateFullDiskOnNextResize || m_dataPos + numberOfBytes > m_dataSize)
+            if (SimulateFullDiskOnNextResize || m_header.DataCursorOffset + numberOfBytes > m_header.TotalFileSize)
             {
                 try
                 {
-                    if (m_dataSize < 1024 * 1024 * 1024)
+                    var newTotalFileSize = m_header.TotalFileSize;
+
+                    if (newTotalFileSize < 1024 * 1024 * 1024)
                     {
-                        m_dataSize *= 2;
+                        newTotalFileSize *= 2;
                     }
                     else
                     {
-                        m_dataSize += 1024 * 1024 * 1024;
+                        newTotalFileSize += 1024 * 1024 * 1024;
                     }
 
-                    Log($"resize data file to {m_dataSize / (1024 * 1024 * 1024.0):0.000} GiB");
+                    Log($"resize data file to {newTotalFileSize / (1024 * 1024 * 1024.0):0.000} GiB");
                     lock (m_dbDiskLocation)
                     {
-                        m_accessorSize.Dispose(); m_accessor.Dispose(); m_mmf.Dispose();
+                        m_accessor.Dispose();
+                        m_mmf.Dispose();
+
                         m_mmfIsClosedForResize = true;
-                        ReOpenMemoryMappedFile();
+                        ReOpenMemoryMappedFile(newTotalFileSize);
                     }
                 }
                 catch (Exception e)
@@ -400,25 +496,27 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        private void ReOpenMemoryMappedFile()
+        private void ReOpenMemoryMappedFile(long newCapacity)
         {
             lock (m_dbDiskLocation)
             {
                 if (m_mmfIsClosedForResize)
                 {
-                    var capacity = 8 + m_dataSize;
-
                     if (SimulateFullDiskOnNextResize)
                     {
-                        var driveName = Path.GetFullPath(m_dataFilename)[0].ToString();
+                        var driveName = Path.GetFullPath(m_dataFileName)[0].ToString();
                         var freeSpaceInBytes = new DriveInfo(driveName).AvailableFreeSpace;
-                        capacity = freeSpaceInBytes * 2; // force out of space
+                        newCapacity = freeSpaceInBytes * 2; // force out of space
                     }
 
+                    if (newCapacity == 0L)
+                    {
+                        newCapacity = new FileInfo(m_dataFileName).Length;
+                    }
 
-                    m_mmf = MemoryMappedFile.CreateFromFile(m_dataFilename, FileMode.OpenOrCreate, null, capacity, MemoryMappedFileAccess.ReadWrite);
-                    m_accessorSize = m_mmf.CreateViewAccessor(0, 8);
-                    m_accessor = m_mmf.CreateViewAccessor(8, capacity - 8);
+                    m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.OpenOrCreate, null, newCapacity, MemoryMappedFileAccess.ReadWrite);
+                    m_accessor = m_mmf.CreateViewAccessor(0, newCapacity);
+                    m_header = new (m_accessor);
 
                     m_mmfIsClosedForResize = false;
                 }
@@ -431,7 +529,7 @@ namespace Uncodium.SimpleStore
         /// </summary>
         private void EnsureMemoryMappedFileIsOpen()
         {
-            if (m_mmfIsClosedForResize) ReOpenMemoryMappedFile();
+            if (m_mmfIsClosedForResize) ReOpenMemoryMappedFile(0L);
         }
 
 
@@ -456,12 +554,12 @@ namespace Uncodium.SimpleStore
         /// <summary>
         /// Total bytes used for blob storage.
         /// </summary>
-        public long GetUsedBytes() => m_dataPos;
+        public long GetUsedBytes() => m_header.DataCursorOffset;
 
         /// <summary>
         /// Total bytes reserved for blob storage.
         /// </summary>
-        public long GetReservedBytes() => m_dataSize;
+        public long GetReservedBytes() => m_header.TotalFileSize;
 
         /// <summary>
         /// Current version.
@@ -499,11 +597,11 @@ namespace Uncodium.SimpleStore
                 EnsureMemoryMappedFileIsOpen();
                 EnsureSpaceFor(numberOfBytes: buffer.Length);
 
-                m_accessor.WriteArray(m_dataPos, buffer, 0, buffer.Length);
-                m_dbIndex[key] = (m_dataPos, buffer.Length);
+                var cursorPos = m_header.DataCursorOffset;
+                m_accessor.WriteArray(cursorPos, buffer, 0, buffer.Length);
+                m_dbIndex[key] = (cursorPos, buffer.Length);
                 m_indexHasChanged = true;
-                m_dataPos += buffer.Length;
-                m_accessorSize.Write(0, m_dataPos);
+                m_header.DataCursorOffset = cursorPos + buffer.Length;
 
                 LatestKeyAdded = key;
             }
@@ -704,12 +802,11 @@ namespace Uncodium.SimpleStore
                 {
                     EnsureMemoryMappedFileIsOpen();
                     m_accessor.Flush();
-                    m_accessorSize.Flush();
-                    FlushIndex();
                 }
             }
         }
 
+#if false
         private void FlushIndex(bool isDisposing = false)
         {
             CheckDisposed();
@@ -735,7 +832,7 @@ namespace Uncodium.SimpleStore
                             );
 
                         if (!m_indexHasChanged) return;
-                        using (var f = File.Open(m_indexFilename, FileMode.Create, FileAccess.Write, FileShare.Read))
+                        using (var f = File.Open(m_indexFilenameObsolete, FileMode.Create, FileAccess.Write, FileShare.Read))
                         using (var bw = new BinaryWriter(f))
                         {
                             bw.Write(m_dbIndex.Count);
@@ -784,5 +881,6 @@ namespace Uncodium.SimpleStore
                 Log($"[WARNING] Concurrent flush attempt detected. Warning dff7d6ca-6451-4258-993a-e1448e58e3b7.");
             }
         }
+#endif
     }
 }

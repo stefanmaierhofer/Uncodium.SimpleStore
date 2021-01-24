@@ -63,33 +63,29 @@ namespace Uncodium.SimpleStore.Tests
 
         static void Main()
         {
-            var dbDiskLocation = @"T:\teststore";
-            var store = new SimpleDiskStore(dbDiskLocation);
+            Console.WriteLine(Encoding.UTF8.GetBytes($"{DateTimeOffset.Now:O}").Length);
 
-            try
-            {
-                store.Add("foo1", "bar");
-                store.Flush();
-
-                store.SimulateFullDiskOnNextResize = true;
-                store.Add("foo2", "bar");
-                store.Flush();
-            }
-            catch (System.IO.IOException e)
-            {
-                store.SimulateFullDiskOnNextResize = false;
-                Console.WriteLine($"The application caught an exception: {e.Message}.");
-
-                Console.WriteLine("Trying to use store after exception.");
-
-                string GetString(string key) => Encoding.UTF8.GetString(store.Get(key));
-
-                Console.WriteLine($"Read from store: foo1 -> {GetString("foo1")}");
-                
-                store.Add("foo3", "bar3");
-                Console.WriteLine($"Add to store   : foo3 -> foo3");
-                Console.WriteLine($"Read from store: foo3 -> {GetString("foo3")}");
-            }
+            //var dbDiskLocation = @"T:\teststore";
+            //var store = new SimpleDiskStore(dbDiskLocation);
+            //try
+            //{
+            //    store.Add("foo1", "bar");
+            //    store.Flush();
+            //    store.SimulateFullDiskOnNextResize = true;
+            //    store.Add("foo2", "bar");
+            //    store.Flush();
+            //}
+            //catch (System.IO.IOException e)
+            //{
+            //    store.SimulateFullDiskOnNextResize = false;
+            //    Console.WriteLine($"The application caught an exception: {e.Message}.");
+            //    Console.WriteLine("Trying to use store after exception.");
+            //    string GetString(string key) => Encoding.UTF8.GetString(store.Get(key));
+            //    Console.WriteLine($"Read from store: foo1 -> {GetString("foo1")}");
+            //    store.Add("foo3", "bar3");
+            //    Console.WriteLine($"Add to store   : foo3 -> foo3");
+            //    Console.WriteLine($"Read from store: foo3 -> {GetString("foo3")}");
+            //}
 
             //TestConcurrentCallsToFlush();
 
