@@ -42,27 +42,27 @@ namespace Uncodium.SimpleStore.Tests
             using var store = new SimpleDiskStore(TestStoreSmallPath);
         }
         
-        [Test]
-        public void DiskStoreCreatesIndexFileImmediatelyOnStoreCreation()
-        {
-            var folder = Path.GetFullPath($"store_{Guid.NewGuid()}");
+        //[Test]
+        //public void DiskStoreCreatesIndexFileImmediatelyOnStoreCreation()
+        //{
+        //    var folder = Path.GetFullPath($"store_{Guid.NewGuid()}");
 
-            try
-            {
-                var store = new SimpleDiskStore(folder);
-                Assert.True(File.Exists(Path.Combine(folder, "index.bin")));
-                store.Dispose();
+        //    try
+        //    {
+        //        var store = new SimpleDiskStore(folder);
+        //        Assert.True(File.Exists(Path.Combine(folder, "index.bin")));
+        //        store.Dispose();
 
-                var store2 = new SimpleDiskStore(folder);
-                Assert.True(store2.SnapshotKeys().Length == 0);
-                store2.Dispose();
+        //        var store2 = new SimpleDiskStore(folder);
+        //        Assert.True(store2.SnapshotKeys().Length == 0);
+        //        store2.Dispose();
 
-            }
-            finally
-            {
-                Directory.Delete(folder, true);
-            }
-        }
+        //    }
+        //    finally
+        //    {
+        //        Directory.Delete(folder, true);
+        //    }
+        //}
 
         [Test]
         public void CanOpenDiskStoreTwiceReadonly()
@@ -117,6 +117,25 @@ namespace Uncodium.SimpleStore.Tests
             store.Add(key, "b");
         }
 
+        [Test]
+        public void CanAddDiskStoreMany()
+        {
+            if (Directory.Exists(TestStoreSmallPath)) Directory.Delete(TestStoreSmallPath, true);
+            using var store = new SimpleDiskStore(TestStoreSmallPath);
+
+            var data = new Dictionary<string, string>();
+
+            var imax = 256 * 1024 / (2 + 6 + 8 + 4);
+            for (var i = 0; i < imax; i++)
+            {
+                var key = Guid.NewGuid().ToString();
+                var value = $"many {i}";
+                store.Add(key, value);
+                data[key] = value;
+            }
+            var keys = store.SnapshotKeys();
+        }
+
         #endregion
 
         #region Get
@@ -138,7 +157,33 @@ namespace Uncodium.SimpleStore.Tests
             using var store = new SimpleMemoryStore();
             store.Add(key, "b", () => Encoding.UTF8.GetBytes("b"));
             var x = store.Get(key);
-            Assert.IsTrue(Encoding.UTF8.GetString(x) == "b");
+            var v = Encoding.UTF8.GetString(x);
+            Assert.IsTrue(v == "b");
+        }
+
+        [Test]
+        public void CanGetDiskStoreMany()
+        {
+            if (Directory.Exists(TestStoreSmallPath)) Directory.Delete(TestStoreSmallPath, true);
+            using var store = new SimpleDiskStore(TestStoreSmallPath);
+
+            var data = new Dictionary<string, string>();
+
+            var imax = 256 * 1024 / (2 + 6 + 8 + 4);
+            for (var i = 0; i < imax; i++)
+            {
+                var key = Guid.NewGuid().ToString();
+                var value = $"many {i}";
+                store.Add(key, value);
+                data[key] = value;
+            }
+
+            foreach (var kv in data)
+            {
+                var v = Encoding.UTF8.GetString(store.Get(kv.Key));
+                var x = data[kv.Key];
+                Assert.True(v == x);
+            }
         }
 
         [Test]
@@ -148,7 +193,7 @@ namespace Uncodium.SimpleStore.Tests
             using var store = new SimpleDiskStore(TestStoreSmallPath);
             store.Add(key, "b", null);
             var x = store.Get(key);
-            Assert.IsTrue(x == null);
+            Assert.IsTrue(x == null); 
         }
 
         [Test]
@@ -158,7 +203,8 @@ namespace Uncodium.SimpleStore.Tests
             using var store = new SimpleDiskStore(TestStoreSmallPath);
             store.Add(key, "b", () => Encoding.UTF8.GetBytes("b"));
             var x = store.Get(key);
-            Assert.IsTrue(Encoding.UTF8.GetString(x) == "b");
+            var v = Encoding.UTF8.GetString(x);
+            Assert.IsTrue(v == "b");
         }
 
         #endregion
@@ -457,8 +503,6 @@ namespace Uncodium.SimpleStore.Tests
             Assert.IsTrue(keys.Contains(key1));
             Assert.IsTrue(keys.Contains(key2));
             Assert.IsTrue(keys.Contains(key3));
-
-            store.Flush();
         }
 
         #endregion

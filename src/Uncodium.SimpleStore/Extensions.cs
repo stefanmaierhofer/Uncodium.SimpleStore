@@ -38,7 +38,7 @@ namespace Uncodium.SimpleStore
         /// Get MD5 hash of string as Guid.
         /// </summary>
         public static Guid ToMd5Hash(this string s)
-            => new Guid(MD5.Create().ComputeHash(Encoding.UTF8.GetBytes(s)));
+            => new(MD5.Create().ComputeHash(Encoding.UTF8.GetBytes(s)));
 
         /// <summary>
         /// String will be stored UTF8 encoded.

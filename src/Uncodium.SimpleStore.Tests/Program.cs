@@ -1,5 +1,7 @@
 ﻿using NUnit.Framework.Internal;
 using System;
+using System.Diagnostics;
+using System.IO;
 using System.Text;
 using System.Threading;
 
@@ -61,9 +63,45 @@ namespace Uncodium.SimpleStore.Tests
             store.Dispose();
         }
 
+        static void TestThroughput()
+        {
+            var totalBytes = 16L * 1024 * 1024 * 1024;
+
+            var sw = new Stopwatch();
+            var rand = new Random();
+
+            //var f = File.OpenWrite(@"T:\tmp\throughputtest0");
+
+            var store = new SimpleDiskStore(@"T:\tmp\throutputtest1");
+            var totalBytesLeft = totalBytes;
+            var totalEntries = 0;
+            sw.Restart();
+            while (totalBytesLeft > 0L)
+            {
+                var r = rand.NextDouble();
+                var size = (int)(r * r * r * 1024 * 1024);
+                if (size > totalBytesLeft) size = (int)totalBytesLeft;
+                var buffer = new byte[size];
+                var key = Guid.NewGuid().ToString();
+                store.Add(key, buffer);
+                //f.Write(buffer, 0, size);
+                totalBytesLeft -= buffer.Length;
+                totalEntries++;
+            }
+            //f.Flush();
+            store.Flush();
+            sw.Stop();
+            Console.WriteLine($"elapsed time : {sw.Elapsed,20}");
+            Console.WriteLine($"wrote entries: {totalEntries,20:N0}");
+            Console.WriteLine($"      bytes  : {totalBytes,20:N0}");
+            Console.WriteLine($"      bytes/s: {totalBytes/sw.Elapsed.TotalSeconds,20:N0}");
+        }
+
         static void Main()
         {
-            Console.WriteLine(Encoding.UTF8.GetBytes($"{DateTimeOffset.Now:O}").Length);
+            TestThroughput();
+
+            //Console.WriteLine(Encoding.UTF8.GetBytes($"{DateTimeOffset.Now:O}").Length);
 
             //var dbDiskLocation = @"T:\teststore";
             //var store = new SimpleDiskStore(dbDiskLocation);

@@ -31,6 +31,8 @@ using System.IO;
 using System.IO.MemoryMappedFiles;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 
 namespace Uncodium.SimpleStore
@@ -40,79 +42,348 @@ namespace Uncodium.SimpleStore
     /// </summary>
     public class SimpleDiskStore : ISimpleStore
     {
+        private const int MAX_KEY_LENGTH = 4096;
+
         #region Private
+
+        private struct Position
+        {
+            public long Value;
+            public Position(long value) => Value = value;
+            public static Position operator +(Position self, Offset32 offset) => new(self.Value + offset.Value);
+            public static implicit operator long(Position self) => self.Value;
+
+            public override string ToString() => $"@{Value:N0}";
+        }
+        private struct Offset32
+        {
+            public int Value;
+            public Offset32(int value) => Value = value;
+            public static implicit operator Offset32(int self) => new(self);
+            public override string ToString() => $"+{Value:N0}";
+        }
+        private class FieldInt16
+        {
+            public Offset32 Offset;
+            public FieldInt16(Offset32 offset) => Offset = offset;
+            public void Write(MemoryMappedViewAccessor accessor, Block block, short value)
+            {
+                var p = block.Min.Value + Offset.Value;
+                if (p + 2 > block.Max.Value) throw new Exception("Field outside of block.");
+                accessor.Write(p, value);
+            }
+            public short Read(MemoryMappedViewAccessor accessor, Block block)
+            {
+                var p = block.Min.Value + Offset.Value;
+                if (p + 2 > block.Max.Value) throw new Exception("Field outside of block.");
+                return accessor.ReadInt16(p);
+            }
+        }
+        private class FieldInt32
+        {
+            public Offset32 Offset;
+            public FieldInt32(Offset32 offset) => Offset = offset;
+            public void Write(MemoryMappedViewAccessor accessor, Block block, int value)
+            {
+                var p = block.Min.Value + Offset.Value;
+                if (p + 4 > block.Max.Value) throw new Exception("Field outside of block.");
+                accessor.Write(p, value);
+            }
+            public int Read(MemoryMappedViewAccessor accessor, Block block)
+            {
+                var p = block.Min.Value + Offset.Value;
+                if (p + 4 > block.Max.Value) throw new Exception("Field outside of block.");
+                return accessor.ReadInt32(p);
+            }
+        }
+        private class FieldInt64
+        {
+            public Offset32 Offset;
+            public FieldInt64(Offset32 offset) => Offset = offset;
+            public void Write(MemoryMappedViewAccessor accessor, Block block, long value)
+            {
+                var p = block.Min.Value + Offset.Value;
+                if (p + 8 > block.Max.Value) throw new Exception("Field outside of block.");
+                accessor.Write(p, value);
+            }
+            public long Read(MemoryMappedViewAccessor accessor, Block block)
+            {
+                var p = block.Min.Value + Offset.Value;
+                if (p + 8 > block.Max.Value) throw new Exception("Field outside of block.");
+                return accessor.ReadInt64(p);
+            }
+        }
+        private class FieldBuffer
+        {
+            public Offset32 Offset;
+            public FieldBuffer(Offset32 offset) => Offset = offset;
+            public void Write(MemoryMappedViewAccessor accessor, Block block, byte[] value)
+            {
+                var p = block.Min.Value + Offset.Value;
+                if (p + value.Length > block.Max.Value) throw new Exception("Field outside of block.");
+                accessor.WriteArray(p, value, 0, value.Length);
+            }
+            public byte[] Read(MemoryMappedViewAccessor accessor, Block block, int length)
+            {
+                var p = block.Min.Value + Offset.Value;
+                if (p + length > block.Max.Value) throw new Exception("Field outside of block.");
+                var buffer = new byte[length];
+                if (accessor.ReadArray(p, buffer, 0, length) != length) throw new Exception("Failed to read buffer.");
+                return buffer;
+            }
+        }
+        private struct Block
+        {
+            public Position Min;
+            public Position Max;
+            public Block(Position min, Offset32 size)
+            {
+                Min = min;
+                Max = min + size;
+            }
+            public Offset32 Size => new((int)(Max.Value - Min.Value));
+            public static Position operator +(Block self, Offset32 offset) => new(self.Min.Value + offset.Value);
+            public override string ToString() => $"[{Min.Value:N0}, {Max.Value:N0}]";
+        }
+
+        private class IndexPage
+        {
+            public static readonly Guid MAGIC_VALUE = Guid.Parse("5587b343-403d-4f62-af22-a18da686b1da");
+            private static readonly FieldBuffer FIELD_MAGIC  = new( 0);  // +16
+            private static readonly FieldInt64  FIELD_NEXT   = new(16);  //  +8
+            private static readonly FieldInt32  FIELD_CURSOR = new(24);  //  +4
+            private static readonly FieldInt32  FIELD_COUNT  = new(28);  //  +4
+            private static readonly Offset32    FIELD_DATA   = new(32);
+
+            private readonly MemoryMappedViewAccessor m_accessor;
+            public Block Range { get; }
+
+            public IndexPage(IndexPage x) => new IndexPage(x.m_accessor, x.Range);
+            
+            public IndexPage(MemoryMappedViewAccessor accessor, Block range)
+            {
+                m_accessor = accessor;
+                Range = range;
+            }
+
+            public static IndexPage Init(MemoryMappedViewAccessor accessor, Block range, IndexPage next)
+            {
+                var cursor = range + FIELD_DATA;
+                var result = new IndexPage(accessor, range)
+                {
+                    Magic = MAGIC_VALUE,
+                    Next = next,
+                    Cursor = cursor,
+                    Count = 0
+                };
+
+                if (result.Cursor.Value < result.Range.Min.Value || result.Cursor.Value > result.Range.Max.Value) Debugger.Break();
+
+                return result;
+            }
+
+            public bool TryAdd(string key, (long offset, int size) value)
+            {
+                if (key.Length > MAX_KEY_LENGTH)
+                    throw new ArgumentOutOfRangeException(nameof(key), $"Max key length is {MAX_KEY_LENGTH}, but key has {key.Length}.");
+
+                var keyBuffer = Encoding.UTF8.GetBytes(key);
+                if (keyBuffer.Length > MAX_KEY_LENGTH)
+                    throw new ArgumentOutOfRangeException(nameof(key), $"Max key length is {MAX_KEY_LENGTH}, but encoded key has {key.Length}.");
+
+                var entrySize = 2 + keyBuffer.Length + 8 + 4;
+                if (Cursor + entrySize > Range.Max)
+                    return false; // index page is full -> fail
+
+                var p = Cursor.Value;
+                m_accessor.Write(p, (short)keyBuffer.Length); p += 2;
+                m_accessor.WriteArray(p, keyBuffer, 0, keyBuffer.Length); p += keyBuffer.Length;
+                m_accessor.Write(p, value.offset); p += 8;
+                m_accessor.Write(p, value.size); p += 4;
+                Cursor = new(p);
+                Count++;
+
+                return true;
+            }
+
+            public Guid Magic
+            {
+                get
+                {
+                    var buffer = FIELD_MAGIC.Read(m_accessor, Range, 16);
+                    return new Guid(buffer);
+                }
+                private set
+                {
+                    var buffer = value.ToByteArray();
+                    if (buffer.Length != 16) throw new Exception();
+                    FIELD_MAGIC.Write(m_accessor, Range, buffer);
+                }
+            }
+            public IndexPage Next
+            {
+                get
+                {
+                    var p = FIELD_NEXT.Read(m_accessor, Range);
+                    if (p == 0L) return null;
+                    return new IndexPage(m_accessor, new Block(new(p), Range.Size));
+                }
+                private set => FIELD_NEXT.Write(m_accessor, Range, value.Range.Min);
+            }
+            public Position Cursor
+            {
+                get => Range + new Offset32(FIELD_CURSOR.Read(m_accessor, Range));
+                private set
+                {
+                    if (value.Value < Range.Min.Value || value.Value > Range.Max.Value) Debugger.Break();
+                    var p = (int)(value.Value - Range.Min.Value);
+                    FIELD_CURSOR.Write(m_accessor, Range, p);
+                }
+            }
+            public int Count
+            {
+                get => FIELD_COUNT.Read(m_accessor, Range);
+                private set => FIELD_COUNT.Write(m_accessor, Range, value);
+            }
+
+            public IEnumerable<(string key, (long, int) value)> Entries
+            {
+                get
+                {
+                    //Console.WriteLine($"[IndexPage] {Range}, Next = {Next?.Range.Min}");
+                    var p = (Range + FIELD_DATA).Value;
+                    var end = Cursor.Value;
+                    while (p < end)
+                    {
+                        var keyBufferLength = m_accessor.ReadInt16(p); p += 2;
+                        var keyBuffer = new byte[keyBufferLength];
+                        m_accessor.ReadArray(p, keyBuffer, 0, keyBufferLength); p += keyBufferLength;
+                        var key = Encoding.UTF8.GetString(keyBuffer);
+                        var valueOffset = m_accessor.ReadInt64(p); p += 8;
+                        var valueSize = m_accessor.ReadInt32(p); p += 4;
+                        var result = (key, (valueOffset, valueSize));
+                        //Console.WriteLine($"[ENTRY] [{key}] -> [[{valueOffset}], [{valueSize}]]");
+                        yield return result;
+                    }
+                }
+            }
+        }
 
         private class Header
         {
             public const int DefaultHeaderSizeInBytes = 1024;
-            public const int DefaultIndexPageSizeInBytes = 64 * 1024;
+            public const int DefaultIndexPageSizeInBytes = 256 * 1024;
             public static readonly Guid MagicBytesVersion1 = Guid.Parse("ff682f91-ad99-4135-a5d4-15ef97ed7cde");
 
-            private readonly MemoryMappedViewAccessor m_accessor;
-            private readonly long m_offset;
+            private MemoryMappedViewAccessor m_accessor;
+            private Position m_offsetHeader;
+            private IndexPage m_currentIndexPage;
 
             // [ 0] 16 bytes
             public Guid MagicBytes
             {
-                get { m_accessor.Read(m_offset, out Guid x); return x; }
+                get { m_accessor.Read(m_offsetHeader, out Guid x); return x; }
                 //set => m_accessor.Write(m_offset, ref value);
             }
             // [16] 4 bytes
-            public int HeaderSizeInBytes
+            public Offset32 HeaderSizeInBytes
             {
-                get => m_accessor.ReadInt32(m_offset + 16);
+                get => new(m_accessor.ReadInt32(m_offsetHeader + 16));
                 //set => m_accessor.Write(m_offset + 16, value);
             }
             // [20] 4 bytes
-            public int IndexPageSizeInBytes
+            public Offset32 IndexPageSizeInBytes
             {
-                get => m_accessor.ReadInt32(m_offset + 20);
+                get => new(m_accessor.ReadInt32(m_offsetHeader + 20));
                 //set => m_accessor.Write(m_offset + 20, value);
             }
             // [24] 8 bytes
             public long TotalFileSize
             {
-                get => m_accessor.ReadInt64(m_offset + 24);
-                set => m_accessor.Write(m_offset + 24, value);
+                get => m_accessor.ReadInt64(m_offsetHeader + 24);
+                set => m_accessor.Write(m_offsetHeader + 24, value);
             }
             // [32] 8 bytes
             public long TotalIndexEntries
             {
-                get => m_accessor.ReadInt64(m_offset + 32);
-                set => m_accessor.Write(m_offset + 32, value);
+                get => m_accessor.ReadInt64(m_offsetHeader + 32);
+                set => m_accessor.Write(m_offsetHeader + 32, value);
             }
             // [40] 8 bytes
-            public long DataCursorOffset
+            public Position DataCursor
             {
-                get => m_accessor.ReadInt64(m_offset + 40);
-                set => m_accessor.Write(m_offset + 40, value);
+                get => new(m_accessor.ReadInt64(m_offsetHeader + 40));
+                set => m_accessor.Write(m_offsetHeader + 40, value);
             }
             // [48] 8 bytes
-            public long IndexRootPageOffset
+            public Position IndexRootPageOffset
             {
-                get => m_accessor.ReadInt64(m_offset + 48);
-                set => m_accessor.Write(m_offset + 48, value);
+                get => new(m_accessor.ReadInt64(m_offsetHeader + 48));
+                set => m_accessor.Write(m_offsetHeader + 48, value);
             }
             // [56] 16 bytes (8 + 8)
             public DateTimeOffset Created
             {
-                get => new(m_accessor.ReadInt64(m_offset + 56), new TimeSpan(m_accessor.ReadInt64(m_offset + 64)));
+                get => new(m_accessor.ReadInt64(m_offsetHeader + 56), new TimeSpan(m_accessor.ReadInt64(m_offsetHeader + 64)));
                 //set { m_accessor.Write(m_offset + 56, Created.Ticks); m_accessor.Write(m_offset + 64, Created.Offset.Ticks); }
             }
 
             public Header(MemoryMappedViewAccessor accessor)
             {
-                m_accessor = accessor;
-                m_offset = m_accessor.ReadInt64(0L);
-
-                var magicBuffer = new byte[16];
-                if (m_accessor.ReadArray(m_offset, magicBuffer, 0, 16) != 16) throw new Exception("Reading header failed.");
-                if (new Guid(magicBuffer) != MagicBytesVersion1) throw new Exception("Header does not start with magic bytes.");
+                RenewAccessor(accessor);
             }
 
-            /// <summary>
-            /// Returns file size in bytes.
-            /// </summary>
+            public void RenewAccessor(MemoryMappedViewAccessor accessor)
+            {
+                m_accessor = accessor;
+                m_offsetHeader = new(m_accessor.ReadInt64(0L));
+
+                var magicBuffer = new byte[16];
+                if (m_accessor.ReadArray(m_offsetHeader, magicBuffer, 0, 16) != 16) throw new Exception("Reading header failed.");
+                var magic = new Guid(magicBuffer);
+                if (magic != MagicBytesVersion1) throw new Exception("Header does not start with magic bytes.");
+
+                m_currentIndexPage = new IndexPage(m_accessor, new Block(IndexRootPageOffset, IndexPageSizeInBytes));
+            }
+
+            public void AppendIndexEntry(string key, long offset, int size, Action<long> ensureSpaceFor)
+            {
+                if (!m_currentIndexPage.TryAdd(key, (offset, size)))
+                {
+                    // current index page is full -> append new page
+                    ensureSpaceFor(DataCursor + IndexPageSizeInBytes);
+
+                    var newPage = IndexPage.Init(m_accessor, new Block(DataCursor, IndexPageSizeInBytes), next: m_currentIndexPage);
+                    
+                    // write again, there is enough space now
+                    if (!newPage.TryAdd(key, (offset, size))) throw new Exception("Failed to write index entry.");
+
+                    m_currentIndexPage = newPage;
+                    DataCursor = newPage.Range.Max;
+                    IndexRootPageOffset = newPage.Range.Min;
+                }
+            }
+
+            public IndexPage IndexRootPage => new(m_accessor, new Block(IndexRootPageOffset, IndexPageSizeInBytes));
+            public IEnumerable<IndexPage> IndexPages
+            {
+                get
+                {
+                    var p = IndexRootPage;
+                    while (p != null)
+                    {
+                        yield return p;
+                        p = p.Next;
+                    }
+                }
+            }
+
+            public void ReadIndexIntoMemory(Dictionary<string, (long, int)> index)
+            {
+                var xs = IndexPages.SelectMany(p => p.Entries);
+                foreach (var (key, value) in xs) index[key] = value;
+            }
+
             public static void CreateEmptyDataFile(string dataFileName)
             {
                 using var f = File.Open(dataFileName, FileMode.CreateNew, FileAccess.Write, FileShare.None);
@@ -135,7 +406,11 @@ namespace Uncodium.SimpleStore
                 w.Write(DateTimeOffset.Now.Offset.Ticks);   //        .Offset
 
                 w.BaseStream.Position = indexRootPageOffset;
-                w.Write(new byte[DefaultIndexPageSizeInBytes]);
+                w.Write(IndexPage.MAGIC_VALUE.ToByteArray());
+                w.Write(0L);
+                w.Write(16 + 8 + 4 + 4);
+                w.Write(0);
+                w.Write(new byte[DefaultIndexPageSizeInBytes - 8 - 4]);
 
                 w.Flush();
             }
@@ -153,10 +428,10 @@ namespace Uncodium.SimpleStore
         private Header m_header;
         private MemoryMappedFile m_mmf;
         private MemoryMappedViewAccessor m_accessor;
+        //private FileStream m_accessorWriteStream;
 
         private Stats m_stats;
 
-        private bool m_indexHasChanged = false;
         private readonly CancellationTokenSource m_cts = new();
         private readonly SemaphoreSlim m_flushIndexSemaphore = new(1);
 
@@ -190,7 +465,7 @@ namespace Uncodium.SimpleStore
                 $"",
                 $"shutdown {token} (begin)",
                 $"reserved space        : {m_header.TotalFileSize,20:N0} bytes",
-                $"used space            : {m_header.DataCursorOffset,20:N0} bytes (including index)"
+                $"used space            : {m_header.DataCursor,20:N0} bytes (including index)"
                 );
 
             while (true)
@@ -204,9 +479,11 @@ namespace Uncodium.SimpleStore
                         if (!m_readOnlySnapshot)
                         {
                             m_accessor.Flush();
+                            //m_accessorWriteStream.Flush();
                         }
 
                         m_accessor.Dispose();
+                        //m_accessorWriteStream.Dispose();
                         m_mmf.Dispose();
                         m_cts.Cancel();
 
@@ -399,14 +676,13 @@ namespace Uncodium.SimpleStore
             if (!File.Exists(m_dataFileName))
             {
                 Header.CreateEmptyDataFile(m_dataFileName);
-                m_dbIndex = new Dictionary<string, (long, int)>();
             }
 
             Log(
                 $"",
-                $"====================================",
+                $"=========================================",
                 $"  starting up (version {Global.Version})",
-                $"====================================",
+                $"=========================================",
                 $""
                 );
 
@@ -418,6 +694,10 @@ namespace Uncodium.SimpleStore
                 ParseDeprecatedIndexFile(m_indexFilenameObsolete);
                 throw new NotImplementedException("Convert index to new format.");
             }
+            else
+            {
+                m_dbIndex = new Dictionary<string, (long, int)>();
+            }
 
             var totalDataFileSizeInBytes = new FileInfo(m_dataFileName).Length;
 
@@ -428,10 +708,12 @@ namespace Uncodium.SimpleStore
                 try
                 {
                     m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.Open, mapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.Read);
+                    //m_accessorWriteStream = null;
                 }
                 catch
                 {
                     m_mmf = MemoryMappedFile.OpenExisting(mapName, MemoryMappedFileRights.Read);
+                    //m_accessorWriteStream = null;
                 }
 
                 m_accessor = m_mmf.CreateViewAccessor(0, totalDataFileSizeInBytes, MemoryMappedFileAccess.Read);
@@ -439,14 +721,19 @@ namespace Uncodium.SimpleStore
             }
             else
             {
+                //m_accessorWriteStream = File.Open(m_dataFileName, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
                 m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.OpenOrCreate, mapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.ReadWrite);
+                //m_mmf = MemoryMappedFile.CreateFromFile(m_accessorWriteStream, mapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, false);
                 m_accessor = m_mmf.CreateViewAccessor(0, totalDataFileSizeInBytes);
                 m_header = new (m_accessor);
                 Log(
                     $"reserved space        : {m_header.TotalFileSize,20:N0} bytes",
-                    $"used space            : {m_header.DataCursorOffset,20:N0} bytes"
+                    $"used space            : {m_header.DataCursor,20:N0} bytes"
                     );
             }
+
+            if (m_dbIndex.Count > 0) throw new Exception("In-memory index should be empty here.");
+            m_header.ReadIndexIntoMemory(m_dbIndex);
         }
 
         #endregion
@@ -458,29 +745,39 @@ namespace Uncodium.SimpleStore
 
         private void EnsureSpaceFor(long numberOfBytes)
         {
-            if (SimulateFullDiskOnNextResize || m_header.DataCursorOffset + numberOfBytes > m_header.TotalFileSize)
+            if (SimulateFullDiskOnNextResize || m_header.DataCursor + numberOfBytes > m_header.TotalFileSize)
             {
                 try
                 {
                     var newTotalFileSize = m_header.TotalFileSize;
 
-                    if (newTotalFileSize < 1024 * 1024 * 1024)
+                    while (m_header.DataCursor + numberOfBytes > newTotalFileSize)
                     {
-                        newTotalFileSize *= 2;
-                    }
-                    else
-                    {
-                        newTotalFileSize += 1024 * 1024 * 1024;
+                        if (newTotalFileSize < 1024 * 1024 * 1024)
+                        {
+                            newTotalFileSize *= 2;
+                        }
+                        else
+                        {
+                            newTotalFileSize += 1024 * 1024 * 1024;
+                        }
                     }
 
                     Log($"resize data file to {newTotalFileSize / (1024 * 1024 * 1024.0):0.000} GiB");
                     lock (m_dbDiskLocation)
                     {
+                        //var sw = new Stopwatch(); sw.Restart();
+
+                        m_header.TotalFileSize = newTotalFileSize;
+
                         m_accessor.Dispose();
+                        //m_accessorWriteStream.Dispose();
                         m_mmf.Dispose();
 
                         m_mmfIsClosedForResize = true;
                         ReOpenMemoryMappedFile(newTotalFileSize);
+
+                        //Console.WriteLine($"resized in {sw.Elapsed}");
                     }
                 }
                 catch (Exception e)
@@ -515,8 +812,13 @@ namespace Uncodium.SimpleStore
                     }
 
                     m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.OpenOrCreate, null, newCapacity, MemoryMappedFileAccess.ReadWrite);
+                    //m_accessorWriteStream = File.Open(m_dataFileName, FileMode.Open, FileAccess.Write, FileShare.ReadWrite);
+
+                    //m_accessorWriteStream = File.Open(m_dataFileName, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+                    //m_mmf = MemoryMappedFile.CreateFromFile(m_accessorWriteStream, null, newCapacity, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, false);
+
                     m_accessor = m_mmf.CreateViewAccessor(0, newCapacity);
-                    m_header = new (m_accessor);
+                    m_header.RenewAccessor(m_accessor);
 
                     m_mmfIsClosedForResize = false;
                 }
@@ -554,7 +856,7 @@ namespace Uncodium.SimpleStore
         /// <summary>
         /// Total bytes used for blob storage.
         /// </summary>
-        public long GetUsedBytes() => m_header.DataCursorOffset;
+        public long GetUsedBytes() => m_header.DataCursor;
 
         /// <summary>
         /// Total bytes reserved for blob storage.
@@ -592,18 +894,41 @@ namespace Uncodium.SimpleStore
 
             if (buffer == null) return;
 
+            //var buffer = getEncodedValue?.Invoke();
             lock (m_dbDiskLocation)
             {
                 EnsureMemoryMappedFileIsOpen();
-                EnsureSpaceFor(numberOfBytes: buffer.Length);
 
-                var cursorPos = m_header.DataCursorOffset;
-                m_accessor.WriteArray(cursorPos, buffer, 0, buffer.Length);
-                m_dbIndex[key] = (cursorPos, buffer.Length);
-                m_indexHasChanged = true;
-                m_header.DataCursorOffset = cursorPos + buffer.Length;
+                // write value buffer to store
+                EnsureSpaceFor(numberOfBytes: buffer.Length);
+                var valueBufferPos = m_header.DataCursor;
+
+                WriteBytes(valueBufferPos, buffer);
+                //m_accessor.WriteArray(valueBufferPos, buffer, 0, buffer.Length);
+                //m_accessorWriteStream.Position = valueBufferPos;
+                //m_accessorWriteStream.Write(buffer, 0, buffer.Length);
+
+
+                m_dbIndex[key] = (valueBufferPos, buffer.Length);
+                m_header.DataCursor = valueBufferPos + new Offset32(buffer.Length);
+
+                // write index entry to store
+                m_header.AppendIndexEntry(key, valueBufferPos, buffer.Length, EnsureSpaceFor);
 
                 LatestKeyAdded = key;
+            }
+        }
+        private unsafe void WriteBytes(long offset, byte[] data)
+        {
+            byte* ptr = (byte*)0;
+            try
+            {
+                m_accessor.SafeMemoryMappedViewHandle.AcquirePointer(ref ptr);
+                Marshal.Copy(data, 0, new IntPtr(ptr + offset), data.Length);
+            }
+            finally
+            {
+                m_accessor.SafeMemoryMappedViewHandle.ReleasePointer();
             }
         }
 
@@ -619,7 +944,6 @@ namespace Uncodium.SimpleStore
             {
                 EnsureMemoryMappedFileIsOpen();
                 result = m_dbIndex.ContainsKey(key);
-                m_indexHasChanged = true;
             }
             Interlocked.Increment(ref m_stats.CountContains);
             return result;
@@ -746,7 +1070,6 @@ namespace Uncodium.SimpleStore
             {
                 EnsureMemoryMappedFileIsOpen();
                 m_dbIndex.Remove(key);
-                m_indexHasChanged = true;
             }
             Interlocked.Increment(ref m_stats.CountRemove);
         }
@@ -781,6 +1104,7 @@ namespace Uncodium.SimpleStore
             lock (m_dbDiskLocation)
             {
                 Interlocked.Increment(ref m_stats.CountSnapshotKeys);
+                //return m_header.IndexPages.SelectMany(p => p.Entries).Select(x => x.key).ToArray();
                 return m_dbIndex.Keys.ToArray();
             }
         }

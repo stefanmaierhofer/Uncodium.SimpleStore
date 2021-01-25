@@ -82,7 +82,8 @@ namespace Uncodium.SimpleStore.Tests
             Assert.True(x == "entry");
 
             var y = GetString(reopenedStore, "afterLastFlush");
-            Assert.True(y == null);
+            //Assert.True(y == null); // before version 3.0.0
+            Assert.True(y == "mmmh"); // 2021-01-25: as of version 3.0.0, index is written directly into data file, so it is up-to-date regardless of Flush()
         });
 
         [Test]
