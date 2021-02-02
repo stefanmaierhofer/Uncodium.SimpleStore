@@ -208,7 +208,7 @@ namespace Uncodium.SimpleStore
 
             Log($"Sucessfully upgraded store to format {Header.MagicBytesVersion1}.");
 
-            /// returns total data file size
+            // returns total data file size
             long InjectHeaderAndEmptyIndex(string filename)
             {
                 if (ContainsHeader(filename)) throw new Exception(
