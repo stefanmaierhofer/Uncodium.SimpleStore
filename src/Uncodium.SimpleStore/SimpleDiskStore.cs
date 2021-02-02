@@ -97,7 +97,7 @@ namespace Uncodium.SimpleStore
                     }
                     else
                     {
-                        return ContainsHeader(dataFileName) ? StoreLayout.SingleFile : StoreLayout.Unknown;
+                        return ContainsHeader(dataFileName) ? StoreLayout.FolderWithMergedDataAndIndexFile : StoreLayout.Unknown;
                     }
                 }
                 else
@@ -181,10 +181,26 @@ namespace Uncodium.SimpleStore
             Log($"Upgrading store to format {Header.MagicBytesVersion1}.");
 
             // (1) inject a header and empty index into old-style data file ...
-            InjectHeaderAndEmptyIndex(dataFilename);
+            var totalDataFileSizeInBytes = InjectHeaderAndEmptyIndex(dataFilename);
 
             // (2) import deprecated index ...
+            if (m_mmf != null) throw new Exception("Invariant ec56f623-bc1d-41cf-9421-3d4e5cacb9ce.");
+            if (m_accessor != null) throw new Exception("Invariant caed99a0-55ad-433f-baeb-e0db9fc139c7.");
+            if (m_header != null) throw new Exception("Invariant 55926fae-4371-498c-b365-5e451c976018.");
+            if (m_dbIndex != null) throw new Exception("Invariant e0e827e5-c038-4d0e-8e55-9a235ad4f353.");
+            var mapName = dataFilename.ToMd5Hash().ToString();
+            m_mmf = MemoryMappedFile.CreateFromFile(dataFilename, FileMode.OpenOrCreate, mapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.ReadWrite);
+            m_accessor = m_mmf.CreateViewAccessor(0, totalDataFileSizeInBytes);
+            m_header = new(m_accessor);
+            m_dbIndex = new Dictionary<string, (long, int)>();
+
             ImportDeprecatedIndexFile(indexFileName);
+            Flush();
+
+            m_dbIndex = null;
+            m_header = null;
+            m_accessor.Dispose(); m_accessor = null;
+            m_mmf.Dispose(); m_mmf = null;
 
             // (3) delete old index file ...
             Log($"deleting deprecated index file: {indexFileName}");
@@ -192,23 +208,33 @@ namespace Uncodium.SimpleStore
 
             Log($"Sucessfully upgraded store to format {Header.MagicBytesVersion1}.");
 
-            void InjectHeaderAndEmptyIndex(string filename)
+            /// returns total data file size
+            long InjectHeaderAndEmptyIndex(string filename)
             {
                 if (ContainsHeader(filename)) throw new Exception(
                     $"Failed to upgrade original store format. Data file already contains header format {Header.MagicBytesVersion1}."
                     );
+
+                var totalDataFileSizeInBytes = new FileInfo(filename).Length;
 
                 // get write position (first 8 bytes as int64, in old format)
                 var p = 0L;
                 using (var br = new BinaryReader(File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.None)))
                     p = br.ReadInt64();
 
-                //
+                // append header and empty index (at current write position)
                 using var f = File.Open(filename, FileMode.Open, FileAccess.Write, FileShare.None);
                 f.Position = p;
+                var buffer = Header.GenerateHeaderAndEmptyIndexForOffset(p);
+                f.Write(buffer, 0, buffer.Length);
+                var writePosition = f.Position;
 
+                // replace write position with pointer/offset to header
+                var pBuffer = BitConverter.GetBytes(p);
+                f.Position = 0L;
+                f.Write(pBuffer, 0, 8);
 
-                throw new NotImplementedException();
+                return Math.Max(writePosition, totalDataFileSizeInBytes);
             }
 
             void ImportDeprecatedIndexFile(string filename)
@@ -493,6 +519,8 @@ namespace Uncodium.SimpleStore
             private Position m_offsetHeader;
             private IndexPage m_currentIndexPage;
 
+            #region Properties
+
             // [ 0] 16 bytes
             public Guid MagicBytes
             {
@@ -541,6 +569,8 @@ namespace Uncodium.SimpleStore
                 get => new(m_accessor.ReadInt64(m_offsetHeader + 56), new TimeSpan(m_accessor.ReadInt64(m_offsetHeader + 64)));
                 //set { m_accessor.Write(m_offset + 56, Created.Ticks); m_accessor.Write(m_offset + 64, Created.Offset.Ticks); }
             }
+
+            #endregion
 
             public Header(MemoryMappedViewAccessor accessor)
             {
@@ -624,9 +654,19 @@ namespace Uncodium.SimpleStore
                 using var f = File.Open(dataFileName, FileMode.CreateNew, FileAccess.Write, FileShare.None);
                 using var w = new BinaryWriter(f);
 
-                var indexRootPageOffset = 0L + DefaultHeaderSizeInBytes;
-                var cursorPos           = 0L + DefaultHeaderSizeInBytes + DefaultIndexPageSizeInBytes;
-                var totalFileSize       = 0L + DefaultHeaderSizeInBytes + DefaultIndexPageSizeInBytes;
+                var buffer = GenerateHeaderAndEmptyIndexForOffset(0L);
+                w.Write(buffer);
+                w.Flush();
+            }
+
+            public static byte[] GenerateHeaderAndEmptyIndexForOffset(long offset)
+            {
+                var ms = new MemoryStream();
+                using var w = new BinaryWriter(ms);
+
+                var indexRootPageOffset = offset + DefaultHeaderSizeInBytes;
+                var cursorPos           = offset + DefaultHeaderSizeInBytes + DefaultIndexPageSizeInBytes;
+                var totalFileSize       = cursorPos;
                 var totalIndexEntries   = 0L;
 
                 w.Write(MagicBytesVersion1.ToByteArray());              // [ 0] MagicBytesVersion1
@@ -639,7 +679,7 @@ namespace Uncodium.SimpleStore
                 w.Write(DateTimeOffset.Now.Ticks);                      // [56] Created.Ticks
                 w.Write(DateTimeOffset.Now.Offset.Ticks);               //             .Offset
 
-                w.BaseStream.Position = indexRootPageOffset;
+                w.BaseStream.Position = DefaultHeaderSizeInBytes;
                 w.Write(IndexPage.MagicBytesVersion1.ToByteArray());    // [ 0] magic bytes
                 w.Write(0L);                                            // [16] next
                 w.Write(16 + 8 + 4 + 4);                                // [24] cursor
@@ -647,6 +687,8 @@ namespace Uncodium.SimpleStore
                 w.Write(new byte[DefaultIndexPageSizeInBytes - 8 - 4]); // [32] data
 
                 w.Flush();
+
+                return ms.ToArray();
             }
         }
 
@@ -778,9 +820,9 @@ namespace Uncodium.SimpleStore
         /// Optionally opens current state read-only.
         /// Optionally a logger can be supplied which replaces the default logger to log.txt.
         /// </summary>
-        private SimpleDiskStore(string filename, Type[] typesToKeepAlive, bool readOnlySnapshot, Action<string[]> logLines)
+        private SimpleDiskStore(string path, Type[] typesToKeepAlive, bool readOnlySnapshot, Action<string[]> logLines)
         {
-            m_dbDiskLocation = filename;
+            m_dbDiskLocation = path;
             m_readOnlySnapshot = readOnlySnapshot;
 
             if (typesToKeepAlive == null) typesToKeepAlive = new Type[0];
@@ -816,16 +858,16 @@ namespace Uncodium.SimpleStore
         /// Optional set of types that will be kept alive in memory.
         /// Optionally opens current state read-only.
         /// </summary>
-        private SimpleDiskStore(string filename, Type[] typesToKeepAlive, bool readOnlySnapshot)
-            : this(filename, typesToKeepAlive, readOnlySnapshot: readOnlySnapshot, logLines: null)
+        private SimpleDiskStore(string path, Type[] typesToKeepAlive, bool readOnlySnapshot)
+            : this(path, typesToKeepAlive, readOnlySnapshot: readOnlySnapshot, logLines: null)
         { }
 
         /// <summary>
         /// Creates store in given file.
         /// Optional set of types that will be kept alive in memory.
         /// </summary>
-        public SimpleDiskStore(string filename, Type[] typesToKeepAlive) 
-            : this(filename, typesToKeepAlive, readOnlySnapshot: false, logLines: null)
+        public SimpleDiskStore(string path, Type[] typesToKeepAlive) 
+            : this(path, typesToKeepAlive, readOnlySnapshot: false, logLines: null)
         { }
 
         /// <summary>
@@ -833,23 +875,23 @@ namespace Uncodium.SimpleStore
         /// Optional set of types that will be kept alive in memory.
         /// Optionally a logger can be supplied which replaces the default logger to log.txt.
         /// </summary>
-        public SimpleDiskStore(string filename, Type[] typesToKeepAlive, Action<string[]> logLines)
-            : this(filename, typesToKeepAlive, readOnlySnapshot: false, logLines: logLines)
+        public SimpleDiskStore(string path, Type[] typesToKeepAlive, Action<string[]> logLines)
+            : this(path, typesToKeepAlive, readOnlySnapshot: false, logLines: logLines)
         { }
 
         /// <summary>
         /// CCreates store in given file.
         /// </summary>
-        public SimpleDiskStore(string filename) 
-            : this(filename, typesToKeepAlive: null, readOnlySnapshot: false, logLines: null) 
+        public SimpleDiskStore(string path) 
+            : this(path, typesToKeepAlive: null, readOnlySnapshot: false, logLines: null) 
         { }
 
         /// <summary>
         /// Creates store in given file.
         /// Optionally a logger can be supplied which replaces the default logger to log.txt.
         /// </summary>
-        public SimpleDiskStore(string filename, Action<string[]> logLines)
-            : this(filename, typesToKeepAlive: null, readOnlySnapshot: false, logLines: logLines)
+        public SimpleDiskStore(string path, Action<string[]> logLines)
+            : this(path, typesToKeepAlive: null, readOnlySnapshot: false, logLines: logLines)
         { }
 
         /// <summary>
@@ -857,15 +899,15 @@ namespace Uncodium.SimpleStore
         /// This means that no store entries that are added after the call to OpenReadOnlySnapshot will be(come) visible.
         /// Optional set of types that will be kept alive in memory.
         /// </summary>
-        public static SimpleDiskStore OpenReadOnlySnapshot(string filename, Type[] typesToKeepAlive)
-            => new(filename, typesToKeepAlive, readOnlySnapshot: true);
+        public static SimpleDiskStore OpenReadOnlySnapshot(string path, Type[] typesToKeepAlive)
+            => new(path, typesToKeepAlive, readOnlySnapshot: true);
 
         /// <summary>
         /// Opens store in given file in read-only snapshot mode.
         /// This means that no store entries that are added after the call to OpenReadOnlySnapshot will be(come) visible.
         /// </summary>
-        public static SimpleDiskStore OpenReadOnlySnapshot(string filename)
-            => new(filename, typesToKeepAlive: null, readOnlySnapshot: true);
+        public static SimpleDiskStore OpenReadOnlySnapshot(string path)
+            => new(path, typesToKeepAlive: null, readOnlySnapshot: true);
 
         #endregion
 
@@ -878,6 +920,7 @@ namespace Uncodium.SimpleStore
             {
                 // FolderWithStandaloneDataAndIndexFiles --> FolderWithMergedDataAndIndexFile
                 UpgradeOriginalStore(m_dbDiskLocation);
+                layout = GetStoreLayout(m_dbDiskLocation);
             }
 
             // === INIT ===
