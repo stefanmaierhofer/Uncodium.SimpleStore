@@ -15,20 +15,21 @@ namespace Uncodium.SimpleStore.Tests
         private void TestWithFreshStore(Action<string, SimpleDiskStore> test)
         {
             // random store folder
-            var folder = Path.GetFullPath($"store_{Guid.NewGuid()}");
+            var path = Path.GetFullPath($"store_{Guid.NewGuid()}");
             SimpleDiskStore store = null;
             try
             {
                 // create fresh store
-                store = new SimpleDiskStore(folder);
+                store = new SimpleDiskStore(path);
 
                 // run test
-                test(folder, store);
+                test(path, store);
             }
             finally
             {
                 try { store.Dispose(); } catch { }
-                Directory.Delete(folder, true);
+                File.Delete(path + SimpleDiskStore.DefaultFileExtension);
+                File.Delete(path + SimpleDiskStore.DefaultFileExtension + ".log");
             }
         }
         private string GetString(SimpleDiskStore store, string key)

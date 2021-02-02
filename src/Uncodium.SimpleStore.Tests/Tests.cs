@@ -72,21 +72,65 @@ namespace Uncodium.SimpleStore.Tests
             using var storeReadOnly2 = SimpleDiskStore.OpenReadOnlySnapshot(TestStoreSmallPath);
         }
 
+        //[Test]
+        //public void CreateDiskStoreCreatesFolderWithBinFile()
+        //{
+        //    var path = Path.GetFullPath(Guid.NewGuid().ToString());
+
+        //    Assert.False(Directory.Exists(path));
+
+        //    var store = new SimpleDiskStore(path);
+
+        //    Assert.True(Directory.Exists(path));
+
+        //    store.Dispose();
+        //    Directory.Delete(path, true);
+        //    Thread.Sleep(250);
+        //    Assert.False(Directory.Exists(path));
+        //}
+
         [Test]
-        public void CreateDiskStoreCreatesFolderWithBinFile()
+        public void CreateDiskStoreCreatesDataFile()
         {
             var path = Path.GetFullPath(Guid.NewGuid().ToString());
+            var dataFileName = path + SimpleDiskStore.DefaultFileExtension;
 
-            Assert.False(Directory.Exists(path));
+            Assert.False(File.Exists(dataFileName));
+            Assert.False(Directory.Exists(dataFileName));
 
             var store = new SimpleDiskStore(path);
 
-            Assert.True(Directory.Exists(path));
+            Assert.True(File.Exists(dataFileName));
+            Assert.False(Directory.Exists(dataFileName));
 
             store.Dispose();
-            Directory.Delete(path, true);
+            File.Delete(dataFileName);
             Thread.Sleep(250);
-            Assert.False(Directory.Exists(path));
+
+            Assert.False(File.Exists(dataFileName));
+            Assert.False(Directory.Exists(dataFileName));
+        }
+
+        [Test]
+        public void CreateDiskStoreCreatesDataFile_WithExtension()
+        {
+            var path = Path.GetFullPath(Guid.NewGuid().ToString()) + SimpleDiskStore.DefaultFileExtension;
+            var dataFileName = path;
+
+            Assert.False(File.Exists(dataFileName));
+            Assert.False(Directory.Exists(dataFileName));
+
+            var store = new SimpleDiskStore(path);
+
+            Assert.True(File.Exists(dataFileName));
+            Assert.False(Directory.Exists(dataFileName));
+
+            store.Dispose();
+            File.Delete(dataFileName);
+            Thread.Sleep(250);
+
+            Assert.False(File.Exists(dataFileName));
+            Assert.False(Directory.Exists(dataFileName));
         }
 
         #endregion
@@ -490,6 +534,7 @@ namespace Uncodium.SimpleStore.Tests
             var key3 = Guid.NewGuid().ToString();
             var storename = TestStoreSmallPath + ".1";
             if (Directory.Exists(storename)) Directory.Delete(storename, true);
+            if (File.Exists(storename + SimpleDiskStore.DefaultFileExtension)) File.Delete(storename + SimpleDiskStore.DefaultFileExtension);
 
             using var store = new SimpleDiskStore(storename);
             store.Add(key1, "key1", () => Encoding.UTF8.GetBytes("key1"));
