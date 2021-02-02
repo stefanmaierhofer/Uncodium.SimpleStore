@@ -1,4 +1,5 @@
-﻿using NUnit.Framework.Internal;
+﻿using NUnit.Framework.Constraints;
+using NUnit.Framework.Internal;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -97,9 +98,24 @@ namespace Uncodium.SimpleStore.Tests
             Console.WriteLine($"      bytes/s: {totalBytes/sw.Elapsed.TotalSeconds,20:N0}");
         }
 
+        static void TestAutoConversion()
+        {
+            var store = new SimpleDiskStore(@"T:\tmp\1190_31_test_Frizzo.e57_5.0.24");
+            var i = 1L;
+            var keys = store.SnapshotKeys();
+            foreach (var k in keys)
+            {
+                var buffer = store.Get(k);
+                Console.WriteLine($"[{i,16:N0}/{keys.Length:N0}] {k,-20} {buffer.Length,16:N0} bytes");
+                ++i;
+            }
+        }
+
         static void Main()
         {
-            TestThroughput();
+            TestAutoConversion();
+
+            //TestThroughput();
 
             //Console.WriteLine(Encoding.UTF8.GetBytes($"{DateTimeOffset.Now:O}").Length);
 

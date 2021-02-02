@@ -188,8 +188,11 @@ namespace Uncodium.SimpleStore
             if (m_accessor != null) throw new Exception("Invariant caed99a0-55ad-433f-baeb-e0db9fc139c7.");
             if (m_header != null) throw new Exception("Invariant 55926fae-4371-498c-b365-5e451c976018.");
             if (m_dbIndex != null) throw new Exception("Invariant e0e827e5-c038-4d0e-8e55-9a235ad4f353.");
-            var mapName = dataFilename.ToMd5Hash().ToString();
-            m_mmf = MemoryMappedFile.CreateFromFile(dataFilename, FileMode.OpenOrCreate, mapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.ReadWrite);
+            if (m_dataFileName != null) throw new Exception("Invariant a7038834-41c4-41ac-8b55-016f2f9d2969.");
+
+            m_dataFileName = dataFilename;
+            var mapName = m_dataFileName.ToMd5Hash().ToString();
+            m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.OpenOrCreate, mapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.ReadWrite);
             m_accessor = m_mmf.CreateViewAccessor(0, totalDataFileSizeInBytes);
             m_header = new(m_accessor);
             m_dbIndex = new Dictionary<string, (long, int)>();
@@ -201,6 +204,7 @@ namespace Uncodium.SimpleStore
             m_header = null;
             m_accessor.Dispose(); m_accessor = null;
             m_mmf.Dispose(); m_mmf = null;
+            m_dataFileName = null;
 
             // (3) delete old index file ...
             Log($"deleting deprecated index file: {indexFileName}");
@@ -216,25 +220,33 @@ namespace Uncodium.SimpleStore
                     );
 
                 var totalDataFileSizeInBytes = new FileInfo(filename).Length;
+                Log($"    total data file size                          : {indexFileName,20:N0} bytes");
 
                 // get write position (first 8 bytes as int64, in old format)
                 var p = 0L;
                 using (var br = new BinaryReader(File.Open(filename, FileMode.Open, FileAccess.Read, FileShare.None)))
                     p = br.ReadInt64();
+                Log($"    write position                                : {p,20:N0}");
 
                 // append header and empty index (at current write position)
                 using var f = File.Open(filename, FileMode.Open, FileAccess.Write, FileShare.None);
-                f.Position = p;
-                var buffer = Header.GenerateHeaderAndEmptyIndexForOffset(p);
+
+                var headerOffset = p;
+                f.Position = headerOffset;
+                var buffer = Header.GenerateHeaderAndEmptyIndexForOffset(headerOffset, totalDataFileSizeInBytes);
                 f.Write(buffer, 0, buffer.Length);
                 var writePosition = f.Position;
+                Log($"    injected header and empty index");
+                Log($"    write position (new)                          : {writePosition,20:N0}");
 
                 // replace write position with pointer/offset to header
-                var pBuffer = BitConverter.GetBytes(p);
+                var pBuffer = BitConverter.GetBytes(headerOffset);
                 f.Position = 0L;
                 f.Write(pBuffer, 0, 8);
-
-                return Math.Max(writePosition, totalDataFileSizeInBytes);
+                Log($"    replaced write position with header offset    : {headerOffset,20:N0}");
+                var totalDataFileSizeInBytesNew = Math.Max(writePosition, totalDataFileSizeInBytes);
+                Log($"    total data file size (new)                    : {totalDataFileSizeInBytesNew,20:N0}");
+                return totalDataFileSizeInBytesNew;
             }
 
             void ImportDeprecatedIndexFile(string filename)
@@ -654,19 +666,19 @@ namespace Uncodium.SimpleStore
                 using var f = File.Open(dataFileName, FileMode.CreateNew, FileAccess.Write, FileShare.None);
                 using var w = new BinaryWriter(f);
 
-                var buffer = GenerateHeaderAndEmptyIndexForOffset(0L);
+                var buffer = GenerateHeaderAndEmptyIndexForOffset(0L, 0L);
                 w.Write(buffer);
                 w.Flush();
             }
 
-            public static byte[] GenerateHeaderAndEmptyIndexForOffset(long offset)
+            public static byte[] GenerateHeaderAndEmptyIndexForOffset(long offset, long totalFileSizeInBytes)
             {
                 var ms = new MemoryStream();
                 using var w = new BinaryWriter(ms);
 
                 var indexRootPageOffset = offset + DefaultHeaderSizeInBytes;
                 var cursorPos           = offset + DefaultHeaderSizeInBytes + DefaultIndexPageSizeInBytes;
-                var totalFileSize       = cursorPos;
+                var totalFileSize       = Math.Max(cursorPos, totalFileSizeInBytes);
                 var totalIndexEntries   = 0L;
 
                 w.Write(MagicBytesVersion1.ToByteArray());              // [ 0] MagicBytesVersion1
