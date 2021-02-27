@@ -300,10 +300,10 @@ namespace Uncodium.SimpleStore
 
         private class IndexEntry
         {
+            public readonly string Key;
             public readonly ulong Offset;
             public readonly uint Size;
             public readonly uint Flags;
-            public readonly string Key;
 
             public IndexEntry(string key, ulong offset, uint size, uint flags)
             {

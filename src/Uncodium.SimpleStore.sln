@@ -4,7 +4,20 @@ VisualStudioVersion = 16.0.30002.166
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Uncodium.SimpleStore", "Uncodium.SimpleStore\Uncodium.SimpleStore.csproj", "{B780811E-A02E-4111-987B-9D65001BEFD2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Uncodium.SimpleStore.Tests", "Uncodium.SimpleStore.Tests\Uncodium.SimpleStore.Tests.csproj", "{C1486AE8-930C-4AA7-B71A-A6F875F649FC}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Uncodium.SimpleStore.Tests", "Uncodium.SimpleStore.Tests\Uncodium.SimpleStore.Tests.csproj", "{C1486AE8-930C-4AA7-B71A-A6F875F649FC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{BCEA3B41-3F39-486C-BBE2-3D97F78176F6}"
+	ProjectSection(SolutionItems) = preProject
+		..\.gitignore = ..\.gitignore
+		..\build.cmd = ..\build.cmd
+		..\build.sh = ..\build.sh
+		..\deploy.targets = ..\deploy.targets
+		..\LICENSE = ..\LICENSE
+		..\paket.dependencies = ..\paket.dependencies
+		..\paket.lock = ..\paket.lock
+		..\pushpackages.cmd = ..\pushpackages.cmd
+		..\README.md = ..\README.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -25,7 +38,7 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {1E8F3EC7-B101-4CB4-8C22-9F884DDDEECB}
 		EnterpriseLibraryConfigurationToolBinariesPathV6 = packages\EnterpriseLibrary.TransientFaultHandling.6.0.1304.0\lib\portable-net45+win+wp8;packages\EnterpriseLibrary.TransientFaultHandling.Data.6.0.1304.1\lib\NET45
+		SolutionGuid = {1E8F3EC7-B101-4CB4-8C22-9F884DDDEECB}
 	EndGlobalSection
 EndGlobal
