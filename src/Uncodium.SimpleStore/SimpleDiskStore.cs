@@ -1,7 +1,7 @@
 ﻿/*
    MIT License
    
-   Copyright (c) 2014,2015,2016,2017,2018,2019,2020 Stefan Maierhofer.
+   Copyright (c) 2014,2015,2016,2017,2018,2019,2020,2021 Stefan Maierhofer.
    
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
@@ -24,6 +24,7 @@
 
 #pragma warning disable CS1591
 
+using K4os.Compression.LZ4;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -195,7 +196,7 @@ namespace Uncodium.SimpleStore
             m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.OpenOrCreate, mapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.ReadWrite);
             m_accessor = m_mmf.CreateViewAccessor(0, totalDataFileSizeInBytes);
             m_header = new(m_accessor);
-            m_dbIndex = new Dictionary<string, (long, int)>();
+            m_dbIndex = new Dictionary<string, IndexEntry>();
 
             ImportDeprecatedIndexFile(indexFileName);
             Flush();
@@ -257,8 +258,8 @@ namespace Uncodium.SimpleStore
                 var count = 0;
                 var i = 0;
                 var key = string.Empty;
-                var offset = 0L;
-                var size = 0;
+                var offset = 0UL;
+                var size = 0U;
                 try
                 {
                     // import existing (deprecated) index file
@@ -268,10 +269,11 @@ namespace Uncodium.SimpleStore
                     for (i = 0; i < count; i++)
                     {
                         key = br.ReadString();
-                        offset = br.ReadInt64();
-                        size = br.ReadInt32();
+                        offset = br.ReadUInt64();
+                        size = br.ReadUInt32();
 
-                        m_header.AppendIndexEntry(key, offset, size, EnsureSpaceFor);
+                        var e = new IndexEntry(key, offset, size, Flags.None);
+                        m_header.AppendIndexEntry(e, EnsureSpaceFor);
                     }
                     sw.Stop();
                     Log(
@@ -295,6 +297,25 @@ namespace Uncodium.SimpleStore
         #endregion
 
         #region Private
+
+        private class IndexEntry
+        {
+            public readonly ulong Offset;
+            public readonly uint Size;
+            public readonly uint Flags;
+            public readonly string Key;
+
+            public IndexEntry(string key, ulong offset, uint size, uint flags)
+            {
+                if (key.Length > MaxKeyLength)
+                    throw new ArgumentOutOfRangeException(nameof(key), $"Max key length is {MaxKeyLength}, but key has {key.Length}.");
+
+                Key = key;
+                Offset = offset;
+                Size = size;
+                Flags = flags;
+            }
+        }
 
         private struct Position
         {
@@ -434,24 +455,22 @@ namespace Uncodium.SimpleStore
                 return result;
             }
 
-            public bool TryAdd(string key, (long offset, int size) value)
+            public bool TryAdd(IndexEntry e)
             {
-                if (key.Length > MaxKeyLength)
-                    throw new ArgumentOutOfRangeException(nameof(key), $"Max key length is {MaxKeyLength}, but key has {key.Length}.");
-
-                var keyBuffer = Encoding.UTF8.GetBytes(key);
+                var keyBuffer = Encoding.UTF8.GetBytes(e.Key);
                 if (keyBuffer.Length > MaxKeyLength)
-                    throw new ArgumentOutOfRangeException(nameof(key), $"Max key length is {MaxKeyLength}, but encoded key has {key.Length}.");
+                    throw new ArgumentOutOfRangeException(nameof(e.Key), $"Max key length is {MaxKeyLength}, but encoded key has {e.Key.Length}.");
 
-                var entrySize = 2 + keyBuffer.Length + 8 + 4;
+                var entrySize = 2 + keyBuffer.Length + 8 + 4 + 4;
                 if (Cursor + entrySize > Range.Max)
                     return false; // index page is full -> fail
 
                 var p = Cursor.Value;
                 m_accessor.Write(p, (short)keyBuffer.Length); p += 2;
                 m_accessor.WriteArray(p, keyBuffer, 0, keyBuffer.Length); p += keyBuffer.Length;
-                m_accessor.Write(p, value.offset); p += 8;
-                m_accessor.Write(p, value.size); p += 4;
+                m_accessor.Write(p, e.Offset); p += 8;
+                m_accessor.Write(p, e.Size); p += 4;
+                m_accessor.Write(p, e.Flags); p += 4;
                 Cursor = new(p);
                 Count++;
 
@@ -498,7 +517,7 @@ namespace Uncodium.SimpleStore
                 private set => FIELD_COUNT.Write(m_accessor, Range, value);
             }
 
-            public IEnumerable<(string key, (long, int) value)> Entries
+            public IEnumerable<(string key, IndexEntry value)> Entries
             {
                 get
                 {
@@ -507,14 +526,15 @@ namespace Uncodium.SimpleStore
                     var end = Cursor.Value;
                     while (p < end)
                     {
-                        var keyBufferLength = m_accessor.ReadInt16(p); p += 2;
+                        var keyBufferLength = m_accessor.ReadUInt16(p); p += 2;
                         var keyBuffer = new byte[keyBufferLength];
                         m_accessor.ReadArray(p, keyBuffer, 0, keyBufferLength); p += keyBufferLength;
                         var key = Encoding.UTF8.GetString(keyBuffer);
-                        var valueOffset = m_accessor.ReadInt64(p); p += 8;
-                        var valueSize = m_accessor.ReadInt32(p); p += 4;
-                        var result = (key, (valueOffset, valueSize));
-                        //Console.WriteLine($"[ENTRY] [{key}] -> [[{valueOffset}], [{valueSize}]]");
+                        var valueOffset = m_accessor.ReadUInt64(p); p += 8;
+                        var valueSize = m_accessor.ReadUInt32(p); p += 4;
+                        var valueFlags = m_accessor.ReadUInt32(p); p += 4;
+                        var result = (key, new IndexEntry(key, valueOffset, valueSize, valueFlags));
+                        //Console.WriteLine($"[ENTRY] [{key}] -> [[{valueOffset}], [{valueSize}], [{valueFlags}]]");
                         yield return result;
                     }
                 }
@@ -623,9 +643,9 @@ namespace Uncodium.SimpleStore
                 }
             }
 
-            public void AppendIndexEntry(string key, long offset, int size, Action<long> ensureSpaceFor)
+            public void AppendIndexEntry(IndexEntry e, Action<long> ensureSpaceFor)
             {
-                if (!m_currentIndexPage.TryAdd(key, (offset, size)))
+                if (!m_currentIndexPage.TryAdd(e))
                 {
                     // current index page is full -> append new page
                     ensureSpaceFor(DataCursor + IndexPageSizeInBytes);
@@ -633,7 +653,7 @@ namespace Uncodium.SimpleStore
                     var newPage = IndexPage.Init(m_accessor, new Block(DataCursor, IndexPageSizeInBytes), next: m_currentIndexPage);
                     
                     // write again, there is enough space now
-                    if (!newPage.TryAdd(key, (offset, size))) throw new Exception("Failed to write index entry.");
+                    if (!newPage.TryAdd(e)) throw new Exception("Failed to write index entry.");
 
                     m_currentIndexPage = newPage;
                     DataCursor = newPage.Range.Max;
@@ -655,7 +675,7 @@ namespace Uncodium.SimpleStore
                 }
             }
 
-            public void ReadIndexIntoMemory(Dictionary<string, (long, int)> index)
+            public void ReadIndexIntoMemory(Dictionary<string, IndexEntry> index)
             {
                 var xs = IndexPages.SelectMany(p => p.Entries);
                 foreach (var (key, value) in xs) index[key] = value;
@@ -709,7 +729,7 @@ namespace Uncodium.SimpleStore
         private readonly bool m_readOnlySnapshot;
         private string m_dataFileName;
 
-        private Dictionary<string, (long, int)> m_dbIndex;
+        private Dictionary<string, IndexEntry> m_dbIndex;
         private Dictionary<string, WeakReference<object>> m_dbCache;
         private HashSet<object> m_dbCacheKeepAlive;
         private readonly HashSet<Type> m_typesToKeepAlive;
@@ -1023,7 +1043,7 @@ namespace Uncodium.SimpleStore
                 );
 
             // create in-memory index
-            m_dbIndex = new Dictionary<string, (long, int)>();
+            m_dbIndex = new Dictionary<string, IndexEntry>();
             m_header.ReadIndexIntoMemory(m_dbIndex);
         }
 
@@ -1163,7 +1183,7 @@ namespace Uncodium.SimpleStore
         /// Adds key/value pair to store.
         /// If 'getEncodedValue' is null, than value will not be written to disk.
         /// </summary>
-        public void Add(string key, object value, Func<byte[]> getEncodedValue)
+        public void Add(string key, object value, uint flags, Func<byte[]> getEncodedValue)
         {
             CheckDisposed();
 
@@ -1185,32 +1205,53 @@ namespace Uncodium.SimpleStore
 
             if (buffer == null) return;
 
-            //var buffer = getEncodedValue?.Invoke();
             lock (m_lock)
             {
                 EnsureMemoryMappedFileIsOpen();
 
-                // write value buffer to store
-                EnsureSpaceFor(numberOfBytes: buffer.Length);
                 var valueBufferPos = m_header.DataCursor;
-                WriteBytes(valueBufferPos, buffer);
-                m_header.DataCursor = valueBufferPos + new Offset32(buffer.Length);
+                var storedLength = buffer.Length;
+
+                if (flags == Flags.LZ4)
+                {
+                    var target = new byte[LZ4Codec.MaximumOutputSize(buffer.Length)];
+                    var encodedLength = LZ4Codec.Encode(
+                        buffer, 0, buffer.Length,
+                        target, 0, target.Length);
+                    storedLength = 4 + encodedLength;
+
+                    // write value buffer to store
+                    EnsureSpaceFor(numberOfBytes: encodedLength + 4);
+                    m_accessor.Write(valueBufferPos, buffer.Length); // store buffer size needed to deflate into
+                    valueBufferPos += 4;
+                    WriteBytes(valueBufferPos, buffer, 0, encodedLength);
+                    m_header.DataCursor = valueBufferPos + new Offset32(buffer.Length);
+                }
+                else
+                {
+                    if (flags != Flags.None) throw new Exception($"Unknown flags {flags}.");
+                    // write value buffer to store
+                    EnsureSpaceFor(numberOfBytes: buffer.Length);
+                    WriteBytes(valueBufferPos, buffer, 0, buffer.Length);
+                    m_header.DataCursor = valueBufferPos + new Offset32(buffer.Length);
+                }
 
                 // update index
-                m_dbIndex[key] = (valueBufferPos, buffer.Length);
-                m_header.AppendIndexEntry(key, valueBufferPos, buffer.Length, EnsureSpaceFor);
+                var e = new IndexEntry(key, (ulong)valueBufferPos.Value, (uint)storedLength, flags);
+                m_dbIndex[key] = e;
+                m_header.AppendIndexEntry(e, EnsureSpaceFor);
 
                 // housekeeping
                 LatestKeyAdded = key;
             }
         }
-        private unsafe void WriteBytes(long offset, byte[] data)
+        private unsafe void WriteBytes(long writeOffset, byte[] data, int dataOffset, int dataLength)
         {
             byte* ptr = (byte*)0;
             try
             {
                 m_accessor.SafeMemoryMappedViewHandle.AcquirePointer(ref ptr);
-                Marshal.Copy(data, 0, new IntPtr(ptr + offset), data.Length);
+                Marshal.Copy(data, dataOffset, new IntPtr(ptr + writeOffset), dataLength);
             }
             finally
             {
@@ -1246,21 +1287,43 @@ namespace Uncodium.SimpleStore
             lock (m_lock)
             {
                 EnsureMemoryMappedFileIsOpen();
-                if (m_dbIndex.TryGetValue(key, out (long offset, int size) entry))
+                if (m_dbIndex.TryGetValue(key, out IndexEntry entry))
                 {
                     try
                     {
-                        var buffer = new byte[entry.size];
-                        var readcount = m_accessor.ReadArray(entry.offset, buffer, 0, buffer.Length);
-                        if (readcount != buffer.Length) throw new InvalidOperationException();
-                        Interlocked.Increment(ref m_stats.CountGet);
-                        return buffer;
+                        if (entry.Flags == Flags.LZ4)
+                        {
+                            var offset = (long)entry.Offset;
+                            if (offset < 0) throw new Exception($"Offset out of range. Should not be greater than {long.MaxValue}, but is {entry.Offset}.");
+                            var targetBufferLength = m_accessor.ReadInt32(offset);
+                            var bufferCompressed = new byte[entry.Size - 4];
+                            var readcount = m_accessor.ReadArray(offset, bufferCompressed, 0, bufferCompressed.Length);
+                            if (readcount != bufferCompressed.Length) throw new InvalidOperationException();
+
+                            var target = new byte[targetBufferLength];
+                            var decoded = LZ4Codec.Decode(
+                                bufferCompressed, 0, bufferCompressed.Length,
+                                target, 0, target.Length);
+
+                            Interlocked.Increment(ref m_stats.CountGet);
+                            return target;
+                        }
+                        else
+                        {
+                            var buffer = new byte[entry.Size];
+                            var offset = (long)entry.Offset;
+                            if (offset < 0) throw new Exception($"Offset out of range. Should not be greater than {long.MaxValue}, but is {entry.Offset}.");
+                            var readcount = m_accessor.ReadArray(offset, buffer, 0, buffer.Length);
+                            if (readcount != buffer.Length) throw new InvalidOperationException();
+                            Interlocked.Increment(ref m_stats.CountGet);
+                            return buffer;
+                        }
                     }
                     catch (Exception e)
                     {
                         var count = Interlocked.Increment(ref m_stats.CountGetWithException);
-                        Log($"[CRITICAL ERROR] Get(key={key}) failed.",
-                            $"[CRITICAL ERROR] entry = {{offset={entry.offset}, size={entry.size}}}",
+                        Log($"[CRITICAL ERROR] Get(key={key}, flags={entry.Flags}) failed.",
+                            $"[CRITICAL ERROR] entry = {{offset={entry.Offset}, size={entry.Size}}}",
                             $"[CRITICAL ERROR] So far, {count} Get-calls failed.",
                             $"[CRITICAL ERROR] exception = {e}"
                             );
@@ -1289,15 +1352,19 @@ namespace Uncodium.SimpleStore
             lock (m_lock)
             {
                 EnsureMemoryMappedFileIsOpen();
-                if (m_dbIndex.TryGetValue(key, out (long offset, int size) entry))
+                if (m_dbIndex.TryGetValue(key, out IndexEntry entry))
                 {
-                    if (offset >= entry.size) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be less than length of value buffer.");
-                    if (offset + length > entry.size) throw new ArgumentOutOfRangeException(nameof(offset), "Offset + size exceeds length of value buffer.");
+                    if (entry.Flags == Flags.LZ4) throw new InvalidOperationException("Cannot get slice of compressed entry.");
+                    if (offset >= entry.Size) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be less than length of value buffer.");
+                    if (offset + length > entry.Size) throw new ArgumentOutOfRangeException(nameof(offset), "Offset + size exceeds length of value buffer.");
 
                     try
                     {
                         var buffer = new byte[length];
-                        var readcount = m_accessor.ReadArray(entry.offset + offset, buffer, 0, length);
+                        var o = entry.Offset + (ulong)offset;
+                        if (o > long.MaxValue) throw new Exception($"Offset out of range. Should not be greater than {long.MaxValue}, but is {o}.");
+                        if (length > int.MaxValue) throw new Exception($"Length out of range. Should not be greater than {int.MaxValue}, but is {length}.");
+                        var readcount = m_accessor.ReadArray((long)o, buffer, 0, (int)length);
                         if (readcount != length) throw new InvalidOperationException();
                         Interlocked.Increment(ref m_stats.CountGetSlice);
                         return buffer;
@@ -1306,7 +1373,7 @@ namespace Uncodium.SimpleStore
                     {
                         var count = Interlocked.Increment(ref m_stats.CountGetSliceWithException);
                         Log($"[CRITICAL ERROR] GetSlice(key={key}, offset={offset}, length={length}) failed.",
-                            $"[CRITICAL ERROR] entry = {{offset={entry.offset}, size={entry.size}}}",
+                            $"[CRITICAL ERROR] entry = {{offset={entry.Offset}, size={entry.Size}}}",
                             $"[CRITICAL ERROR] So far, {count} GetSlice-calls failed.",
                             $"[CRITICAL ERROR] exception = {e}"
                             );
@@ -1332,9 +1399,9 @@ namespace Uncodium.SimpleStore
             lock (m_lock)
             {
                 EnsureMemoryMappedFileIsOpen();
-                if (m_dbIndex.TryGetValue(key, out (long, int) entry))
+                if (m_dbIndex.TryGetValue(key, out IndexEntry entry))
                 {
-                    return m_mmf.CreateViewStream(8 + entry.Item1, entry.Item2, MemoryMappedFileAccess.Read);
+                    return m_mmf.CreateViewStream((long)(8 + entry.Offset), entry.Size, MemoryMappedFileAccess.Read);
                 }
                 else
                 {

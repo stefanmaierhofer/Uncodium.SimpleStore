@@ -1,7 +1,7 @@
 ﻿/*
    MIT License
    
-   Copyright (c) 2014,2015,2016,2017,2018,2019,2020 Stefan Maierhofer.
+   Copyright (c) 2014,2015,2016,2017,2018,2019,2020,2021 Stefan Maierhofer.
    
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
@@ -29,6 +29,21 @@ namespace Uncodium.SimpleStore
 {
     /// <summary>
     /// </summary>
+    public static class Flags
+    {
+        /// <summary>
+        /// Buffer contains raw data.
+        /// </summary>
+        public static readonly uint None = 0b_00000000_00000000_00000000_00000000U;
+
+        /// <summary>
+        /// Buffer is compressed with LZ4.
+        /// </summary>
+        public static readonly uint LZ4 = 0b_00000000_00000000_00000000_00000001U;
+    }
+
+    /// <summary>
+    /// </summary>
     public interface ISimpleStore : IDisposable
     {
         /// <summary>
@@ -39,7 +54,7 @@ namespace Uncodium.SimpleStore
         /// <summary>
         /// Adds key/value 
         /// </summary>
-        void Add(string key, object value, Func<byte[]> getEncodedValue);
+        void Add(string key, object value, uint flags, Func<byte[]> getEncodedValue);
 
         /// <summary>
         /// True if key is contained in store.

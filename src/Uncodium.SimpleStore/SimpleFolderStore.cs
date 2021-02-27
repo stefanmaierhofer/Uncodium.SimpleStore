@@ -1,7 +1,7 @@
 ﻿/*
    MIT License
    
-   Copyright (c) 2014,2015,2016,2017,2018,2019,2020 Stefan Maierhofer.
+   Copyright (c) 2014,2015,2016,2017,2018,2019,2020,2021 Stefan Maierhofer.
    
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
@@ -71,9 +71,11 @@ namespace Uncodium.SimpleStore
 
         public string Version => Global.Version;
 
-        public void Add(string key, object value, Func<byte[]> getEncodedValue)
+        public void Add(string key, object value, uint flags, Func<byte[]> getEncodedValue)
         {
             CheckDisposed();
+
+            if (flags != Flags.None) throw new NotImplementedException();
 
             Interlocked.Increment(ref m_stats.CountAdd);
             File.WriteAllBytes(GetFileNameFromId(key), getEncodedValue());

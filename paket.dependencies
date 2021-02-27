@@ -4,6 +4,7 @@ source https://api.nuget.org/v3/index.json
 nuget NUnit                     ~> 3.12
 nuget NUnit3TestAdapter         ~> 3.15.1
 nuget Microsoft.NET.Test.Sdk    ~> 16.4.0
+nuget K4os.Compression.LZ4      ~> 1.2.6
 
 group Build
 framework: netstandard2.0

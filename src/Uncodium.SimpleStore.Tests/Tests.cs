@@ -12,8 +12,8 @@ namespace Uncodium.SimpleStore.Tests
     [TestFixture]
     public class Tests
     {
-        private const string TestStoreSmallPath = @"teststore";
-        private const string TestStoreLargePath = @"teststore_large";
+        private static readonly string TestStoreSmallPath = Path.GetFullPath(@"teststore");
+        private static readonly string TestStoreLargePath = Path.GetFullPath(@"teststore_large");
 
         [OneTimeSetUp]
         public void Init()

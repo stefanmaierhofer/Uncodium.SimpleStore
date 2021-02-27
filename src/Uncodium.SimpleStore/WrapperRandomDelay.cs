@@ -1,7 +1,7 @@
 ﻿/*
    MIT License
    
-   Copyright (c) 2014,2015,2016,2017,2018,2019,2020 Stefan Maierhofer.
+   Copyright (c) 2014,2015,2016,2017,2018,2019,2020,2021 Stefan Maierhofer.
    
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
@@ -77,10 +77,10 @@ namespace Uncodium.SimpleStore
 
         public string Version => m_store.Version;
 
-        public void Add(string key, object value, Func<byte[]> getEncodedValue)
+        public void Add(string key, object value, uint flags, Func<byte[]> getEncodedValue)
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtAdd));
-            m_store.Add(key, value, getEncodedValue);
+            m_store.Add(key, value, flags, getEncodedValue);
         }
 
         public bool Contains(string key)
