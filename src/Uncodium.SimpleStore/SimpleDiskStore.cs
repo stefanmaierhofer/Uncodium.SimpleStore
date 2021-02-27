@@ -1221,11 +1221,10 @@ namespace Uncodium.SimpleStore
                     storedLength = 4 + encodedLength;
 
                     // write value buffer to store
-                    EnsureSpaceFor(numberOfBytes: encodedLength + 4);
+                    EnsureSpaceFor(numberOfBytes: storedLength);
                     m_accessor.Write(valueBufferPos, buffer.Length); // store buffer size needed to deflate into
-                    valueBufferPos += 4;
-                    WriteBytes(valueBufferPos, buffer, 0, encodedLength);
-                    m_header.DataCursor = valueBufferPos + new Offset32(buffer.Length);
+                    WriteBytes(valueBufferPos + 4, target, 0, encodedLength);
+                    m_header.DataCursor = valueBufferPos + new Offset32(storedLength);
                 }
                 else
                 {
@@ -1297,7 +1296,7 @@ namespace Uncodium.SimpleStore
                             if (offset < 0) throw new Exception($"Offset out of range. Should not be greater than {long.MaxValue}, but is {entry.Offset}.");
                             var targetBufferLength = m_accessor.ReadInt32(offset);
                             var bufferCompressed = new byte[entry.Size - 4];
-                            var readcount = m_accessor.ReadArray(offset, bufferCompressed, 0, bufferCompressed.Length);
+                            var readcount = m_accessor.ReadArray(offset + 4, bufferCompressed, 0, bufferCompressed.Length);
                             if (readcount != bufferCompressed.Length) throw new InvalidOperationException();
 
                             var target = new byte[targetBufferLength];

@@ -162,6 +162,16 @@ namespace Uncodium.SimpleStore.Tests
         }
 
         [Test]
+        public void CanAddDiskStoreCompressed()
+        {
+            var key = Guid.NewGuid().ToString();
+            using var store = new SimpleDiskStore(TestStoreSmallPath);
+
+            var buffer = Encoding.UTF8.GetBytes("This is a test for lz4 compression. This is a test for lz4 compression. This is a test for lz4 compression.");
+            store.Add(key, buffer, Flags.LZ4);
+        }
+
+        [Test]
         public void CanAddDiskStoreMany()
         {
             if (Directory.Exists(TestStoreSmallPath)) Directory.Delete(TestStoreSmallPath, true);
@@ -203,6 +213,20 @@ namespace Uncodium.SimpleStore.Tests
             var x = store.Get(key);
             var v = Encoding.UTF8.GetString(x);
             Assert.IsTrue(v == "b");
+        }
+
+        [Test]
+        public void CanGetDiskStoreCompressed()
+        {
+            var key = Guid.NewGuid().ToString();
+            using var store = new SimpleDiskStore(TestStoreSmallPath);
+
+            var buffer = Encoding.UTF8.GetBytes("This is a test for lz4 compression. This is a test for lz4 compression. This is a test for lz4 compression.");
+            store.Add(key, buffer, Flags.LZ4);
+
+            var buffer2 = store.Get(key);
+            Assert.True(buffer.Length == buffer2.Length);
+            for (var i = 0; i < buffer.Length; i++) Assert.True(buffer[i] == buffer2[i]);
         }
 
         [Test]

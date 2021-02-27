@@ -58,6 +58,12 @@ namespace Uncodium.SimpleStore
             => store.Add(key, value, Flags.None, () => value);
 
         /// <summary>
+        /// Store blob.
+        /// </summary>
+        public static void Add(this ISimpleStore store, string key, byte[] value, uint flags)
+            => store.Add(key, value, flags, () => value);
+
+        /// <summary>
         /// Each store operation fails with given probability.
         /// </summary>
         public static ISimpleStore FailRandomly(this ISimpleStore store, double pFail)
