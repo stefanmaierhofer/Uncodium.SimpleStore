@@ -64,7 +64,7 @@ namespace Uncodium.SimpleStore
         {
             CheckDisposed();
 
-            if (flags != Flags.None) throw new NotImplementedException();
+            if (flags != (uint)Flags.None) throw new NotImplementedException();
 
             lock (m_db)
             {

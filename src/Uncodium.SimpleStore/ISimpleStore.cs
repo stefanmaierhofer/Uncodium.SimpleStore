@@ -29,17 +29,18 @@ namespace Uncodium.SimpleStore
 {
     /// <summary>
     /// </summary>
-    public static class Flags
+    [Flags]
+    public enum Flags
     {
         /// <summary>
         /// Buffer contains raw data.
         /// </summary>
-        public static readonly uint None = 0b_00000000_00000000_00000000_00000000U;
+        None = 0,
 
         /// <summary>
         /// Buffer is compressed with LZ4.
         /// </summary>
-        public static readonly uint LZ4 = 0b_00000000_00000000_00000000_00000001U;
+        LZ4 = 1,
     }
 
     /// <summary>

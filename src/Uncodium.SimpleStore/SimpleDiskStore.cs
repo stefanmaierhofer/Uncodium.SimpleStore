@@ -24,7 +24,6 @@
 
 #pragma warning disable CS1591
 
-using K4os.Compression.LZ4;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -315,6 +314,8 @@ namespace Uncodium.SimpleStore
                 Size = size;
                 Flags = flags;
             }
+
+            public IndexEntry(string key, ulong offset, uint size, Flags flags) : this(key, offset, size, (uint)flags) { }
         }
 
         private struct Position
@@ -1212,23 +1213,20 @@ namespace Uncodium.SimpleStore
                 var valueBufferPos = m_header.DataCursor;
                 var storedLength = buffer.Length;
 
-                if (flags == Flags.LZ4)
+                if ((flags & (uint)Flags.LZ4) != 0)
                 {
-                    var target = new byte[LZ4Codec.MaximumOutputSize(buffer.Length)];
-                    var encodedLength = LZ4Codec.Encode(
-                        buffer, 0, buffer.Length,
-                        target, 0, target.Length);
-                    storedLength = 4 + encodedLength;
+                    var encoded = Utils.EncodeLz4SelfContained(buffer);
+                    storedLength = encoded.Length;
 
                     // write value buffer to store
-                    EnsureSpaceFor(numberOfBytes: storedLength);
-                    m_accessor.Write(valueBufferPos, buffer.Length); // store buffer size needed to deflate into
-                    WriteBytes(valueBufferPos + 4, target, 0, encodedLength);
+                    EnsureSpaceFor(numberOfBytes: encoded.Length);
+                    WriteBytes(valueBufferPos, encoded);
                     m_header.DataCursor = valueBufferPos + new Offset32(storedLength);
                 }
                 else
                 {
-                    if (flags != Flags.None) throw new Exception($"Unknown flags {flags}.");
+                    if (flags != (uint)Flags.None) throw new Exception($"Unknown flags {flags}.");
+
                     // write value buffer to store
                     EnsureSpaceFor(numberOfBytes: buffer.Length);
                     WriteBytes(valueBufferPos, buffer, 0, buffer.Length);
@@ -1251,6 +1249,21 @@ namespace Uncodium.SimpleStore
             {
                 m_accessor.SafeMemoryMappedViewHandle.AcquirePointer(ref ptr);
                 Marshal.Copy(data, dataOffset, new IntPtr(ptr + writeOffset), dataLength);
+            }
+            finally
+            {
+                m_accessor.SafeMemoryMappedViewHandle.ReleasePointer();
+            }
+        }
+
+        private unsafe void WriteBytes(long writeOffset, ReadOnlySpan<byte> data)
+        {
+            byte* ptr = (byte*)0;
+            try
+            {
+                m_accessor.SafeMemoryMappedViewHandle.AcquirePointer(ref ptr);
+                var destination = new Span<byte>(ptr + writeOffset, data.Length);
+                data.CopyTo(destination);
             }
             finally
             {
@@ -1290,22 +1303,18 @@ namespace Uncodium.SimpleStore
                 {
                     try
                     {
-                        if (entry.Flags == Flags.LZ4)
+                        if (entry.Flags == (uint)Flags.LZ4)
                         {
                             var offset = (long)entry.Offset;
                             if (offset < 0) throw new Exception($"Offset out of range. Should not be greater than {long.MaxValue}, but is {entry.Offset}.");
-                            var targetBufferLength = m_accessor.ReadInt32(offset);
-                            var bufferCompressed = new byte[entry.Size - 4];
-                            var readcount = m_accessor.ReadArray(offset + 4, bufferCompressed, 0, bufferCompressed.Length);
-                            if (readcount != bufferCompressed.Length) throw new InvalidOperationException();
+                            
+                            var bufferCompressed = new byte[entry.Size];
+                            if (m_accessor.ReadArray(offset, bufferCompressed, 0, bufferCompressed.Length) != entry.Size) throw new Exception();
 
-                            var target = new byte[targetBufferLength];
-                            var decoded = LZ4Codec.Decode(
-                                bufferCompressed, 0, bufferCompressed.Length,
-                                target, 0, target.Length);
+                            var decoded = Utils.DecodeLz4SelfContained(bufferCompressed);
 
                             Interlocked.Increment(ref m_stats.CountGet);
-                            return target;
+                            return decoded;
                         }
                         else
                         {
@@ -1353,7 +1362,7 @@ namespace Uncodium.SimpleStore
                 EnsureMemoryMappedFileIsOpen();
                 if (m_dbIndex.TryGetValue(key, out IndexEntry entry))
                 {
-                    if (entry.Flags == Flags.LZ4) throw new InvalidOperationException("Cannot get slice of compressed entry.");
+                    if (entry.Flags == (uint)Flags.LZ4) throw new InvalidOperationException("Cannot get slice of compressed entry.");
                     if (offset >= entry.Size) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be less than length of value buffer.");
                     if (offset + length > entry.Size) throw new ArgumentOutOfRangeException(nameof(offset), "Offset + size exceeds length of value buffer.");
 

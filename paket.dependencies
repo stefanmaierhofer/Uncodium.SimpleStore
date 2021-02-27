@@ -1,7 +1,9 @@
-framework: netstandard2.0, net5.0
 source https://api.nuget.org/v3/index.json
 
-nuget K4os.Compression.LZ4      ~> 1.2.6
-nuget Microsoft.NET.Test.Sdk    ~> 16.4.0
-nuget NUnit                     ~> 3.12
-nuget NUnit3TestAdapter         ~> 3.15.1
+storage: none
+framework: netstandard2.0, netcoreapp3.1
+
+nuget Azure.Core                    ~> 1.9.0
+nuget Azure.Storage.Common          ~> 12.7.0
+nuget Azure.Storage.Blobs           ~> 12.8.0
+nuget K4os.Compression.LZ4          ~> 1.2.6

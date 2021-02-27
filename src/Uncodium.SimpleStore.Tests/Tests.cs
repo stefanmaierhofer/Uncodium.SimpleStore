@@ -28,6 +28,23 @@ namespace Uncodium.SimpleStore.Tests
             }
         }
 
+        #region Utils
+
+        [Test]
+        public void CanEncodeDecodeLz4()
+        {
+            var s = "This is a LZ4 encoding and decoding roudntrip test. This is a LZ4 encoding and decoding roudntrip test. This is a LZ4 encoding and decoding roudntrip test.";
+            var buffer = Encoding.UTF8.GetBytes(s);
+
+            var encoded = Utils.EncodeLz4SelfContained(buffer);
+            var decoded = Utils.DecodeLz4SelfContained(encoded);
+
+            Assert.True(buffer.Length == decoded.Length);
+            for (var i = 0; i < decoded.Length; i++) Assert.True(buffer[i] == decoded[i]);
+        }
+
+        #endregion
+
         #region Construction
 
         [Test]
@@ -279,13 +296,13 @@ namespace Uncodium.SimpleStore.Tests
 
         #region GetSlice
 
-        private bool ElementsEqual(byte[] xs, byte[] ys)
+        private static bool ElementsEqual(byte[] xs, byte[] ys)
         {
             if (xs == null || ys == null || xs.Length != ys.Length) return false;
             for (var i = 0; i < xs.Length; i++) if (xs[i] != ys[i]) return false;
             return true;
         }
-        private void CheckGetSlice(ISimpleStore store)
+        private static void CheckGetSlice(ISimpleStore store)
         {
             var key = Guid.NewGuid().ToString();
             store.Add(key, new byte[] { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 });

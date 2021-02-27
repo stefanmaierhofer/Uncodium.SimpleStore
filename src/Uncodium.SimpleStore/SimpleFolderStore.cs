@@ -75,10 +75,20 @@ namespace Uncodium.SimpleStore
         {
             CheckDisposed();
 
-            if (flags != Flags.None) throw new NotImplementedException();
+            var buffer = getEncodedValue();
+
+            if (flags == (uint)Flags.LZ4)
+            {
+                var compressed = Utils.EncodeLz4SelfContained(buffer).ToArray();
+                File.WriteAllBytes(GetFileNameFromId(key), compressed);
+            }
+            else
+            {
+                if (flags != (uint)Flags.None) throw new Exception();
+                File.WriteAllBytes(GetFileNameFromId(key), buffer);
+            }
 
             Interlocked.Increment(ref m_stats.CountAdd);
-            File.WriteAllBytes(GetFileNameFromId(key), getEncodedValue());
             LatestKeyAdded = key;
             LatestKeyFlushed = key;
         }

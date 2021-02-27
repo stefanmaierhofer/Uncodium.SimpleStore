@@ -40,6 +40,12 @@ namespace Uncodium.SimpleStore
             => new(MD5.Create().ComputeHash(Encoding.UTF8.GetBytes(s)));
 
         /// <summary>
+        /// Store with flags.
+        /// </summary>
+        public static void Add(this ISimpleStore store, string key, object value, Flags flags, Func<byte[]> getEncodedValue)
+            => store.Add(key, value, (uint)flags, getEncodedValue);
+
+        /// <summary>
         /// Store without flags.
         /// </summary>
         public static void Add(this ISimpleStore store, string key, object value, Func<byte[]> getEncodedValue)
@@ -62,6 +68,12 @@ namespace Uncodium.SimpleStore
         /// </summary>
         public static void Add(this ISimpleStore store, string key, byte[] value, uint flags)
             => store.Add(key, value, flags, () => value);
+
+        /// <summary>
+        /// Store blob.
+        /// </summary>
+        public static void Add(this ISimpleStore store, string key, byte[] value, Flags flags)
+            => store.Add(key, value, (uint)flags, () => value);
 
         /// <summary>
         /// Each store operation fails with given probability.
