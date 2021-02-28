@@ -1,9 +1,0 @@
-type project
-id Uncodium.SimpleStore.Azure
-authors Stefan Maierhofer
-owners Stefan Maierhofer
-projectUrl https://github.com/stefanmaierhofer/Uncodium.SimpleStore
-licenseUrl https://github.com/stefanmaierhofer/Uncodium.SimpleStore/blob/master/LICENSE
-description
-    Uncodium.SimpleStore bindings for Microsoft Azure storage accounts.
-include-pdbs true

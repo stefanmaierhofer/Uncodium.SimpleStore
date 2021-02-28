@@ -46,6 +46,12 @@ namespace Uncodium.SimpleStore
             => store.Add(key, value, (uint)flags, getEncodedValue);
 
         /// <summary>
+        /// Store with flags.
+        /// </summary>
+        public static void Add(this ISimpleStore store, string key, string value, Flags flags)
+            => store.Add(key, value, (uint)flags, () => Encoding.UTF8.GetBytes(value));
+
+        /// <summary>
         /// Store without flags.
         /// </summary>
         public static void Add(this ISimpleStore store, string key, object value, Func<byte[]> getEncodedValue)
