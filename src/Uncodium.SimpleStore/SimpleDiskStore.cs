@@ -271,7 +271,7 @@ namespace Uncodium.SimpleStore
                         offset = br.ReadUInt64();
                         size = br.ReadUInt32();
 
-                        var e = new IndexEntry(key, offset, size, Flags.None);
+                        var e = new IndexEntry(key, offset, size);
                         m_header.AppendIndexEntry(e, EnsureSpaceFor);
                     }
                     sw.Stop();
@@ -302,9 +302,8 @@ namespace Uncodium.SimpleStore
             public readonly string Key;
             public readonly ulong Offset;
             public readonly uint Size;
-            public readonly uint Flags;
 
-            public IndexEntry(string key, ulong offset, uint size, uint flags)
+            public IndexEntry(string key, ulong offset, uint size)
             {
                 if (key.Length > MaxKeyLength)
                     throw new ArgumentOutOfRangeException(nameof(key), $"Max key length is {MaxKeyLength}, but key has {key.Length}.");
@@ -312,10 +311,7 @@ namespace Uncodium.SimpleStore
                 Key = key;
                 Offset = offset;
                 Size = size;
-                Flags = flags;
             }
-
-            public IndexEntry(string key, ulong offset, uint size, Flags flags) : this(key, offset, size, (uint)flags) { }
         }
 
         private struct Position
@@ -471,7 +467,6 @@ namespace Uncodium.SimpleStore
                 m_accessor.WriteArray(p, keyBuffer, 0, keyBuffer.Length); p += keyBuffer.Length;
                 m_accessor.Write(p, e.Offset); p += 8;
                 m_accessor.Write(p, e.Size); p += 4;
-                m_accessor.Write(p, e.Flags); p += 4;
                 Cursor = new(p);
                 Count++;
 
@@ -533,9 +528,8 @@ namespace Uncodium.SimpleStore
                         var key = Encoding.UTF8.GetString(keyBuffer);
                         var valueOffset = m_accessor.ReadUInt64(p); p += 8;
                         var valueSize = m_accessor.ReadUInt32(p); p += 4;
-                        var valueFlags = m_accessor.ReadUInt32(p); p += 4;
-                        var result = (key, new IndexEntry(key, valueOffset, valueSize, valueFlags));
-                        //Console.WriteLine($"[ENTRY] [{key}] -> [[{valueOffset}], [{valueSize}], [{valueFlags}]]");
+                        var result = (key, new IndexEntry(key, valueOffset, valueSize));
+                        //Console.WriteLine($"[ENTRY] [{key}] -> [[{valueOffset}], [{valueSize}]]");
                         yield return result;
                     }
                 }
@@ -733,7 +727,6 @@ namespace Uncodium.SimpleStore
         private Dictionary<string, IndexEntry> m_dbIndex;
         private Dictionary<string, WeakReference<object>> m_dbCache;
         private HashSet<object> m_dbCacheKeepAlive;
-        private readonly HashSet<Type> m_typesToKeepAlive;
         private Header m_header;
         private MemoryMappedFile m_mmf;
         private MemoryMappedViewAccessor m_accessor;
@@ -849,17 +842,13 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// Creates store in given file.
-        /// Optional set of types that will be kept alive in memory.
         /// Optionally opens current state read-only.
         /// Optionally a logger can be supplied which replaces the default logger to log.txt.
         /// </summary>
-        private SimpleDiskStore(string path, Type[] typesToKeepAlive, bool readOnlySnapshot, Action<string[]> logLines)
+        private SimpleDiskStore(string path, bool readOnlySnapshot, Action<string[]> logLines)
         {
             m_dbDiskLocation = path;
             m_readOnlySnapshot = readOnlySnapshot;
-
-            if (typesToKeepAlive == null) typesToKeepAlive = new Type[0];
-            m_typesToKeepAlive = new HashSet<Type>(typesToKeepAlive);
 
             if (logLines != null)
             {
@@ -888,35 +877,17 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// Creates store in given file.
-        /// Optional set of types that will be kept alive in memory.
         /// Optionally opens current state read-only.
         /// </summary>
-        private SimpleDiskStore(string path, Type[] typesToKeepAlive, bool readOnlySnapshot)
-            : this(path, typesToKeepAlive, readOnlySnapshot: readOnlySnapshot, logLines: null)
+        private SimpleDiskStore(string path, bool readOnlySnapshot)
+            : this(path, readOnlySnapshot: readOnlySnapshot, logLines: null)
         { }
 
         /// <summary>
         /// Creates store in given file.
-        /// Optional set of types that will be kept alive in memory.
-        /// </summary>
-        public SimpleDiskStore(string path, Type[] typesToKeepAlive) 
-            : this(path, typesToKeepAlive, readOnlySnapshot: false, logLines: null)
-        { }
-
-        /// <summary>
-        /// Creates store in given file.
-        /// Optional set of types that will be kept alive in memory.
-        /// Optionally a logger can be supplied which replaces the default logger to log.txt.
-        /// </summary>
-        public SimpleDiskStore(string path, Type[] typesToKeepAlive, Action<string[]> logLines)
-            : this(path, typesToKeepAlive, readOnlySnapshot: false, logLines: logLines)
-        { }
-
-        /// <summary>
-        /// CCreates store in given file.
         /// </summary>
         public SimpleDiskStore(string path) 
-            : this(path, typesToKeepAlive: null, readOnlySnapshot: false, logLines: null) 
+            : this(path, readOnlySnapshot: false, logLines: null)
         { }
 
         /// <summary>
@@ -924,23 +895,15 @@ namespace Uncodium.SimpleStore
         /// Optionally a logger can be supplied which replaces the default logger to log.txt.
         /// </summary>
         public SimpleDiskStore(string path, Action<string[]> logLines)
-            : this(path, typesToKeepAlive: null, readOnlySnapshot: false, logLines: logLines)
+            : this(path, readOnlySnapshot: false, logLines: logLines)
         { }
-
-        /// <summary>
-        /// Opens store in given file in read-only snapshot mode.
-        /// This means that no store entries that are added after the call to OpenReadOnlySnapshot will be(come) visible.
-        /// Optional set of types that will be kept alive in memory.
-        /// </summary>
-        public static SimpleDiskStore OpenReadOnlySnapshot(string path, Type[] typesToKeepAlive)
-            => new(path, typesToKeepAlive, readOnlySnapshot: true);
 
         /// <summary>
         /// Opens store in given file in read-only snapshot mode.
         /// This means that no store entries that are added after the call to OpenReadOnlySnapshot will be(come) visible.
         /// </summary>
         public static SimpleDiskStore OpenReadOnlySnapshot(string path)
-            => new(path, typesToKeepAlive: null, readOnlySnapshot: true);
+            => new(path, readOnlySnapshot: true);
 
         #endregion
 
@@ -1184,7 +1147,7 @@ namespace Uncodium.SimpleStore
         /// Adds key/value pair to store.
         /// If 'getEncodedValue' is null, than value will not be written to disk.
         /// </summary>
-        public void Add(string key, object value, uint flags, Func<byte[]> getEncodedValue)
+        public void Add(string key, object value, Func<byte[]> getEncodedValue)
         {
             CheckDisposed();
 
@@ -1196,11 +1159,6 @@ namespace Uncodium.SimpleStore
             lock (m_dbCache)
             {
                 m_dbCache[key] = new WeakReference<object>(value);
-                if (m_typesToKeepAlive.Contains(value.GetType()))
-                {
-                    m_dbCacheKeepAlive.Add(value);
-                    Interlocked.Increment(ref m_stats.CountKeepAlive);
-                }
                 buffer = getEncodedValue?.Invoke();
             }
 
@@ -1213,28 +1171,13 @@ namespace Uncodium.SimpleStore
                 var valueBufferPos = m_header.DataCursor;
                 var storedLength = buffer.Length;
 
-                if ((flags & (uint)Flags.LZ4) != 0)
-                {
-                    var encoded = Utils.EncodeLz4SelfContained(buffer);
-                    storedLength = encoded.Length;
-
-                    // write value buffer to store
-                    EnsureSpaceFor(numberOfBytes: encoded.Length);
-                    WriteBytes(valueBufferPos, encoded);
-                    m_header.DataCursor = valueBufferPos + new Offset32(storedLength);
-                }
-                else
-                {
-                    if (flags != (uint)Flags.None) throw new Exception($"Unknown flags {flags}.");
-
-                    // write value buffer to store
-                    EnsureSpaceFor(numberOfBytes: buffer.Length);
-                    WriteBytes(valueBufferPos, buffer, 0, buffer.Length);
-                    m_header.DataCursor = valueBufferPos + new Offset32(buffer.Length);
-                }
+                // write value buffer to store
+                EnsureSpaceFor(numberOfBytes: buffer.Length);
+                WriteBytes(valueBufferPos, buffer, 0, buffer.Length);
+                m_header.DataCursor = valueBufferPos + new Offset32(buffer.Length);
 
                 // update index
-                var e = new IndexEntry(key, (ulong)valueBufferPos.Value, (uint)storedLength, flags);
+                var e = new IndexEntry(key, (ulong)valueBufferPos.Value, (uint)storedLength);
                 m_dbIndex[key] = e;
                 m_header.AppendIndexEntry(e, EnsureSpaceFor);
 
@@ -1242,6 +1185,7 @@ namespace Uncodium.SimpleStore
                 LatestKeyAdded = key;
             }
         }
+        
         private unsafe void WriteBytes(long writeOffset, byte[] data, int dataOffset, int dataLength)
         {
             byte* ptr = (byte*)0;
@@ -1268,6 +1212,40 @@ namespace Uncodium.SimpleStore
             finally
             {
                 m_accessor.SafeMemoryMappedViewHandle.ReleasePointer();
+            }
+        }
+
+        public void Add(string key, Stream stream)
+        {
+            CheckDisposed();
+
+            if (m_readOnlySnapshot) throw new InvalidOperationException("Read-only store does not support add.");
+
+            using var ms = new MemoryStream();
+            stream.CopyTo(ms);
+            var buffer = ms.ToArray();
+
+            Interlocked.Increment(ref m_stats.CountAdd);
+
+            lock (m_lock)
+            {
+                EnsureMemoryMappedFileIsOpen();
+
+                var valueBufferPos = m_header.DataCursor;
+                var storedLength = buffer.Length;
+
+                // write value buffer to store
+                EnsureSpaceFor(numberOfBytes: buffer.Length);
+                WriteBytes(valueBufferPos, buffer, 0, buffer.Length);
+                m_header.DataCursor = valueBufferPos + new Offset32(buffer.Length);
+
+                // update index
+                var e = new IndexEntry(key, (ulong)valueBufferPos.Value, (uint)storedLength);
+                m_dbIndex[key] = e;
+                m_header.AppendIndexEntry(e, EnsureSpaceFor);
+
+                // housekeeping
+                LatestKeyAdded = key;
             }
         }
 
@@ -1303,34 +1281,18 @@ namespace Uncodium.SimpleStore
                 {
                     try
                     {
-                        if (entry.Flags == (uint)Flags.LZ4)
-                        {
-                            var offset = (long)entry.Offset;
-                            if (offset < 0) throw new Exception($"Offset out of range. Should not be greater than {long.MaxValue}, but is {entry.Offset}.");
-                            
-                            var bufferCompressed = new byte[entry.Size];
-                            if (m_accessor.ReadArray(offset, bufferCompressed, 0, bufferCompressed.Length) != entry.Size) throw new Exception();
-
-                            var decoded = Utils.DecodeLz4SelfContained(bufferCompressed);
-
-                            Interlocked.Increment(ref m_stats.CountGet);
-                            return decoded;
-                        }
-                        else
-                        {
-                            var buffer = new byte[entry.Size];
-                            var offset = (long)entry.Offset;
-                            if (offset < 0) throw new Exception($"Offset out of range. Should not be greater than {long.MaxValue}, but is {entry.Offset}.");
-                            var readcount = m_accessor.ReadArray(offset, buffer, 0, buffer.Length);
-                            if (readcount != buffer.Length) throw new InvalidOperationException();
-                            Interlocked.Increment(ref m_stats.CountGet);
-                            return buffer;
-                        }
+                        var buffer = new byte[entry.Size];
+                        var offset = (long)entry.Offset;
+                        if (offset < 0) throw new Exception($"Offset out of range. Should not be greater than {long.MaxValue}, but is {entry.Offset}.");
+                        var readcount = m_accessor.ReadArray(offset, buffer, 0, buffer.Length);
+                        if (readcount != buffer.Length) throw new InvalidOperationException();
+                        Interlocked.Increment(ref m_stats.CountGet);
+                        return buffer;
                     }
                     catch (Exception e)
                     {
                         var count = Interlocked.Increment(ref m_stats.CountGetWithException);
-                        Log($"[CRITICAL ERROR] Get(key={key}, flags={entry.Flags}) failed.",
+                        Log($"[CRITICAL ERROR] Get(key={key}) failed.",
                             $"[CRITICAL ERROR] entry = {{offset={entry.Offset}, size={entry.Size}}}",
                             $"[CRITICAL ERROR] So far, {count} Get-calls failed.",
                             $"[CRITICAL ERROR] exception = {e}"
@@ -1362,7 +1324,6 @@ namespace Uncodium.SimpleStore
                 EnsureMemoryMappedFileIsOpen();
                 if (m_dbIndex.TryGetValue(key, out IndexEntry entry))
                 {
-                    if (entry.Flags == (uint)Flags.LZ4) throw new InvalidOperationException("Cannot get slice of compressed entry.");
                     if (offset >= entry.Size) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be less than length of value buffer.");
                     if (offset + length > entry.Size) throw new ArgumentOutOfRangeException(nameof(offset), "Offset + size exceeds length of value buffer.");
 
@@ -1397,10 +1358,12 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
-        /// Get read stream for value from key.
+        /// Get read stream for data with given key.
         /// This is not thread-safe with respect to overwriting or removing existing values.
         /// </summary>
-        public Stream OpenReadStream(string key)
+        /// <param name="key">Retrieve data for this key.</param>
+        /// <param name="offset">Optional. Start stream at given position.</param>
+        public Stream OpenReadStream(string key, long offset = 0L)
         {
             CheckDisposed();
 
@@ -1409,7 +1372,12 @@ namespace Uncodium.SimpleStore
                 EnsureMemoryMappedFileIsOpen();
                 if (m_dbIndex.TryGetValue(key, out IndexEntry entry))
                 {
-                    return m_mmf.CreateViewStream((long)(8 + entry.Offset), entry.Size, MemoryMappedFileAccess.Read);
+                    if (offset < 0L || offset >= entry.Size) throw new ArgumentOutOfRangeException(
+                        nameof(offset), $"Offset {offset:N0} is out of valid range [0, {entry.Size:N0})."
+                        );
+
+                    Interlocked.Increment(ref m_stats.CountOpenReadStream);
+                    return m_mmf.CreateViewStream((long)entry.Offset + offset, entry.Size, MemoryMappedFileAccess.Read);
                 }
                 else
                 {

@@ -60,11 +60,9 @@ namespace Uncodium.SimpleStore
 
         public string Version => Global.Version;
 
-        public void Add(string key, object value, uint flags, Func<byte[]> getEncodedValue = null)
+        public void Add(string key, object value, Func<byte[]> getEncodedValue = null)
         {
             CheckDisposed();
-
-            if (flags != (uint)Flags.None) throw new NotImplementedException();
 
             lock (m_db)
             {
@@ -72,6 +70,20 @@ namespace Uncodium.SimpleStore
                 m_dbCache[key] = value;
                 LatestKeyAdded = key;
                 LatestKeyFlushed = key;
+            }
+            Interlocked.Increment(ref m_stats.CountAdd);
+        }
+
+        public void Add(string key, Stream stream)
+        {
+            using var ms = new MemoryStream();
+            stream.CopyTo(ms);
+            var buffer = ms.ToArray();
+
+            lock (m_db)
+            {
+                m_db[key] = () => buffer;
+                LatestKeyAdded =  LatestKeyFlushed = key;
             }
             Interlocked.Increment(ref m_stats.CountAdd);
         }
@@ -135,7 +147,13 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        public Stream OpenReadStream(string key)
+        /// <summary>
+        /// Get read stream for data with given key.
+        /// This is not thread-safe with respect to overwriting or removing existing values.
+        /// </summary>
+        /// <param name="key">Retrieve data for this key.</param>
+        /// <param name="offset">Optional. Start stream at given position.</param>
+        public Stream OpenReadStream(string key, long offset = 0L)
         {
             CheckDisposed();
 
@@ -143,9 +161,15 @@ namespace Uncodium.SimpleStore
             {
                 if (m_db.TryGetValue(key, out Func<byte[]> f))
                 {
-                    Interlocked.Increment(ref m_stats.CountOpenReadStream);
                     var buffer = f?.Invoke();
-                    return new MemoryStream(buffer);
+
+                    if (offset < 0L || offset >= buffer.Length) throw new ArgumentOutOfRangeException(
+                        nameof(offset), $"Offset {offset:N0} is out of valid range [0, {buffer.Length:N0})."
+                        );
+
+                    var stream = new MemoryStream(buffer) { Position = offset };
+                    Interlocked.Increment(ref m_stats.CountOpenReadStream);
+                    return stream;
                 }
                 else
                 {

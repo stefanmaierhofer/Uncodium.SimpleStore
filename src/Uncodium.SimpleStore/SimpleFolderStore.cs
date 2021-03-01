@@ -71,26 +71,28 @@ namespace Uncodium.SimpleStore
 
         public string Version => Global.Version;
 
-        public void Add(string key, object value, uint flags, Func<byte[]> getEncodedValue)
+        public void Add(string key, object value, Func<byte[]> getEncodedValue)
         {
             CheckDisposed();
 
             var buffer = getEncodedValue();
-
-            if (flags == (uint)Flags.LZ4)
-            {
-                var compressed = Utils.EncodeLz4SelfContained(buffer).ToArray();
-                File.WriteAllBytes(GetFileNameFromId(key), compressed);
-            }
-            else
-            {
-                if (flags != (uint)Flags.None) throw new Exception();
-                File.WriteAllBytes(GetFileNameFromId(key), buffer);
-            }
+            File.WriteAllBytes(GetFileNameFromId(key), buffer);
 
             Interlocked.Increment(ref m_stats.CountAdd);
-            LatestKeyAdded = key;
-            LatestKeyFlushed = key;
+            LatestKeyAdded = LatestKeyFlushed = key;
+        }
+
+        public void Add(string key, Stream stream)
+        {
+            var filename = GetFileNameFromId(key);
+
+            using var target = File.Open(filename, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
+            target.Position = 0L;
+
+            stream.CopyTo(target);
+
+            Interlocked.Increment(ref m_stats.CountAdd);
+            LatestKeyAdded = LatestKeyFlushed = key;
         }
 
         public bool Contains(string key)
@@ -154,14 +156,24 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        public Stream OpenReadStream(string key)
+
+        /// <summary>
+        /// Get read stream for data with given key.
+        /// This is not thread-safe with respect to overwriting or removing existing values.
+        /// </summary>
+        /// <param name="key">Retrieve data for this key.</param>
+        /// <param name="offset">Optional. Start stream at given position.</param>
+        public Stream OpenReadStream(string key, long offset = 0L)
         {
             CheckDisposed();
 
             Interlocked.Increment(ref m_stats.CountOpenReadStream);
             try
             {
-                return File.Open(GetFileNameFromId(key), FileMode.Open, FileAccess.Read, FileShare.Read);
+                var stream = File.Open(GetFileNameFromId(key), FileMode.Open, FileAccess.Read, FileShare.Read);
+                stream.Position = offset;
+                Interlocked.Increment(ref m_stats.CountOpenReadStream);
+                return stream;
             }
             catch
             {

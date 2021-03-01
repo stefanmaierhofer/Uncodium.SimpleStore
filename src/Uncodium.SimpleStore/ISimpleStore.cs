@@ -29,22 +29,6 @@ namespace Uncodium.SimpleStore
 {
     /// <summary>
     /// </summary>
-    [Flags]
-    public enum Flags
-    {
-        /// <summary>
-        /// Buffer contains raw data.
-        /// </summary>
-        None = 0,
-
-        /// <summary>
-        /// Buffer is compressed with LZ4.
-        /// </summary>
-        LZ4 = 1,
-    }
-
-    /// <summary>
-    /// </summary>
     public interface ISimpleStore : IDisposable
     {
         /// <summary>
@@ -53,9 +37,14 @@ namespace Uncodium.SimpleStore
         Stats Stats { get; }
 
         /// <summary>
-        /// Adds key/value 
+        /// Adds key/value .
         /// </summary>
-        void Add(string key, object value, uint flags, Func<byte[]> getEncodedValue);
+        void Add(string key, object value, Func<byte[]> getEncodedValue);
+
+        /// <summary>
+        /// Adds key/value, where value is the content of given stream.
+        /// </summary>
+        void Add(string key, Stream stream);
 
         /// <summary>
         /// True if key is contained in store.
@@ -74,11 +63,14 @@ namespace Uncodium.SimpleStore
         /// </summary>
         byte[] GetSlice(string key, long offset, int length);
 
+
         /// <summary>
-        /// Get read stream for value from key.
+        /// Get read stream for data with given key.
         /// This is not thread-safe with respect to overwriting or removing existing values.
         /// </summary>
-        Stream OpenReadStream(string key);
+        /// <param name="key">Retrieve data for this key.</param>
+        /// <param name="offset">Optional. Start stream at given position.</param>
+        Stream OpenReadStream(string key, long offset = 0L);
 
         /// <summary>
         /// Remove entry.

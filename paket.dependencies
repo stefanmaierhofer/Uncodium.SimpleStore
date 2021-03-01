@@ -3,7 +3,8 @@ source https://api.nuget.org/v3/index.json
 storage: none
 framework: netstandard2.0, netcoreapp3.1
 
+nuget System.Memory                 ~> 4.5.4
+
 nuget Azure.Core                    ~> 1.9.0
 nuget Azure.Storage.Common          ~> 12.7.0
 nuget Azure.Storage.Blobs           ~> 12.8.0
-nuget K4os.Compression.LZ4          ~> 1.2.6

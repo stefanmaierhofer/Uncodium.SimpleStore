@@ -68,10 +68,16 @@ namespace Uncodium.SimpleStore
 
         public string Version => m_store.Version;
 
-        public void Add(string key, object value, uint flags, Func<byte[]> getEncodedValue)
+        public void Add(string key, object value, Func<byte[]> getEncodedValue)
         {
             if (m_random.NextDouble() < m_pAdd) throw new Exception();
-            m_store.Add(key, value, flags, getEncodedValue);
+            m_store.Add(key, value, getEncodedValue);
+        }
+
+        public void Add(string key, Stream stream)
+        {
+            if (m_random.NextDouble() < m_pAdd) throw new Exception();
+            m_store.Add(key, stream);
         }
 
         public bool Contains(string key)
@@ -83,8 +89,8 @@ namespace Uncodium.SimpleStore
         public byte[] GetSlice(string key, long offset, int length)
             => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetSlice(key, offset, length);
 
-        public Stream OpenReadStream(string key)
-            => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.OpenReadStream(key);
+        public Stream OpenReadStream(string key, long offset = 0L)
+            => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.OpenReadStream(key, offset);
 
         public void Remove(string key)
         {

@@ -40,7 +40,6 @@ namespace Uncodium.SimpleStore
         public long CountGetCacheMiss;
         public long CountRemove;
         public long CountRemoveInvalidKey;
-        public long CountKeepAlive;
         public long CountSnapshotKeys;
         public long CountFlush;
     }

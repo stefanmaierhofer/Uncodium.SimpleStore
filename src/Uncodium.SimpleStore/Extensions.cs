@@ -42,44 +42,20 @@ namespace Uncodium.SimpleStore
         /// <summary>
         /// Store with flags.
         /// </summary>
-        public static void Add(this ISimpleStore store, string key, object value, Flags flags, Func<byte[]> getEncodedValue)
-            => store.Add(key, value, (uint)flags, getEncodedValue);
+        public static void Add(this ISimpleStore store, string key, object value, Func<byte[]> getEncodedValue)
+            => store.Add(key, value, getEncodedValue);
 
         /// <summary>
         /// Store with flags.
         /// </summary>
-        public static void Add(this ISimpleStore store, string key, string value, Flags flags)
-            => store.Add(key, value, (uint)flags, () => Encoding.UTF8.GetBytes(value));
-
-        /// <summary>
-        /// Store without flags.
-        /// </summary>
-        public static void Add(this ISimpleStore store, string key, object value, Func<byte[]> getEncodedValue)
-            => store.Add(key, value, Flags.None, getEncodedValue);
-
-        /// <summary>
-        /// String will be stored UTF8 encoded.
-        /// </summary>
         public static void Add(this ISimpleStore store, string key, string value)
-            => store.Add(key, value, Flags.None, () => Encoding.UTF8.GetBytes(value));
+            => store.Add(key, value, () => Encoding.UTF8.GetBytes(value));
 
         /// <summary>
         /// Store blob.
         /// </summary>
         public static void Add(this ISimpleStore store, string key, byte[] value)
-            => store.Add(key, value, Flags.None, () => value);
-
-        /// <summary>
-        /// Store blob.
-        /// </summary>
-        public static void Add(this ISimpleStore store, string key, byte[] value, uint flags)
-            => store.Add(key, value, flags, () => value);
-
-        /// <summary>
-        /// Store blob.
-        /// </summary>
-        public static void Add(this ISimpleStore store, string key, byte[] value, Flags flags)
-            => store.Add(key, value, (uint)flags, () => value);
+            => store.Add(key, value, () => value);
 
         /// <summary>
         /// Each store operation fails with given probability.

@@ -15,6 +15,9 @@ namespace Uncodium.SimpleStore.Tests
         private static readonly string TestStoreSmallPath = Path.GetFullPath(@"teststore");
         private static readonly string TestStoreLargePath = Path.GetFullPath(@"teststore_large");
 
+
+        private static readonly string TestStoreFolder    = Path.GetFullPath(@"teststore_folder");
+
         [OneTimeSetUp]
         public void Init()
         {
@@ -29,19 +32,6 @@ namespace Uncodium.SimpleStore.Tests
         }
 
         #region Utils
-
-        [Test]
-        public void CanEncodeDecodeLz4()
-        {
-            var s = "This is a LZ4 encoding and decoding roudntrip test. This is a LZ4 encoding and decoding roudntrip test. This is a LZ4 encoding and decoding roudntrip test.";
-            var buffer = Encoding.UTF8.GetBytes(s);
-
-            var encoded = Utils.EncodeLz4SelfContained(buffer);
-            var decoded = Utils.DecodeLz4SelfContained(encoded);
-
-            Assert.True(buffer.Length == decoded.Length);
-            for (var i = 0; i < decoded.Length; i++) Assert.True(buffer[i] == decoded[i]);
-        }
 
         #endregion
 
@@ -58,28 +48,12 @@ namespace Uncodium.SimpleStore.Tests
         {
             using var store = new SimpleDiskStore(TestStoreSmallPath);
         }
-        
-        //[Test]
-        //public void DiskStoreCreatesIndexFileImmediatelyOnStoreCreation()
-        //{
-        //    var folder = Path.GetFullPath($"store_{Guid.NewGuid()}");
 
-        //    try
-        //    {
-        //        var store = new SimpleDiskStore(folder);
-        //        Assert.True(File.Exists(Path.Combine(folder, "index.bin")));
-        //        store.Dispose();
-
-        //        var store2 = new SimpleDiskStore(folder);
-        //        Assert.True(store2.SnapshotKeys().Length == 0);
-        //        store2.Dispose();
-
-        //    }
-        //    finally
-        //    {
-        //        Directory.Delete(folder, true);
-        //    }
-        //}
+        [Test]
+        public void CanCreateFolderStore()
+        {
+            using var store = new SimpleFolderStore(TestStoreFolder);
+        }
 
         [Test]
         public void CanOpenDiskStoreTwiceReadonly()
@@ -88,23 +62,6 @@ namespace Uncodium.SimpleStore.Tests
             using var storeReadOnly1 = SimpleDiskStore.OpenReadOnlySnapshot(TestStoreSmallPath);
             using var storeReadOnly2 = SimpleDiskStore.OpenReadOnlySnapshot(TestStoreSmallPath);
         }
-
-        //[Test]
-        //public void CreateDiskStoreCreatesFolderWithBinFile()
-        //{
-        //    var path = Path.GetFullPath(Guid.NewGuid().ToString());
-
-        //    Assert.False(Directory.Exists(path));
-
-        //    var store = new SimpleDiskStore(path);
-
-        //    Assert.True(Directory.Exists(path));
-
-        //    store.Dispose();
-        //    Directory.Delete(path, true);
-        //    Thread.Sleep(250);
-        //    Assert.False(Directory.Exists(path));
-        //}
 
         [Test]
         public void CreateDiskStoreCreatesDataFile()
@@ -163,6 +120,20 @@ namespace Uncodium.SimpleStore.Tests
         }
 
         [Test]
+        public void CanAddMemStoreStream()
+        {
+            var key = Guid.NewGuid().ToString();
+            using var store = new SimpleMemoryStore();
+
+            var value = "This is a test for adding via stream. This is a test for adding via stream. This is a test for adding via stream.";
+            var stream = new MemoryStream(Encoding.UTF8.GetBytes(value));
+            store.Add(key, stream);
+
+            var value2 = Encoding.UTF8.GetString(store.Get(key));
+            Assert.True(value == value2);
+        }
+
+        [Test]
         public void CanAddDiskStore()
         {
             var key = Guid.NewGuid().ToString();
@@ -179,13 +150,40 @@ namespace Uncodium.SimpleStore.Tests
         }
 
         [Test]
-        public void CanAddDiskStoreCompressed()
+        public void CanAddDiskStoreStream()
         {
             var key = Guid.NewGuid().ToString();
+
             using var store = new SimpleDiskStore(TestStoreSmallPath);
 
-            var buffer = Encoding.UTF8.GetBytes("This is a test for lz4 compression. This is a test for lz4 compression. This is a test for lz4 compression.");
-            store.Add(key, buffer, Flags.LZ4);
+            var value = "This is a test for adding via stream. This is a test for adding via stream. This is a test for adding via stream.";
+            var stream = new MemoryStream(Encoding.UTF8.GetBytes(value));
+            store.Add(key, stream);
+
+            var value2 = Encoding.UTF8.GetString(store.Get(key));
+            Assert.True(value == value2);
+        }
+
+        [Test]
+        public void CanAddFolderStore()
+        {
+            var key = Guid.NewGuid().ToString();
+            using var store = new SimpleFolderStore(TestStoreFolder);
+            store.Add(key, "b");
+        }
+
+        [Test]
+        public void CanAddFolderStoreStream()
+        {
+            var key = Guid.NewGuid().ToString();
+            using var store = new SimpleFolderStore(TestStoreFolder);
+
+            var value = "This is a test for adding via stream. This is a test for adding via stream. This is a test for adding via stream.";
+            var stream = new MemoryStream(Encoding.UTF8.GetBytes(value));
+            store.Add(key, stream);
+
+            var value2 = Encoding.UTF8.GetString(store.Get(key));
+            Assert.True(value == value2);
         }
 
         [Test]
@@ -197,6 +195,43 @@ namespace Uncodium.SimpleStore.Tests
             var data = new Dictionary<string, string>();
 
             var imax = 256 * 1024 / (2 + 6 + 8 + 4);
+            for (var i = 0; i < imax; i++)
+            {
+                var key = Guid.NewGuid().ToString();
+                var value = $"many {i}";
+                store.Add(key, value);
+                data[key] = value;
+            }
+            var keys = store.SnapshotKeys();
+        }
+
+        [Test]
+        public void CanAddMemoryStoreMany()
+        {
+            using var store = new SimpleMemoryStore();
+
+            var data = new Dictionary<string, string>();
+
+            var imax = 256 * 1024 / (2 + 6 + 8 + 4);
+            for (var i = 0; i < imax; i++)
+            {
+                var key = Guid.NewGuid().ToString();
+                var value = $"many {i}";
+                store.Add(key, value);
+                data[key] = value;
+            }
+            var keys = store.SnapshotKeys();
+        }
+
+        [Test]
+        public void CanAddFolderStoreMany()
+        {
+            if (Directory.Exists(TestStoreFolder)) Directory.Delete(TestStoreFolder, true);
+            using var store = new SimpleFolderStore(TestStoreFolder);
+
+            var data = new Dictionary<string, string>();
+
+            var imax = 256 * 1 / (2 + 6 + 8 + 4);
             for (var i = 0; i < imax; i++)
             {
                 var key = Guid.NewGuid().ToString();
@@ -230,20 +265,6 @@ namespace Uncodium.SimpleStore.Tests
             var x = store.Get(key);
             var v = Encoding.UTF8.GetString(x);
             Assert.IsTrue(v == "b");
-        }
-
-        [Test]
-        public void CanGetDiskStoreCompressed()
-        {
-            var key = Guid.NewGuid().ToString();
-            using var store = new SimpleDiskStore(TestStoreSmallPath);
-
-            var buffer = Encoding.UTF8.GetBytes("This is a test for lz4 compression. This is a test for lz4 compression. This is a test for lz4 compression.");
-            store.Add(key, buffer, Flags.LZ4);
-
-            var buffer2 = store.Get(key);
-            Assert.True(buffer.Length == buffer2.Length);
-            for (var i = 0; i < buffer.Length; i++) Assert.True(buffer[i] == buffer2[i]);
         }
 
         [Test]
@@ -329,36 +350,47 @@ namespace Uncodium.SimpleStore.Tests
 
         #region OpenReadStream
 
-        //private void CheckOpenReadStream(ISimpleStore store)
-        //{
-        //    var key = Guid.NewGuid().ToString();
-        //    store.Add(key, new byte[] { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 });
-        //    using var stream = store.OpenReadStream(key);
-        //    using var br = new BinaryReader(stream);
-        //    Assert.IsTrue(ElementsEqual(br.ReadBytes(10), new byte[] { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }));
+        private void CheckOpenReadStream(ISimpleStore store)
+        {
+            var key = Guid.NewGuid().ToString();
+            store.Add(key, new byte[] { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 });
+            using var stream = store.OpenReadStream(key);
+            using var br = new BinaryReader(stream);
 
-        //    stream.Seek(0, SeekOrigin.Begin);
-        //    Assert.IsTrue(ElementsEqual(br.ReadBytes(1), new byte[] { 10 }));
+            var buffer_ = store.Get(key);
+            var buffer = br.ReadBytes(10);
+            Assert.IsTrue(ElementsEqual(buffer, new byte[] { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }));
 
-        //    stream.Seek(9, SeekOrigin.Begin);
-        //    Assert.IsTrue(ElementsEqual(br.ReadBytes(1), new byte[] { 19 }));
+            stream.Seek(0, SeekOrigin.Begin);
+            Assert.IsTrue(ElementsEqual(br.ReadBytes(1), new byte[] { 10 }));
 
-        //    stream.Seek(4, SeekOrigin.Begin);
-        //    Assert.IsTrue(ElementsEqual(br.ReadBytes(4), new byte[] { 14, 15, 16, 17 }));
-        //}
+            stream.Seek(9, SeekOrigin.Begin);
+            Assert.IsTrue(ElementsEqual(br.ReadBytes(1), new byte[] { 19 }));
+
+            stream.Seek(4, SeekOrigin.Begin);
+            Assert.IsTrue(ElementsEqual(br.ReadBytes(4), new byte[] { 14, 15, 16, 17 }));
+        }
 
         [Test]
         public void CanOpenReadStreamMemStore()
         {
             using var store = new SimpleMemoryStore();
-            CheckGetSlice(store);
+            CheckOpenReadStream(store);
         }
 
         [Test]
         public void CanOpenReadStreamDiskStore()
         {
             using var store = new SimpleDiskStore(TestStoreSmallPath);
-            CheckGetSlice(store);
+            CheckOpenReadStream(store);
+        }
+
+
+        [Test]
+        public void CanOpenReadStreamFolderStore()
+        {
+            using var store = new SimpleFolderStore(TestStoreFolder);
+            CheckOpenReadStream(store);
         }
 
         #endregion
