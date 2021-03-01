@@ -42,20 +42,8 @@ namespace Uncodium.SimpleStore
         /// <summary>
         /// Store with flags.
         /// </summary>
-        public static void Add(this ISimpleStore store, string key, object value, Func<byte[]> getEncodedValue)
-            => store.Add(key, value, getEncodedValue);
-
-        /// <summary>
-        /// Store with flags.
-        /// </summary>
         public static void Add(this ISimpleStore store, string key, string value)
-            => store.Add(key, value, () => Encoding.UTF8.GetBytes(value));
-
-        /// <summary>
-        /// Store blob.
-        /// </summary>
-        public static void Add(this ISimpleStore store, string key, byte[] value)
-            => store.Add(key, value, () => value);
+            => store.Add(key, Encoding.UTF8.GetBytes(value));
 
         /// <summary>
         /// Each store operation fails with given probability.
@@ -66,8 +54,8 @@ namespace Uncodium.SimpleStore
         /// <summary>
         /// Each store operation fails with given probability.
         /// </summary>
-        public static ISimpleStore FailRandomly(this ISimpleStore store, double pStats, double pAdd, double pGet, double pRemove, double pTryGetFromCache, double pFlush)
-            => new WrapperRandomFail(store, pStats, pAdd, pGet, pRemove, pTryGetFromCache, pFlush);
+        public static ISimpleStore FailRandomly(this ISimpleStore store, double pStats, double pAdd, double pGet, double pRemove, double pFlush)
+            => new WrapperRandomFail(store, pStats, pAdd, pGet, pRemove, pFlush);
 
         /// <summary>
         /// Each store operation is delayed between 0 and given duration in seconds.
@@ -78,7 +66,7 @@ namespace Uncodium.SimpleStore
         /// <summary>
         /// Each store operation is delayed between 0 and given duration in seconds.
         /// </summary>
-        public static ISimpleStore DelayRandomly(this ISimpleStore store, double dtStats, double dtAdd, double dtContains, double dtGet, double dtRemove, double dtTryGetFromCache, double dtFlush)
-            => new WrapperRandomDelay(store, dtStats, dtAdd, dtContains, dtGet, dtRemove, dtTryGetFromCache, dtFlush);
+        public static ISimpleStore DelayRandomly(this ISimpleStore store, double dtStats, double dtAdd, double dtContains, double dtGet, double dtRemove, double dtFlush)
+            => new WrapperRandomDelay(store, dtStats, dtAdd, dtContains, dtGet, dtRemove, dtFlush);
     }
 }

@@ -12,7 +12,7 @@ namespace Uncodium.SimpleStore.Tests
     [TestFixture]
     public class DiskFullTests
     {
-        private void TestWithFreshStore(Action<string, SimpleDiskStore> test)
+        private static void TestWithFreshStore(Action<string, SimpleDiskStore> test)
         {
             // random store folder
             var path = Path.GetFullPath($"store_{Guid.NewGuid()}");
@@ -32,7 +32,7 @@ namespace Uncodium.SimpleStore.Tests
                 File.Delete(path + SimpleDiskStore.DefaultFileExtension + ".log");
             }
         }
-        private string GetString(SimpleDiskStore store, string key)
+        private static string GetString(SimpleDiskStore store, string key)
         {
             var buffer = store.Get(key);
             return buffer != null ? Encoding.UTF8.GetString(buffer) : null;
@@ -169,31 +169,16 @@ namespace Uncodium.SimpleStore.Tests
         });
 
         [Test]
-        public void TryGetFromCacheStillWorksWhileDiskFull() => TestWithFreshStore((folder, store) =>
-        {
-            store.Add("foo", "bar");
-
-            store.SimulateFullDiskOnNextResize = true;
-            Assert.Throws<IOException>(() => store.Add("last drop", "to force disk full"));
-            Assert.True(store.TryGetFromCache("foo") != null);
-            Assert.True(store.TryGetFromCache("nonexisting") == null);
-            store.SimulateFullDiskOnNextResize = false;
-
-            Assert.True(store.TryGetFromCache("foo") != null);
-            Assert.True(store.TryGetFromCache("nonexisting") == null);
-        });
-
-        [Test]
         public void SnapshotKeysStillWorksWhileDiskFull() => TestWithFreshStore((folder, store) =>
         {
             store.Add("foo", "bar");
 
             store.SimulateFullDiskOnNextResize = true;
             Assert.Throws<IOException>(() => store.Add("last drop", "to force disk full"));
-            Assert.True(store.SnapshotKeys().Length == 1);
+            Assert.True(store.List().Count() == 1);
             store.SimulateFullDiskOnNextResize = false;
 
-            Assert.True(store.SnapshotKeys().Length == 1);
+            Assert.True(store.List().Count() == 1);
         });
 
         [Test]

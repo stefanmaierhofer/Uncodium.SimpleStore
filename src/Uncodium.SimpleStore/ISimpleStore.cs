@@ -23,10 +23,26 @@
 */
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace Uncodium.SimpleStore
 {
+    /// <summary>
+    /// </summary>
+    public interface ISimpleStoreEntry
+    {
+        /// <summary>
+        /// Key of entry.
+        /// </summary>
+        string Key { get; }
+
+        /// <summary>
+        /// Size in bytes.
+        /// </summary>
+        long Size { get; }
+    }
+
     /// <summary>
     /// </summary>
     public interface ISimpleStore : IDisposable
@@ -39,12 +55,12 @@ namespace Uncodium.SimpleStore
         /// <summary>
         /// Adds key/value .
         /// </summary>
-        void Add(string key, object value, Func<byte[]> getEncodedValue);
+        void Add(string key, byte[]value);
 
         /// <summary>
         /// Adds key/value, where value is the content of given stream.
         /// </summary>
-        void Add(string key, Stream stream);
+        void Add(string key, Stream value);
 
         /// <summary>
         /// True if key is contained in store.
@@ -78,14 +94,9 @@ namespace Uncodium.SimpleStore
         void Remove(string key);
 
         /// <summary>
-        /// Returns decoded value from cache, or null if not available.
+        /// Enumerate all entries.
         /// </summary>
-        object TryGetFromCache(string key);
-
-        /// <summary>
-        /// Gets a snapshot of all existing keys.
-        /// </summary>
-        string[] SnapshotKeys();
+        IEnumerable<ISimpleStoreEntry> List();
 
         /// <summary>
         /// Commit pending changes to storage.

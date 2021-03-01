@@ -116,7 +116,7 @@ namespace Uncodium.SimpleStore.Tests
         {
             var key = Guid.NewGuid().ToString();
             using var store = new SimpleMemoryStore();
-            store.Add(key, "b", null);
+            store.Add(key, "b");
         }
 
         [Test]
@@ -135,14 +135,6 @@ namespace Uncodium.SimpleStore.Tests
 
         [Test]
         public void CanAddDiskStore()
-        {
-            var key = Guid.NewGuid().ToString();
-            using var store = new SimpleDiskStore(TestStoreSmallPath);
-            store.Add(key, "b", () => Encoding.UTF8.GetBytes("b"));
-        }
-
-        [Test]
-        public void CanAddDiskStore2()
         {
             var key = Guid.NewGuid().ToString();
             using var store = new SimpleDiskStore(TestStoreSmallPath);
@@ -202,7 +194,7 @@ namespace Uncodium.SimpleStore.Tests
                 store.Add(key, value);
                 data[key] = value;
             }
-            var keys = store.SnapshotKeys();
+            var keys = store.List().ToArray();
         }
 
         [Test]
@@ -220,7 +212,7 @@ namespace Uncodium.SimpleStore.Tests
                 store.Add(key, value);
                 data[key] = value;
             }
-            var keys = store.SnapshotKeys();
+            var keys = store.List().ToArray();
         }
 
         [Test]
@@ -239,7 +231,7 @@ namespace Uncodium.SimpleStore.Tests
                 store.Add(key, value);
                 data[key] = value;
             }
-            var keys = store.SnapshotKeys();
+            var keys = store.List().ToArray();
         }
 
         #endregion
@@ -251,17 +243,7 @@ namespace Uncodium.SimpleStore.Tests
         {
             var key = Guid.NewGuid().ToString();
             using var store = new SimpleMemoryStore();
-            store.Add(key, "b", null);
-            var x = store.Get(key);
-            Assert.IsTrue(x == null);
-        }
-
-        [Test]
-        public void CanGetMemStore2()
-        {
-            var key = Guid.NewGuid().ToString();
-            using var store = new SimpleMemoryStore();
-            store.Add(key, "b", () => Encoding.UTF8.GetBytes("b"));
+            store.Add(key, "b");
             var x = store.Get(key);
             var v = Encoding.UTF8.GetString(x);
             Assert.IsTrue(v == "b");
@@ -297,17 +279,7 @@ namespace Uncodium.SimpleStore.Tests
         {
             var key = Guid.NewGuid().ToString();
             using var store = new SimpleDiskStore(TestStoreSmallPath);
-            store.Add(key, "b", null);
-            var x = store.Get(key);
-            Assert.IsTrue(x == null); 
-        }
-
-        [Test]
-        public void CanGetDiskStore2()
-        {
-            var key = Guid.NewGuid().ToString();
-            using var store = new SimpleDiskStore(TestStoreSmallPath);
-            store.Add(key, "b", () => Encoding.UTF8.GetBytes("b"));
+            store.Add(key, Encoding.UTF8.GetBytes("b"));
             var x = store.Get(key);
             var v = Encoding.UTF8.GetString(x);
             Assert.IsTrue(v == "b");
@@ -350,7 +322,7 @@ namespace Uncodium.SimpleStore.Tests
 
         #region OpenReadStream
 
-        private void CheckOpenReadStream(ISimpleStore store)
+        private static void CheckOpenReadStream(ISimpleStore store)
         {
             var key = Guid.NewGuid().ToString();
             store.Add(key, new byte[] { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 });
@@ -402,21 +374,7 @@ namespace Uncodium.SimpleStore.Tests
         {
             var key = Guid.NewGuid().ToString();
             using var store = new SimpleMemoryStore();
-            store.Add(key, "b", null);
-            var x = store.Get(key);
-            Assert.IsTrue(x == null);
-
-            store.Remove(key);
-            var y = store.Get(key);
-            Assert.IsTrue(y == null);
-        }
-
-        [Test]
-        public void CanRemoveMemStore2()
-        {
-            var key = Guid.NewGuid().ToString();
-            using var store = new SimpleMemoryStore();
-            store.Add(key, "b", () => Encoding.UTF8.GetBytes("b"));
+            store.Add(key, "b");
             var x = store.Get(key);
             Assert.IsTrue(Encoding.UTF8.GetString(x) == "b");
 
@@ -430,51 +388,13 @@ namespace Uncodium.SimpleStore.Tests
         {
             var key = Guid.NewGuid().ToString();
             using var store = new SimpleDiskStore(TestStoreSmallPath);
-            store.Add(key, "b", null);
-            var x = store.Get(key);
-            Assert.IsTrue(x == null);
-
-            store.Remove(key);
-            var y = store.Get(key);
-            Assert.IsTrue(y == null);
-        }
-
-        [Test]
-        public void CanRemoveDiskStore2()
-        {
-            var key = Guid.NewGuid().ToString();
-            using var store = new SimpleDiskStore(TestStoreSmallPath);
-            store.Add(key, "b", () => Encoding.UTF8.GetBytes("b"));
+            store.Add(key, "b");
             var x = store.Get(key);
             Assert.IsTrue(Encoding.UTF8.GetString(x) == "b");
 
             store.Remove(key);
             var y = store.Get(key);
             Assert.IsTrue(y == null);
-        }
-
-        #endregion
-
-        #region TryGetFromCache
-
-        [Test]
-        public void CanTryGetFromCacheMemStore()
-        {
-            var key = Guid.NewGuid().ToString();
-            using var store = new SimpleMemoryStore();
-            store.Add(key, "b", null);
-            var x = (string)store.TryGetFromCache(key);
-            Assert.IsTrue(x == "b");
-        }
-
-        [Test]
-        public void CanTryGetFromCacheDiskStore()
-        {
-            var key = Guid.NewGuid().ToString();
-            using var store = new SimpleDiskStore(TestStoreSmallPath);
-            store.Add(key, "b", null);
-            var x = (string)store.TryGetFromCache(key);
-            Assert.IsTrue(x == "b");
         }
 
         #endregion
@@ -586,14 +506,14 @@ namespace Uncodium.SimpleStore.Tests
             var key2 = Guid.NewGuid().ToString();
             var key3 = Guid.NewGuid().ToString();
             using var store = new SimpleMemoryStore();
-            store.Add(key1, "key1", null);
-            Assert.IsTrue(store.SnapshotKeys().Length == 1);
-            store.Add(key2, "key2", null);
-            Assert.IsTrue(store.SnapshotKeys().Length == 2);
-            store.Add(key3, "key3", null);
-            Assert.IsTrue(store.SnapshotKeys().Length == 3);
+            store.Add(key1, "key1");
+            Assert.IsTrue(store.List().Count() == 1);
+            store.Add(key2, "key2");
+            Assert.IsTrue(store.List().Count() == 2);
+            store.Add(key3, "key3");
+            Assert.IsTrue(store.List().Count() == 3);
 
-            var keys = new HashSet<string>(store.SnapshotKeys());
+            var keys = new HashSet<string>(store.List().Select(x => x.Key));
             Assert.IsTrue(keys.Contains(key1));
             Assert.IsTrue(keys.Contains(key2));
             Assert.IsTrue(keys.Contains(key3));
@@ -610,14 +530,14 @@ namespace Uncodium.SimpleStore.Tests
             if (File.Exists(storename + SimpleDiskStore.DefaultFileExtension)) File.Delete(storename + SimpleDiskStore.DefaultFileExtension);
 
             using var store = new SimpleDiskStore(storename);
-            store.Add(key1, "key1", () => Encoding.UTF8.GetBytes("key1"));
-            Assert.IsTrue(store.SnapshotKeys().Length == 1);
-            store.Add(key2, "key2", () => Encoding.UTF8.GetBytes("key2"));
-            Assert.IsTrue(store.SnapshotKeys().Length == 2);
-            store.Add(key3, "key3", () => Encoding.UTF8.GetBytes("key3"));
-            Assert.IsTrue(store.SnapshotKeys().Length == 3);
+            store.Add(key1, "key1");
+            Assert.IsTrue(store.List().Count() == 1);
+            store.Add(key2, "key2");
+            Assert.IsTrue(store.List().Count() == 2);
+            store.Add(key3, "key3");
+            Assert.IsTrue(store.List().Count() == 3);
 
-            var keys = new HashSet<string>(store.SnapshotKeys());
+            var keys = new HashSet<string>(store.List().Select(x => x.Key));
             Assert.IsTrue(keys.Contains(key1));
             Assert.IsTrue(keys.Contains(key2));
             Assert.IsTrue(keys.Contains(key3));

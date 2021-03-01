@@ -25,6 +25,7 @@
 #pragma warning disable CS1591
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace Uncodium.SimpleStore
@@ -40,11 +41,10 @@ namespace Uncodium.SimpleStore
         private readonly double m_pAdd;
         private readonly double m_pGet;
         private readonly double m_pRemove;
-        private readonly double m_pTryGetFromCache;
         private readonly double m_pFlush;
 
         public WrapperRandomFail(ISimpleStore store,
-            double pStats, double pAdd, double pGet, double pRemove, double pTryGetFromCache, double pFlush
+            double pStats, double pAdd, double pGet, double pRemove, double pFlush
             )
         {
             m_store = store ?? throw new ArgumentNullException(nameof(store));
@@ -52,11 +52,10 @@ namespace Uncodium.SimpleStore
             m_pAdd = pAdd;
             m_pGet = pGet;
             m_pRemove = pRemove;
-            m_pTryGetFromCache = pTryGetFromCache;
             m_pFlush = pFlush;
         }
 
-        public WrapperRandomFail(ISimpleStore store, double pFail) : this(store, pFail, pFail, pFail, pFail, pFail, pFail)
+        public WrapperRandomFail(ISimpleStore store, double pFail) : this(store, pFail, pFail, pFail, pFail, pFail)
         { }
 
         public Stats Stats
@@ -68,10 +67,10 @@ namespace Uncodium.SimpleStore
 
         public string Version => m_store.Version;
 
-        public void Add(string key, object value, Func<byte[]> getEncodedValue)
+        public void Add(string key, byte[] value)
         {
             if (m_random.NextDouble() < m_pAdd) throw new Exception();
-            m_store.Add(key, value, getEncodedValue);
+            m_store.Add(key, value);
         }
 
         public void Add(string key, Stream stream)
@@ -98,10 +97,7 @@ namespace Uncodium.SimpleStore
             m_store.Remove(key);
         }
 
-        public object TryGetFromCache(string key)
-            => m_random.NextDouble() < m_pTryGetFromCache ? throw new Exception() : m_store.TryGetFromCache(key);
-
-        public string[] SnapshotKeys() => m_store.SnapshotKeys();
+        public IEnumerable<ISimpleStoreEntry> List() => m_store.List();
 
         public void Flush()
         {

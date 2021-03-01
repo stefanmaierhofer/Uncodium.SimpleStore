@@ -1145,24 +1145,17 @@ namespace Uncodium.SimpleStore
 
         /// <summary>
         /// Adds key/value pair to store.
-        /// If 'getEncodedValue' is null, than value will not be written to disk.
         /// </summary>
-        public void Add(string key, object value, Func<byte[]> getEncodedValue)
+        public void Add(string key, byte[] value)
         {
             CheckDisposed();
 
             if (m_readOnlySnapshot) throw new InvalidOperationException("Read-only store does not support add.");
+            if (value == null) throw new ArgumentNullException(nameof(value));
 
             Interlocked.Increment(ref m_stats.CountAdd);
 
-            byte[] buffer = null;
-            lock (m_dbCache)
-            {
-                m_dbCache[key] = new WeakReference<object>(value);
-                buffer = getEncodedValue?.Invoke();
-            }
-
-            if (buffer == null) return;
+            var buffer = value;
 
             lock (m_lock)
             {
@@ -1403,37 +1396,24 @@ namespace Uncodium.SimpleStore
             Interlocked.Increment(ref m_stats.CountRemove);
         }
 
-        /// <summary>
-        /// Returns decoded value from cache, or null if not available.
-        /// </summary>
-        public object TryGetFromCache(string key)
+        private class ListEntry : ISimpleStoreEntry
         {
-            CheckDisposed();
+            public string Key { get; set; }
+            public long Size { get; set; }
 
-            lock (m_dbCache)
-            {
-                if (m_dbCache.TryGetValue(key, out WeakReference<object> weakRef))
-                {
-                    if (weakRef.TryGetTarget(out object data))
-                    {
-                        Interlocked.Increment(ref m_stats.CountGetCacheHit);
-                        return data;
-                    }
-                }
-                Interlocked.Increment(ref m_stats.CountGetCacheMiss);
-                return null;
-            }
         }
 
         /// <summary>
-        /// Gets a snapshot of all existing keys.
+        /// Enumerate all entries.
         /// </summary>
-        public string[] SnapshotKeys()
+        public IEnumerable<ISimpleStoreEntry> List()
         {
+            CheckDisposed();
+
             lock (m_lock)
             {
-                Interlocked.Increment(ref m_stats.CountSnapshotKeys);
-                return m_dbIndex.Keys.ToArray();
+                Interlocked.Increment(ref m_stats.CountList);
+                return m_dbIndex.Select(x => new ListEntry { Key = x.Key, Size = x.Value.Size });
             }
         }
 

@@ -25,6 +25,7 @@
 #pragma warning disable CS1591
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -64,19 +65,18 @@ namespace Uncodium.SimpleStore
 
         public string LatestKeyFlushed { get; private set; }
 
-        public long GetUsedBytes() 
+        public long GetUsedBytes()
             => Directory.EnumerateFiles(Folder).Select(s => new FileInfo(s).Length).Sum();
 
         public long GetReservedBytes() => GetUsedBytes();
 
         public string Version => Global.Version;
 
-        public void Add(string key, object value, Func<byte[]> getEncodedValue)
+        public void Add(string key, byte[] value)
         {
             CheckDisposed();
 
-            var buffer = getEncodedValue();
-            File.WriteAllBytes(GetFileNameFromId(key), buffer);
+            File.WriteAllBytes(GetFileNameFromId(key), value);
 
             Interlocked.Increment(ref m_stats.CountAdd);
             LatestKeyAdded = LatestKeyFlushed = key;
@@ -108,7 +108,7 @@ namespace Uncodium.SimpleStore
             m_isDisposed = true;
         }
 
-        public void Flush() 
+        public void Flush()
         {
             CheckDisposed();
             Interlocked.Increment(ref m_stats.CountFlush);
@@ -197,18 +197,28 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        public string[] SnapshotKeys()
+        private class ListEntry : ISimpleStoreEntry
         {
-            CheckDisposed();
+            public string Key => FullPath.Substring(BaseFolder.Length + 1);
+            public long Size => new FileInfo(FullPath).Length;
 
-            Interlocked.Increment(ref m_stats.CountSnapshotKeys);
-            return Directory.GetFiles(Folder);
+            public readonly string BaseFolder;
+            public readonly string FullPath;
+            public ListEntry(string baseFolder, string fullPath)
+            {
+                BaseFolder = baseFolder;
+                FullPath = fullPath;
+            }
+
         }
-
-        public object TryGetFromCache(string key)
+        public IEnumerable<ISimpleStoreEntry> List()
         {
             CheckDisposed();
-            return null;
+
+            return Directory
+                .EnumerateFiles(Folder, "*.*", SearchOption.AllDirectories)
+                .Select(x => new ListEntry(Folder, x))
+                ;
         }
     }
 }

@@ -35,8 +35,7 @@ namespace Uncodium.SimpleStore
 {
     public class SimpleMemoryStore : ISimpleStore
     {
-        private readonly Dictionary<string, Func<byte[]>> m_db;
-        private readonly Dictionary<string, object> m_dbCache;
+        private readonly Dictionary<string, byte[]> m_db;
         private Stats m_stats;
 
         private bool m_isDisposed = false;
@@ -45,8 +44,7 @@ namespace Uncodium.SimpleStore
 
         public SimpleMemoryStore()
         {
-            m_db = new Dictionary<string, Func<byte[]>>();
-            m_dbCache = new Dictionary<string, object>();
+            m_db = new Dictionary<string, byte[]>();
         }
 
         /// <summary>
@@ -60,14 +58,13 @@ namespace Uncodium.SimpleStore
 
         public string Version => Global.Version;
 
-        public void Add(string key, object value, Func<byte[]> getEncodedValue = null)
+        public void Add(string key, byte[] value)
         {
             CheckDisposed();
 
             lock (m_db)
             {
-                m_db[key] = getEncodedValue;
-                m_dbCache[key] = value;
+                m_db[key] = value;
                 LatestKeyAdded = key;
                 LatestKeyFlushed = key;
             }
@@ -82,7 +79,7 @@ namespace Uncodium.SimpleStore
 
             lock (m_db)
             {
-                m_db[key] = () => buffer;
+                m_db[key] = buffer;
                 LatestKeyAdded =  LatestKeyFlushed = key;
             }
             Interlocked.Increment(ref m_stats.CountAdd);
@@ -107,10 +104,10 @@ namespace Uncodium.SimpleStore
 
             lock (m_db)
             {
-                if (m_db.TryGetValue(key, out Func<byte[]> f))
+                if (m_db.TryGetValue(key, out var buffer))
                 {
                     Interlocked.Increment(ref m_stats.CountGet);
-                    return f?.Invoke();
+                    return buffer;
                 }
                 else
                 {
@@ -129,10 +126,9 @@ namespace Uncodium.SimpleStore
 
             lock (m_db)
             {
-                if (m_db.TryGetValue(key, out Func<byte[]> f))
+                if (m_db.TryGetValue(key, out var buffer))
                 {
                     Interlocked.Increment(ref m_stats.CountGetSlice);
-                    var buffer = f?.Invoke();
                     if (offset >= buffer.Length) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be less than length of value buffer.");
                     if (offset + length > buffer.Length) throw new ArgumentOutOfRangeException(nameof(offset), "Offset + size exceeds length of value buffer.");
                     var result = new byte[length];
@@ -159,10 +155,8 @@ namespace Uncodium.SimpleStore
 
             lock (m_db)
             {
-                if (m_db.TryGetValue(key, out Func<byte[]> f))
+                if (m_db.TryGetValue(key, out var buffer))
                 {
-                    var buffer = f?.Invoke();
-
                     if (offset < 0L || offset >= buffer.Length) throw new ArgumentOutOfRangeException(
                         nameof(offset), $"Offset {offset:N0} is out of valid range [0, {buffer.Length:N0})."
                         );
@@ -187,7 +181,6 @@ namespace Uncodium.SimpleStore
             {
                 if (m_db.Remove(key))
                 {
-                    m_dbCache.Remove(key);
                     Interlocked.Increment(ref m_stats.CountRemove);
                 }
                 else
@@ -197,31 +190,20 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        public object TryGetFromCache(string key)
+        private class ListEntry : ISimpleStoreEntry
         {
-            CheckDisposed();
+            public string Key { get; set; }
+            public long Size { get; set; }
 
-            lock (m_db)
-            {
-                if (m_dbCache.TryGetValue(key, out object value))
-                {
-                    Interlocked.Increment(ref m_stats.CountGetCacheHit);
-                    return value;
-                }
-            }
-
-            Interlocked.Increment(ref m_stats.CountGetCacheMiss);
-            return null;
         }
-
-        public string[] SnapshotKeys()
+        public IEnumerable<ISimpleStoreEntry> List()
         {
             CheckDisposed();
 
             lock (m_db)
             {
-                Interlocked.Increment(ref m_stats.CountSnapshotKeys);
-                return m_db.Keys.ToArray();
+                Interlocked.Increment(ref m_stats.CountList);
+                return m_db.Select(x => new ListEntry { Key = x.Key, Size = x.Value.Length });
             }
         }
 
@@ -237,7 +219,7 @@ namespace Uncodium.SimpleStore
             m_isDisposed = true;
         }
 
-        public long GetUsedBytes() => m_db.Values.Select(f => f().Length).Sum();
+        public long GetUsedBytes() => m_db.Values.Select(buffer => buffer.Length).Sum();
 
         public long GetReservedBytes() => GetUsedBytes();
     }

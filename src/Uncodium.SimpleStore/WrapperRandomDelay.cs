@@ -25,6 +25,7 @@
 #pragma warning disable CS1591
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 
@@ -42,11 +43,10 @@ namespace Uncodium.SimpleStore
         private readonly double m_dtContains;
         private readonly double m_dtGet;
         private readonly double m_dtRemove;
-        private readonly double m_dtTryGetFromCache;
         private readonly double m_dtFlush;
 
         public WrapperRandomDelay(ISimpleStore store,
-            double dtStats, double dtAdd, double dtContains, double dtGet, double dtRemove, double dtTryGetFromCache, double dtFlush
+            double dtStats, double dtAdd, double dtContains, double dtGet, double dtRemove, double dtFlush
             )
         {
             m_store = store ?? throw new ArgumentNullException(nameof(store));
@@ -55,11 +55,10 @@ namespace Uncodium.SimpleStore
             m_dtContains = dtContains;
             m_dtGet = dtGet;
             m_dtRemove = dtRemove;
-            m_dtTryGetFromCache = dtTryGetFromCache;
             m_dtFlush = dtFlush;
         }
 
-        public WrapperRandomDelay(ISimpleStore store, double dt) : this(store, dt, dt, dt, dt, dt, dt, dt)
+        public WrapperRandomDelay(ISimpleStore store, double dt) : this(store, dt, dt, dt, dt, dt, dt)
         { }
 
         public Stats Stats
@@ -77,10 +76,10 @@ namespace Uncodium.SimpleStore
 
         public string Version => m_store.Version;
 
-        public void Add(string key, object value, Func<byte[]> getEncodedValue)
+        public void Add(string key, byte[] value)
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtAdd));
-            m_store.Add(key, value, getEncodedValue);
+            m_store.Add(key, value);
         }
 
         public void Add(string key, Stream stream)
@@ -119,13 +118,7 @@ namespace Uncodium.SimpleStore
             m_store.Remove(key);
         }
 
-        public object TryGetFromCache(string key)
-        {
-            Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtTryGetFromCache));
-            return m_store.TryGetFromCache(key);
-        }
-
-        public string[] SnapshotKeys() => m_store.SnapshotKeys();
+        public IEnumerable<ISimpleStoreEntry> List() => m_store.List();
 
         public void Flush()
         {

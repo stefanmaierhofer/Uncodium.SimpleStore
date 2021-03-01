@@ -3,6 +3,7 @@ using NUnit.Framework.Internal;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 
@@ -10,7 +11,9 @@ namespace Uncodium.SimpleStore.Tests
 {
     class Program
     {
+        #pragma warning disable IDE0051 // Remove unused private members
         static void TestConcurrentCallsToFlush()
+        #pragma warning restore IDE0051 // Remove unused private members
         {
             var dbDiskLocation = @"T:\teststore";
             Console.WriteLine("open store");
@@ -64,7 +67,9 @@ namespace Uncodium.SimpleStore.Tests
             store.Dispose();
         }
 
+        #pragma warning disable IDE0051 // Remove unused private members
         static void TestThroughput()
+        #pragma warning restore IDE0051 // Remove unused private members
         {
             var totalBytes = 16L * 1024 * 1024 * 1024;
 
@@ -102,7 +107,7 @@ namespace Uncodium.SimpleStore.Tests
         {
             var store = new SimpleDiskStore(@"T:\tmp\1190_31_test_Frizzo.e57_5.0.24");
             var i = 1L;
-            var keys = store.SnapshotKeys();
+            var keys = store.List().Select(x => x.Key).ToArray();
             foreach (var k in keys)
             {
                 var buffer = store.Get(k);
