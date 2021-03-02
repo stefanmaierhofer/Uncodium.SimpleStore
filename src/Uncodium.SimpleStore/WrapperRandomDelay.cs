@@ -70,10 +70,6 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        public string LatestKeyAdded => m_store.LatestKeyAdded;
-
-        public string LatestKeyFlushed => m_store.LatestKeyFlushed;
-
         public string Version => m_store.Version;
 
         public void Add(string key, byte[] value)
@@ -82,10 +78,10 @@ namespace Uncodium.SimpleStore
             m_store.Add(key, value);
         }
 
-        public void Add(string key, Stream stream)
+        public void AddStream(string key, Stream stream)
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtAdd));
-            m_store.Add(key, stream);
+            m_store.AddStream(key, stream);
         }
 
         public bool Contains(string key)
@@ -106,10 +102,10 @@ namespace Uncodium.SimpleStore
             return m_store.GetSlice(key, offset, length);
         }
 
-        public Stream OpenReadStream(string key, long offset = 0L)
+        public Stream GetStream(string key, long offset = 0L)
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet));
-            return m_store.OpenReadStream(key, offset);
+            return m_store.GetStream(key, offset);
         }
 
         public void Remove(string key)
@@ -118,7 +114,7 @@ namespace Uncodium.SimpleStore
             m_store.Remove(key);
         }
 
-        public IEnumerable<ISimpleStoreEntry> List() => m_store.List();
+        public IEnumerable<(string key, long size)> List() => m_store.List();
 
         public void Flush()
         {

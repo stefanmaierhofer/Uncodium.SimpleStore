@@ -127,7 +127,7 @@ namespace Uncodium.SimpleStore.Tests
 
             var value = "This is a test for adding via stream. This is a test for adding via stream. This is a test for adding via stream.";
             var stream = new MemoryStream(Encoding.UTF8.GetBytes(value));
-            store.Add(key, stream);
+            store.AddStream(key, stream);
 
             var value2 = Encoding.UTF8.GetString(store.Get(key));
             Assert.True(value == value2);
@@ -150,7 +150,7 @@ namespace Uncodium.SimpleStore.Tests
 
             var value = "This is a test for adding via stream. This is a test for adding via stream. This is a test for adding via stream.";
             var stream = new MemoryStream(Encoding.UTF8.GetBytes(value));
-            store.Add(key, stream);
+            store.AddStream(key, stream);
 
             var value2 = Encoding.UTF8.GetString(store.Get(key));
             Assert.True(value == value2);
@@ -172,7 +172,7 @@ namespace Uncodium.SimpleStore.Tests
 
             var value = "This is a test for adding via stream. This is a test for adding via stream. This is a test for adding via stream.";
             var stream = new MemoryStream(Encoding.UTF8.GetBytes(value));
-            store.Add(key, stream);
+            store.AddStream(key, stream);
 
             var value2 = Encoding.UTF8.GetString(store.Get(key));
             Assert.True(value == value2);
@@ -326,7 +326,7 @@ namespace Uncodium.SimpleStore.Tests
         {
             var key = Guid.NewGuid().ToString();
             store.Add(key, new byte[] { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 });
-            using var stream = store.OpenReadStream(key);
+            using var stream = store.GetStream(key);
             using var br = new BinaryReader(stream);
 
             var buffer_ = store.Get(key);
@@ -513,7 +513,7 @@ namespace Uncodium.SimpleStore.Tests
             store.Add(key3, "key3");
             Assert.IsTrue(store.List().Count() == 3);
 
-            var keys = new HashSet<string>(store.List().Select(x => x.Key));
+            var keys = new HashSet<string>(store.List().Select(x => x.key));
             Assert.IsTrue(keys.Contains(key1));
             Assert.IsTrue(keys.Contains(key2));
             Assert.IsTrue(keys.Contains(key3));
@@ -537,7 +537,7 @@ namespace Uncodium.SimpleStore.Tests
             store.Add(key3, "key3");
             Assert.IsTrue(store.List().Count() == 3);
 
-            var keys = new HashSet<string>(store.List().Select(x => x.Key));
+            var keys = new HashSet<string>(store.List().Select(x => x.key));
             Assert.IsTrue(keys.Contains(key1));
             Assert.IsTrue(keys.Contains(key2));
             Assert.IsTrue(keys.Contains(key3));

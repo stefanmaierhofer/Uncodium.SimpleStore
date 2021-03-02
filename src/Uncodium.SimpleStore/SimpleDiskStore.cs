@@ -789,7 +789,7 @@ namespace Uncodium.SimpleStore
                         m_cts.Cancel();
 
                         Log(
-                            $"shutdown {token} - latest known key is {LatestKeyAdded},",
+                            $"shutdown {token} - latest known key is {Stats.LatestKeyAdded},",
                             $"shutdown {token} - should be the same key as indicated above in \"(2/2) flush index to disk (end)\"",
                             $"shutdown {token} (end)"
                             );
@@ -1115,18 +1115,7 @@ namespace Uncodium.SimpleStore
         /// <summary>
         /// Various counts and other statistics.
         /// </summary>
-        public Stats Stats => m_stats;
-
-        /// <summary>
-        /// Gets latest key added to the store.
-        /// May not yet have been flused to disk.
-        /// </summary>
-        public string LatestKeyAdded { get; private set; }
-
-        /// <summary>
-        /// Gets latest key flushed to disk.
-        /// </summary>
-        public string LatestKeyFlushed { get; private set; }
+        public Stats Stats => m_stats.Copy();
 
         /// <summary>
         /// Total bytes used for blob storage.
@@ -1175,7 +1164,7 @@ namespace Uncodium.SimpleStore
                 m_header.AppendIndexEntry(e, EnsureSpaceFor);
 
                 // housekeeping
-                LatestKeyAdded = key;
+                m_stats.LatestKeyAdded = key;
             }
         }
         
@@ -1208,7 +1197,7 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        public void Add(string key, Stream stream)
+        public void AddStream(string key, Stream stream)
         {
             CheckDisposed();
 
@@ -1238,7 +1227,7 @@ namespace Uncodium.SimpleStore
                 m_header.AppendIndexEntry(e, EnsureSpaceFor);
 
                 // housekeeping
-                LatestKeyAdded = key;
+                m_stats.LatestKeyAdded = key;
             }
         }
 
@@ -1356,7 +1345,7 @@ namespace Uncodium.SimpleStore
         /// </summary>
         /// <param name="key">Retrieve data for this key.</param>
         /// <param name="offset">Optional. Start stream at given position.</param>
-        public Stream OpenReadStream(string key, long offset = 0L)
+        public Stream GetStream(string key, long offset = 0L)
         {
             CheckDisposed();
 
@@ -1369,7 +1358,7 @@ namespace Uncodium.SimpleStore
                         nameof(offset), $"Offset {offset:N0} is out of valid range [0, {entry.Size:N0})."
                         );
 
-                    Interlocked.Increment(ref m_stats.CountOpenReadStream);
+                    Interlocked.Increment(ref m_stats.CountGetStream);
                     return m_mmf.CreateViewStream((long)entry.Offset + offset, entry.Size, MemoryMappedFileAccess.Read);
                 }
                 else
@@ -1396,24 +1385,17 @@ namespace Uncodium.SimpleStore
             Interlocked.Increment(ref m_stats.CountRemove);
         }
 
-        private class ListEntry : ISimpleStoreEntry
-        {
-            public string Key { get; set; }
-            public long Size { get; set; }
-
-        }
-
         /// <summary>
         /// Enumerate all entries.
         /// </summary>
-        public IEnumerable<ISimpleStoreEntry> List()
+        public IEnumerable<(string key, long size)> List()
         {
             CheckDisposed();
 
             lock (m_lock)
             {
                 Interlocked.Increment(ref m_stats.CountList);
-                return m_dbIndex.Select(x => new ListEntry { Key = x.Key, Size = x.Value.Size });
+                return m_dbIndex.Select(x =>(key: x.Key, size: (long)x.Value.Size) );
             }
         }
 

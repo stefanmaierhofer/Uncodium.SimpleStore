@@ -50,7 +50,7 @@ namespace Uncodium.SimpleStore
         /// <summary>
         /// Various counts and other statistics.
         /// </summary>
-        public Stats Stats => m_stats;
+        public Stats Stats => m_stats.Copy();
 
         public string LatestKeyAdded { get; private set; }
 
@@ -71,7 +71,7 @@ namespace Uncodium.SimpleStore
             Interlocked.Increment(ref m_stats.CountAdd);
         }
 
-        public void Add(string key, Stream stream)
+        public void AddStream(string key, Stream stream)
         {
             using var ms = new MemoryStream();
             stream.CopyTo(ms);
@@ -149,7 +149,7 @@ namespace Uncodium.SimpleStore
         /// </summary>
         /// <param name="key">Retrieve data for this key.</param>
         /// <param name="offset">Optional. Start stream at given position.</param>
-        public Stream OpenReadStream(string key, long offset = 0L)
+        public Stream GetStream(string key, long offset = 0L)
         {
             CheckDisposed();
 
@@ -162,7 +162,7 @@ namespace Uncodium.SimpleStore
                         );
 
                     var stream = new MemoryStream(buffer) { Position = offset };
-                    Interlocked.Increment(ref m_stats.CountOpenReadStream);
+                    Interlocked.Increment(ref m_stats.CountGetStream);
                     return stream;
                 }
                 else
@@ -190,20 +190,14 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        private class ListEntry : ISimpleStoreEntry
-        {
-            public string Key { get; set; }
-            public long Size { get; set; }
-
-        }
-        public IEnumerable<ISimpleStoreEntry> List()
+        public IEnumerable<(string key, long size)> List()
         {
             CheckDisposed();
 
             lock (m_db)
             {
                 Interlocked.Increment(ref m_stats.CountList);
-                return m_db.Select(x => new ListEntry { Key = x.Key, Size = x.Value.Length });
+                return m_db.Select(x => (key: x.Key, size: (long)x.Value.Length));
             }
         }
 

@@ -59,7 +59,7 @@ namespace Uncodium.SimpleStore
             if (!Directory.Exists(Folder)) Directory.CreateDirectory(folder);
         }
 
-        public Stats Stats => m_stats;
+        public Stats Stats => m_stats.Copy();
 
         public string LatestKeyAdded { get; private set; }
 
@@ -82,7 +82,7 @@ namespace Uncodium.SimpleStore
             LatestKeyAdded = LatestKeyFlushed = key;
         }
 
-        public void Add(string key, Stream stream)
+        public void AddStream(string key, Stream stream)
         {
             var filename = GetFileNameFromId(key);
 
@@ -122,7 +122,7 @@ namespace Uncodium.SimpleStore
             try
             {
                 var buffer = File.ReadAllBytes(GetFileNameFromId(key));
-                Interlocked.Increment(ref m_stats.CountGetCacheMiss);
+                Interlocked.Increment(ref m_stats.CountGet);
                 return buffer;
             }
             catch
@@ -146,7 +146,7 @@ namespace Uncodium.SimpleStore
                 fs.Seek(offset, SeekOrigin.Begin);
                 using var br = new BinaryReader(fs);
                 var buffer = br.ReadBytes(size);
-                Interlocked.Increment(ref m_stats.CountGetCacheMiss);
+                Interlocked.Increment(ref m_stats.CountGet);
                 return buffer;
             }
             catch
@@ -156,23 +156,22 @@ namespace Uncodium.SimpleStore
             }
         }
 
-
         /// <summary>
         /// Get read stream for data with given key.
         /// This is not thread-safe with respect to overwriting or removing existing values.
         /// </summary>
         /// <param name="key">Retrieve data for this key.</param>
         /// <param name="offset">Optional. Start stream at given position.</param>
-        public Stream OpenReadStream(string key, long offset = 0L)
+        public Stream GetStream(string key, long offset = 0L)
         {
             CheckDisposed();
 
-            Interlocked.Increment(ref m_stats.CountOpenReadStream);
+            Interlocked.Increment(ref m_stats.CountGetStream);
             try
             {
                 var stream = File.Open(GetFileNameFromId(key), FileMode.Open, FileAccess.Read, FileShare.Read);
                 stream.Position = offset;
-                Interlocked.Increment(ref m_stats.CountOpenReadStream);
+                Interlocked.Increment(ref m_stats.CountGetStream);
                 return stream;
             }
             catch
@@ -197,27 +196,13 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        private class ListEntry : ISimpleStoreEntry
-        {
-            public string Key => FullPath.Substring(BaseFolder.Length + 1);
-            public long Size => new FileInfo(FullPath).Length;
-
-            public readonly string BaseFolder;
-            public readonly string FullPath;
-            public ListEntry(string baseFolder, string fullPath)
-            {
-                BaseFolder = baseFolder;
-                FullPath = fullPath;
-            }
-
-        }
-        public IEnumerable<ISimpleStoreEntry> List()
+        public IEnumerable<(string key, long size)> List()
         {
             CheckDisposed();
-
+            var skip = Folder.Length + 1;
             return Directory
                 .EnumerateFiles(Folder, "*.*", SearchOption.AllDirectories)
-                .Select(x => new ListEntry(Folder, x))
+                .Select(x => (key: x.Substring(skip), size: new FileInfo(x).Length))
                 ;
         }
     }

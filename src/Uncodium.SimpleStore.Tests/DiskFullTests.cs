@@ -139,14 +139,14 @@ namespace Uncodium.SimpleStore.Tests
 
             store.SimulateFullDiskOnNextResize = true;
             Assert.Throws<IOException>(() => store.Add("last drop", "to force disk full"));
-            Assert.Throws<IOException>(() => store.OpenReadStream("foo"));
-            Assert.Throws<IOException>(() => store.OpenReadStream("nonexisting"));
+            Assert.Throws<IOException>(() => store.GetStream("foo"));
+            Assert.Throws<IOException>(() => store.GetStream("nonexisting"));
             store.SimulateFullDiskOnNextResize = false;
 
-            using var s1 = store.OpenReadStream("foo");
+            using var s1 = store.GetStream("foo");
             Assert.True(s1 != null);
 
-            using var s2 = store.OpenReadStream("nonexisting");
+            using var s2 = store.GetStream("nonexisting");
             Assert.True(s2 == null);
         });
 

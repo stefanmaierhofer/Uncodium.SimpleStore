@@ -30,37 +30,17 @@ namespace Uncodium.SimpleStore
 {
     /// <summary>
     /// </summary>
-    public interface ISimpleStoreEntry
-    {
-        /// <summary>
-        /// Key of entry.
-        /// </summary>
-        string Key { get; }
-
-        /// <summary>
-        /// Size in bytes.
-        /// </summary>
-        long Size { get; }
-    }
-
-    /// <summary>
-    /// </summary>
     public interface ISimpleStore : IDisposable
     {
         /// <summary>
-        /// Various runtime counts and other statistics.
+        /// Add data for key.
         /// </summary>
-        Stats Stats { get; }
+        void Add(string key, byte[] data);
 
         /// <summary>
-        /// Adds key/value .
+        /// Add key/value.
         /// </summary>
-        void Add(string key, byte[]value);
-
-        /// <summary>
-        /// Adds key/value, where value is the content of given stream.
-        /// </summary>
-        void Add(string key, Stream value);
+        void AddStream(string key, Stream data);
 
         /// <summary>
         /// True if key is contained in store.
@@ -86,7 +66,12 @@ namespace Uncodium.SimpleStore
         /// </summary>
         /// <param name="key">Retrieve data for this key.</param>
         /// <param name="offset">Optional. Start stream at given position.</param>
-        Stream OpenReadStream(string key, long offset = 0L);
+        Stream GetStream(string key, long offset = 0L);
+
+        /// <summary>
+        /// Enumerate all entries.
+        /// </summary>
+        IEnumerable<(string key, long size)> List();
 
         /// <summary>
         /// Remove entry.
@@ -94,40 +79,28 @@ namespace Uncodium.SimpleStore
         void Remove(string key);
 
         /// <summary>
-        /// Enumerate all entries.
-        /// </summary>
-        IEnumerable<ISimpleStoreEntry> List();
-
-        /// <summary>
-        /// Commit pending changes to storage.
+        /// Commit pending changes to backing storage.
         /// </summary>
         void Flush();
 
         /// <summary>
-        /// Gets latest key added to the store.
-        /// </summary>
-        string LatestKeyAdded { get; }
-
-        /// <summary>
-        /// Gets latest key flushed to backing storage.
-        /// In SimpleDiskStore and SimpleFolderStore this is a file on disk.
-        /// In SimpleMemoryStore this is memory, so LatestKeyFlushed is always identical to LatestKeyAdded.
-        /// </summary>
-        string LatestKeyFlushed { get; }
-
-        /// <summary>
-        /// Total bytes used for blob storage.
+        /// Total bytes used for data.
         /// </summary>
         long GetUsedBytes();
 
         /// <summary>
-        /// Total bytes reserved for blob storage.
+        /// Total bytes reserved for data.
         /// </summary>
         long GetReservedBytes();
 
         /// <summary>
-        /// Current version.
+        /// Get current version.
         /// </summary>
         string Version { get; }
+
+        /// <summary>
+        /// Get various runtime counts and other statistics.
+        /// </summary>
+        Stats Stats { get; }
     }
 }

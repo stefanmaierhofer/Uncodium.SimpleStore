@@ -107,7 +107,7 @@ namespace Uncodium.SimpleStore.Tests
         {
             var store = new SimpleDiskStore(@"T:\tmp\1190_31_test_Frizzo.e57_5.0.24");
             var i = 1L;
-            var keys = store.List().Select(x => x.Key).ToArray();
+            var keys = store.List().Select(x => x.key).ToArray();
             foreach (var k in keys)
             {
                 var buffer = store.Get(k);
