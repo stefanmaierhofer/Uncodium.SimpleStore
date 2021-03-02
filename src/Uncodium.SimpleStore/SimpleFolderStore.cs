@@ -114,6 +114,20 @@ namespace Uncodium.SimpleStore
             Interlocked.Increment(ref m_stats.CountFlush);
         }
 
+        /// <summary>
+        /// Gets size of value in bytes, or null if key does not exist.
+        /// </summary>
+        public long? GetSize(string key)
+        {
+            CheckDisposed();
+
+            var filename = GetFileNameFromId(key);
+
+            // we intentionally do not handle the case where a file is deleted between 'exists' and 'fileinfo',
+            // in order to let the caller know that there is a race condition in the calling code
+            return File.Exists(filename) ? new FileInfo(filename).Length : null;
+        }
+
         public byte[] Get(string key)
         {
             CheckDisposed();

@@ -77,6 +77,9 @@ namespace Uncodium.SimpleStore
 
         public bool Contains(string key)
             => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.Contains(key);
+        
+        public long? GetSize(string key)
+            => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetSize(key);
 
         public byte[] Get(string key)
             => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.Get(key);

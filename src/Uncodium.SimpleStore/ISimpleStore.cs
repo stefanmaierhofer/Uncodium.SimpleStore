@@ -48,6 +48,11 @@ namespace Uncodium.SimpleStore
         bool Contains(string key);
 
         /// <summary>
+        /// Gets size of value in bytes, or null if key does not exist.
+        /// </summary>
+        long? GetSize(string key);
+
+        /// <summary>
         /// Get value from key,
         /// or null if key does not exist.
         /// </summary>

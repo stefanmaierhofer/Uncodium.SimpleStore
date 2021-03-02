@@ -98,6 +98,19 @@ namespace Uncodium.SimpleStore
             return result;
         }
 
+        /// <summary>
+        /// Gets size of value in bytes, or null if key does not exist.
+        /// </summary>
+        public long? GetSize(string key)
+        {
+            CheckDisposed();
+
+            lock (m_db)
+            {
+                return m_db.TryGetValue(key, out var buffer) ? buffer.Length : null;
+            }
+        }
+
         public byte[] Get(string key)
         {
             CheckDisposed();

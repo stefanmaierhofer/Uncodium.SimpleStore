@@ -1249,6 +1249,20 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
+        /// Gets size of value in bytes, or null if key does not exist.
+        /// </summary>
+        public long? GetSize(string key)
+        {
+            CheckDisposed();
+
+            lock (m_lock)
+            {
+                EnsureMemoryMappedFileIsOpen();
+                return m_dbIndex.TryGetValue(key, out IndexEntry entry) ? entry.Size : null;
+            }
+        }
+
+        /// <summary>
         /// Get value from key,
         /// or null if key does not exist.
         /// </summary>

@@ -2,8 +2,8 @@ type project
 id Uncodium.SimpleStore
 authors Stefan Maierhofer
 owners Stefan Maierhofer
+licenseExpression MIT
 projectUrl https://github.com/stefanmaierhofer/Uncodium.SimpleStore
-licenseUrl https://github.com/stefanmaierhofer/Uncodium.SimpleStore/blob/master/LICENSE
 description
-    Simple key/value store with out-of-core and in-memory implementation.
+    A simple blob store.
 include-pdbs true

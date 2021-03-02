@@ -90,6 +90,12 @@ namespace Uncodium.SimpleStore
             return m_store.Contains(key);
         }
 
+        public long? GetSize(string key)
+        {
+            Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet));
+            return m_store.GetSize(key);
+        }
+
         public byte[] Get(string key)
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet));
