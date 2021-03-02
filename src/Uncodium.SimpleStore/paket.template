@@ -2,7 +2,6 @@ type project
 id Uncodium.SimpleStore
 authors Stefan Maierhofer
 owners Stefan Maierhofer
-licenseExpression MIT
 licenseUrl https://github.com/stefanmaierhofer/Uncodium.SimpleStore/blob/master/LICENSE
 projectUrl https://github.com/stefanmaierhofer/Uncodium.SimpleStore
 description
