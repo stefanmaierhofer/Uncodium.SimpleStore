@@ -30,6 +30,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Uncodium.SimpleStore
 {
@@ -76,8 +77,23 @@ namespace Uncodium.SimpleStore
             using var ms = new MemoryStream();
 
             ct.ThrowIfCancellationRequested();
-            if (onProgress != default) onProgress(0L);
-            stream.CopyTo(ms);
+            //if (onProgress != default) onProgress(0L);
+            //stream.CopyTo(ms);
+
+            Task.Run(async () =>
+            {
+                var buffer = new byte[81920];
+                int bytesRead;
+                long totalRead = 0;
+                while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, ct)) > 0)
+                {
+                    await ms.WriteAsync(buffer, 0, bytesRead, ct);
+                    ct.ThrowIfCancellationRequested();
+                    totalRead += bytesRead;
+                    if (onProgress != default) onProgress(totalRead);
+                }
+            }, ct).Wait();
+
             var buffer = ms.ToArray();
             if (onProgress != default) onProgress(buffer.Length);
 

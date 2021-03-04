@@ -30,6 +30,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Uncodium.SimpleStore
 {
@@ -90,9 +91,21 @@ namespace Uncodium.SimpleStore
             
             ct.ThrowIfCancellationRequested();
             target.Position = 0L;
-            if (onProgress != default) onProgress(0L);
-            stream.CopyTo(target);
-            if (onProgress != default) onProgress(stream.Position);
+            //stream.CopyTo(target);
+
+            Task.Run(async () =>
+            {
+                var buffer = new byte[81920];
+                int bytesRead;
+                long totalRead = 0;
+                while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, ct)) > 0)
+                {
+                    await target.WriteAsync(buffer, 0, bytesRead, ct);
+                    ct.ThrowIfCancellationRequested();
+                    totalRead += bytesRead;
+                    if (onProgress != default) onProgress(totalRead);
+                }
+            }, ct).Wait();
 
             Interlocked.Increment(ref m_stats.CountAdd);
             LatestKeyAdded = LatestKeyFlushed = key;
