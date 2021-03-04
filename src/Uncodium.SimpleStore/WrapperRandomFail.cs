@@ -27,6 +27,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 
 namespace Uncodium.SimpleStore
 {
@@ -69,10 +70,10 @@ namespace Uncodium.SimpleStore
             m_store.Add(key, value);
         }
 
-        public void AddStream(string key, Stream stream)
+        public void AddStream(string key, Stream stream, Action<long> onProgress = default, CancellationToken ct = default)
         {
             if (m_random.NextDouble() < m_pAdd) throw new Exception();
-            m_store.AddStream(key, stream);
+            m_store.AddStream(key, stream, onProgress, ct);
         }
 
         public bool Contains(string key)

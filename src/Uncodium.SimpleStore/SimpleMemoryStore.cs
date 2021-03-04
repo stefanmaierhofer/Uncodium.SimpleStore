@@ -71,11 +71,15 @@ namespace Uncodium.SimpleStore
             Interlocked.Increment(ref m_stats.CountAdd);
         }
 
-        public void AddStream(string key, Stream stream)
+        public void AddStream(string key, Stream stream, Action<long> onProgress = default, CancellationToken ct = default)
         {
             using var ms = new MemoryStream();
+
+            ct.ThrowIfCancellationRequested();
+            if (onProgress != default) onProgress(0L);
             stream.CopyTo(ms);
             var buffer = ms.ToArray();
+            if (onProgress != default) onProgress(buffer.Length);
 
             lock (m_db)
             {

@@ -25,6 +25,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 
 namespace Uncodium.SimpleStore
 {
@@ -40,7 +41,7 @@ namespace Uncodium.SimpleStore
         /// <summary>
         /// Add key/value.
         /// </summary>
-        void AddStream(string key, Stream data);
+        void AddStream(string key, Stream data, Action<long> onProgress = default, CancellationToken ct = default);
 
         /// <summary>
         /// True if key is contained in store.

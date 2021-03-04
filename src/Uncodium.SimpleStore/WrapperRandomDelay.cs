@@ -78,10 +78,11 @@ namespace Uncodium.SimpleStore
             m_store.Add(key, value);
         }
 
-        public void AddStream(string key, Stream stream)
+        public void AddStream(string key, Stream stream, Action<long> onProgress = default, CancellationToken ct = default)
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtAdd));
-            m_store.AddStream(key, stream);
+            ct.ThrowIfCancellationRequested();
+            m_store.AddStream(key, stream, onProgress, ct);
         }
 
         public bool Contains(string key)

@@ -1197,17 +1197,20 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        public void AddStream(string key, Stream stream)
+        public void AddStream(string key, Stream stream, Action<long> onProgress = default, CancellationToken ct = default)
         {
             CheckDisposed();
 
             if (m_readOnlySnapshot) throw new InvalidOperationException("Read-only store does not support add.");
 
-            using var ms = new MemoryStream();
+            using var ms = new MemoryStream(); 
+            
+            ct.ThrowIfCancellationRequested();
+            if (onProgress != default) onProgress(0L);
             stream.CopyTo(ms);
-            var buffer = ms.ToArray();
 
-            Interlocked.Increment(ref m_stats.CountAdd);
+            ct.ThrowIfCancellationRequested();
+            var buffer = ms.ToArray();
 
             lock (m_lock)
             {
@@ -1217,18 +1220,26 @@ namespace Uncodium.SimpleStore
                 var storedLength = buffer.Length;
 
                 // write value buffer to store
+                ct.ThrowIfCancellationRequested();
                 EnsureSpaceFor(numberOfBytes: buffer.Length);
+
+
+                ct.ThrowIfCancellationRequested();
                 WriteBytes(valueBufferPos, buffer, 0, buffer.Length);
                 m_header.DataCursor = valueBufferPos + new Offset32(buffer.Length);
 
                 // update index
+                ct.ThrowIfCancellationRequested();
                 var e = new IndexEntry(key, (ulong)valueBufferPos.Value, (uint)storedLength);
                 m_dbIndex[key] = e;
                 m_header.AppendIndexEntry(e, EnsureSpaceFor);
 
                 // housekeeping
                 m_stats.LatestKeyAdded = key;
+                if (onProgress != default) onProgress(storedLength);
             }
+
+            Interlocked.Increment(ref m_stats.CountAdd);
         }
 
         /// <summary>

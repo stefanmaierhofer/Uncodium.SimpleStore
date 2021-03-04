@@ -82,14 +82,17 @@ namespace Uncodium.SimpleStore
             LatestKeyAdded = LatestKeyFlushed = key;
         }
 
-        public void AddStream(string key, Stream stream)
+        public void AddStream(string key, Stream stream, Action<long> onProgress = default, CancellationToken ct = default)
         {
             var filename = GetFileNameFromId(key);
 
             using var target = File.Open(filename, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
+            
+            ct.ThrowIfCancellationRequested();
             target.Position = 0L;
-
+            if (onProgress != default) onProgress(0L);
             stream.CopyTo(target);
+            if (onProgress != default) onProgress(stream.Position);
 
             Interlocked.Increment(ref m_stats.CountAdd);
             LatestKeyAdded = LatestKeyFlushed = key;
