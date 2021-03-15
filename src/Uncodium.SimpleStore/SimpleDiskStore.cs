@@ -397,62 +397,74 @@ namespace Uncodium.SimpleStore
         {
             CheckDisposed();
 
-            if (m_readOnlySnapshot) throw new InvalidOperationException("Read-only store does not support add.");
+            var oldDbIndexSize = m_dbIndex.Count;
+            var oldDbCacheSize = m_dbCache.Count;
 
-            Interlocked.Increment(ref m_stats.CountAdd);
-
-            byte[] buffer = null;
-            lock (m_dbCache)
+            try
             {
-                m_dbCache[key] = new WeakReference<object>(value);
-                if (m_typesToKeepAlive.Contains(value.GetType()))
+                if (m_readOnlySnapshot) throw new InvalidOperationException("Read-only store does not support add.");
+
+                Interlocked.Increment(ref m_stats.CountAdd);
+
+                byte[] buffer = null;
+                lock (m_dbCache)
                 {
-                    m_dbCacheKeepAlive.Add(value);
-                    Interlocked.Increment(ref m_stats.CountKeepAlive);
+                    m_dbCache[key] = new WeakReference<object>(value);
+                    if (m_typesToKeepAlive.Contains(value.GetType()))
+                    {
+                        m_dbCacheKeepAlive.Add(value);
+                        Interlocked.Increment(ref m_stats.CountKeepAlive);
+                    }
+                    buffer = getEncodedValue?.Invoke();
                 }
-                buffer = getEncodedValue?.Invoke();
+
+                if (buffer == null) return;
+
+                lock (m_dbDiskLocation)
+                {
+                    if (m_dataPos + buffer.Length > m_dataSize)
+                    {
+                        try
+                        {
+                            if (m_dataSize < 1024 * 1024 * 1024)
+                            {
+                                m_dataSize *= 2;
+                            }
+                            else
+                            {
+                                m_dataSize += 1024 * 1024 * 1024;
+                            }
+                            Log($"resize data file to {m_dataSize / (1024 * 1024 * 1024.0):0.000} GiB");
+                            m_accessorSize.Dispose(); m_accessor.Dispose(); m_mmf.Dispose();
+                            m_mmf = MemoryMappedFile.CreateFromFile(m_dataFilename, FileMode.OpenOrCreate, null, 8 + m_dataSize, MemoryMappedFileAccess.ReadWrite);
+                            m_accessorSize = m_mmf.CreateViewAccessor(0, 8);
+                            m_accessor = m_mmf.CreateViewAccessor(8, m_dataSize);
+                        }
+                        catch (Exception e)
+                        {
+                            Log(
+                                $"[CRITICAL ERROR] Exception occured while resizing disk store.",
+                                $"[CRITICAL ERROR] Error ada9ed54-d748-4aef-b922-0bf93468fad8.",
+                                $"[CRITICAL ERROR] {e}"
+                            );
+
+                            throw;
+                        }
+                    }
+                    m_accessor.WriteArray(m_dataPos, buffer, 0, buffer.Length);
+                    m_dbIndex[key] = (m_dataPos, buffer.Length);
+                    m_indexHasChanged = true;
+                    m_dataPos += buffer.Length;
+                    m_accessorSize.Write(0, m_dataPos);
+
+                    LatestKeyAdded = key;
+                }
             }
-
-            if (buffer == null) return;
-
-            lock (m_dbDiskLocation)
+            catch (Exception e)
             {
-                if (m_dataPos + buffer.Length > m_dataSize)
-                {
-                    try
-                    {
-                        if (m_dataSize < 1024 * 1024 * 1024)
-                        {
-                            m_dataSize *= 2;
-                        }
-                        else
-                        {
-                            m_dataSize += 1024 * 1024 * 1024;
-                        }
-                        Log($"resize data file to {m_dataSize / (1024 * 1024 * 1024.0):0.000} GiB");
-                        m_accessorSize.Dispose(); m_accessor.Dispose(); m_mmf.Dispose();
-                        m_mmf = MemoryMappedFile.CreateFromFile(m_dataFilename, FileMode.OpenOrCreate, null, 8 + m_dataSize, MemoryMappedFileAccess.ReadWrite);
-                        m_accessorSize = m_mmf.CreateViewAccessor(0, 8);
-                        m_accessor = m_mmf.CreateViewAccessor(8, m_dataSize);
-                    }
-                    catch (Exception e)
-                    {
-                        Log(
-                            $"[CRITICAL ERROR] Exception occured while resizing disk store.",
-                            $"[CRITICAL ERROR] Error ada9ed54-d748-4aef-b922-0bf93468fad8.",
-                            $"[CRITICAL ERROR] {e}"
-                        );
-
-                        throw;
-                    }
-                }
-                m_accessor.WriteArray(m_dataPos, buffer, 0, buffer.Length);
-                m_dbIndex[key] = (m_dataPos, buffer.Length);
-                m_indexHasChanged = true;
-                m_dataPos += buffer.Length;
-                m_accessorSize.Write(0, m_dataPos);
-
-                LatestKeyAdded = key;
+                throw new Exception(
+                    $"Add({key}, {value?.GetType()}) failed. Index size before 'add' was {oldDbIndexSize}. Cache size before 'add' was {oldDbCacheSize}.", innerException: e
+                    );
             }
         }
 
