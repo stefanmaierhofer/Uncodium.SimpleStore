@@ -27,6 +27,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.IO.MemoryMappedFiles;
 using System.Linq;
@@ -47,7 +48,64 @@ namespace Uncodium.SimpleStore
         private string m_indexFilename;
         private string m_dataFilename;
 
-        private Dictionary<string, (long, int)> m_dbIndex;
+        private class Index
+        {
+            private Dictionary<string, (long, int)> _current = new();
+            private readonly List<Dictionary<string, (long, int)>> _index = new();
+
+            public void Add(string key, (long, int) value)
+            {
+                if (_current.Count >= 32 * 1024 * 1024)
+                {
+                    Console.WriteLine("add index chunk");
+                    _index.Add(_current);
+                    _current = new();
+                }
+
+                _current.Add(key, value);
+            }
+
+            public int Count => _current.Count + _index.Sum(x => x.Count);
+
+            public string[] Keys
+            {
+                get
+                {
+                    var rs = new List<string>(_current.Keys);
+                    foreach (var i in _index) rs.AddRange(i.Keys);
+                    return rs.ToArray();
+                }
+            }
+
+            public bool ContainsKey(string key)
+            {
+                if (_current.ContainsKey(key)) return true;
+                foreach (var x in _index) if (x.ContainsKey(key)) return true;
+                return false;
+            }
+
+            public bool Remove(string key)
+            {
+                if (_current.Remove(key)) return true;
+                foreach (var x in _index) if (x.Remove(key)) return true;
+                return false;
+            }
+
+            public bool TryGetValue(string key, out (long,int) result)
+            {
+                if (_current.TryGetValue(key, out result)) return true;
+                foreach (var x in _index) if (x.TryGetValue(key, out result)) return true;
+                return false;
+            }
+
+            public IEnumerable<KeyValuePair<string,(long,int)>> EnumerateEntries()
+            {
+                foreach (var kv in _current) yield return kv;
+                foreach (var x in _index) foreach (var kv in x) yield return kv;
+            }
+        }
+        private Index m_dbIndex;
+
         private Dictionary<string, WeakReference<object>> m_dbCache;
         private HashSet<object> m_dbCacheKeepAlive;
         private readonly HashSet<Type> m_typesToKeepAlive;
@@ -288,14 +346,14 @@ namespace Uncodium.SimpleStore
                     count = br.ReadInt32();
                     Log($"entries: {count:N0}");
                     var sw = new Stopwatch(); sw.Start();
-                    m_dbIndex = new Dictionary<string, (long, int)>(count);
+                    m_dbIndex = new();
                     for (i = 0; i < count; i++)
                     {
                         key = br.ReadString();
                         offset = br.ReadInt64();
                         size = br.ReadInt32();
 
-                        m_dbIndex[key] = (offset, size);
+                        m_dbIndex.Add(key, (offset, size));
                     }
                     sw.Stop();
                     Log(
@@ -316,7 +374,7 @@ namespace Uncodium.SimpleStore
             }
             else
             {
-                m_dbIndex = new Dictionary<string, (long, int)>();
+                m_dbIndex = new();
 
                 using var f = File.Open(m_indexFilename, FileMode.Create, FileAccess.Write, FileShare.Read);
                 using var bw = new BinaryWriter(f);
@@ -397,74 +455,170 @@ namespace Uncodium.SimpleStore
         {
             CheckDisposed();
 
-            var oldDbIndexSize = m_dbIndex.Count;
-            var oldDbCacheSize = m_dbCache.Count;
+            var debugOldDbIndexSize = m_dbIndex.Count;
+            var debugOldDbCacheSize = m_dbCache.Count;
+            int? debugBufferSize = -1;
+            int debugStepReached;
 
             try
             {
                 if (m_readOnlySnapshot) throw new InvalidOperationException("Read-only store does not support add.");
+                debugStepReached = 1;
 
                 Interlocked.Increment(ref m_stats.CountAdd);
+                debugStepReached = 2;
 
                 byte[] buffer = null;
+                debugStepReached = 3;
+
                 lock (m_dbCache)
                 {
+                    debugStepReached = 4;
+
+                    if (m_dbCache.Count > 1024 * 1024) m_dbCache.Clear();
                     m_dbCache[key] = new WeakReference<object>(value);
+                    debugStepReached = 5;
+
                     if (m_typesToKeepAlive.Contains(value.GetType()))
                     {
+                        debugStepReached = 6;
+
                         m_dbCacheKeepAlive.Add(value);
+                        debugStepReached = 7;
+
                         Interlocked.Increment(ref m_stats.CountKeepAlive);
+                        debugStepReached = 8;
                     }
+
                     buffer = getEncodedValue?.Invoke();
+                    debugStepReached = 9;
+
+                    debugBufferSize = buffer?.Length;
+                    debugStepReached = 91;
                 }
 
                 if (buffer == null) return;
+                debugStepReached = 10;
 
                 lock (m_dbDiskLocation)
                 {
+                    debugStepReached = 11;
+
                     if (m_dataPos + buffer.Length > m_dataSize)
                     {
+                        debugStepReached = 12;
                         try
                         {
+                            debugStepReached = 13;
+
                             if (m_dataSize < 1024 * 1024 * 1024)
                             {
+                                debugStepReached = 14;
+
                                 m_dataSize *= 2;
+                                debugStepReached = 15;
                             }
                             else
                             {
+                                debugStepReached = 16;
+
                                 m_dataSize += 1024 * 1024 * 1024;
+                                debugStepReached = 17;
                             }
+
                             Log($"resize data file to {m_dataSize / (1024 * 1024 * 1024.0):0.000} GiB");
-                            m_accessorSize.Dispose(); m_accessor.Dispose(); m_mmf.Dispose();
+                            debugStepReached = 18;
+
+                            m_accessorSize.Dispose();
+                            debugStepReached = 19;
+
+                            m_accessor.Dispose();
+                            debugStepReached = 20;
+
+                            m_mmf.Dispose();
+                            debugStepReached = 21;
+
                             m_mmf = MemoryMappedFile.CreateFromFile(m_dataFilename, FileMode.OpenOrCreate, null, 8 + m_dataSize, MemoryMappedFileAccess.ReadWrite);
+                            debugStepReached = 22;
+
                             m_accessorSize = m_mmf.CreateViewAccessor(0, 8);
+                            debugStepReached = 23;
+
                             m_accessor = m_mmf.CreateViewAccessor(8, m_dataSize);
+                            debugStepReached = 24;
                         }
                         catch (Exception e)
                         {
+                            debugStepReached = 25;
+
                             Log(
                                 $"[CRITICAL ERROR] Exception occured while resizing disk store.",
                                 $"[CRITICAL ERROR] Error ada9ed54-d748-4aef-b922-0bf93468fad8.",
                                 $"[CRITICAL ERROR] {e}"
                             );
+                            debugStepReached = 26;
 
                             throw;
                         }
                     }
+
+
+                    debugStepReached = 27;
+
                     m_accessor.WriteArray(m_dataPos, buffer, 0, buffer.Length);
-                    m_dbIndex[key] = (m_dataPos, buffer.Length);
+                    debugStepReached = 28;
+
+                    m_dbIndex.Add(key, (m_dataPos, buffer.Length));
+                    debugStepReached = 29;
+
                     m_indexHasChanged = true;
+                    debugStepReached = 30;
+
                     m_dataPos += buffer.Length;
+                    debugStepReached = 31;
+
                     m_accessorSize.Write(0, m_dataPos);
+                    debugStepReached = 32;
 
                     LatestKeyAdded = key;
+                    debugStepReached = 33;
                 }
             }
             catch (Exception e)
             {
-                throw new Exception(
-                    $"Add({key}, {value?.GetType()}) failed. Index size before 'add' was {oldDbIndexSize}. Cache size before 'add' was {oldDbCacheSize}.", innerException: e
-                    );
+                debugStepReached = 34;
+                var msg = $"Add({key}, {value?.GetType()}) failed. ";
+
+                try
+                {
+                    msg += $"Reached step {debugStepReached}. ";
+                    debugStepReached = 35;
+                    msg += $"Index size before 'add' was {debugOldDbIndexSize}. ";
+                    debugStepReached = 36;
+                    msg += $"Cache size before 'add' was {debugOldDbCacheSize}. ";
+                    debugStepReached = 37;
+                    msg += $"Buffer size is {debugBufferSize}. ";
+                    debugStepReached = 38;
+                    msg += $"Environment.WorkingSet={Environment.WorkingSet}. ";
+                    debugStepReached = 39;
+                    msg += $"GC.GetTotalMemory(false) = {GC.GetTotalMemory(false)}. ";
+                    debugStepReached = 40;
+                    msg += $"m_dataPos = {m_dataPos}. ";
+                    debugStepReached = 41;
+                    msg += $"m_dataSize = {m_dataSize}. ";
+                    debugStepReached = 42;
+                    msg += $"m_dataFilename = {m_dataFilename}. ";
+                    debugStepReached = 43;
+                    msg += $"Reached step {debugStepReached}. ";
+                    debugStepReached = 44;
+
+                    throw new Exception(msg, innerException: e);
+                }
+                catch (Exception e2)
+                {
+                    debugStepReached = 45;
+                    throw new Exception(msg + $"!!!Reached step {debugStepReached}. Second exception is {e2}. ", innerException: e);
+                }
             }
         }
 
@@ -680,7 +834,7 @@ namespace Uncodium.SimpleStore
                         var latestKeyAdded = LatestKeyAdded;
                         Log(
                             $"(1/2) flush index to disk (begin)",
-                            $"      total number of keys: {m_dbIndex.Count:N0}",
+                            $"      total number of keys: {(int)m_dbIndex.Count:N0}",
                             $"      latest key added    : {latestKeyAdded}"
                             );
 
@@ -688,8 +842,8 @@ namespace Uncodium.SimpleStore
                         using (var f = File.Open(m_indexFilename, FileMode.Create, FileAccess.Write, FileShare.Read))
                         using (var bw = new BinaryWriter(f))
                         {
-                            bw.Write(m_dbIndex.Count);
-                            foreach (var kv in m_dbIndex)
+                            bw.Write((int)m_dbIndex.Count);
+                            foreach (var kv in m_dbIndex.EnumerateEntries())
                             {
                                 bw.Write(kv.Key);
                                 bw.Write(kv.Value.Item1);
@@ -700,7 +854,7 @@ namespace Uncodium.SimpleStore
                         Log(
                             $"(2/2) flush index to disk (end)",
                             $"      total duration      : {sw.Elapsed}",
-                            $"      total number of keys: {m_dbIndex.Count:N0}",
+                            $"      total number of keys: {(int)m_dbIndex.Count:N0}",
                             $"      latest key added    : {LatestKeyAdded}"
                             );
 
