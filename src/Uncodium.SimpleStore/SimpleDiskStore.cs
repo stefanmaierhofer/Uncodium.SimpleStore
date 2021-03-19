@@ -458,7 +458,7 @@ namespace Uncodium.SimpleStore
             var debugOldDbIndexSize = m_dbIndex.Count;
             var debugOldDbCacheSize = m_dbCache.Count;
             int? debugBufferSize = -1;
-            int debugStepReached;
+            int debugStepReached = -1;
 
             try
             {
@@ -586,12 +586,10 @@ namespace Uncodium.SimpleStore
             }
             catch (Exception e)
             {
-                debugStepReached = 34;
-                var msg = $"Add({key}, {value?.GetType()}) failed. ";
+                var msg = $"Add({key}, {value?.GetType()}) failed. Reached step {debugStepReached}. ";
 
                 try
                 {
-                    msg += $"Reached step {debugStepReached}. ";
                     debugStepReached = 35;
                     msg += $"Index size before 'add' was {debugOldDbIndexSize}. ";
                     debugStepReached = 36;
