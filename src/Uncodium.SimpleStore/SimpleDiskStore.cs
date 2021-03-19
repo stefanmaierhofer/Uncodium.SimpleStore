@@ -62,6 +62,7 @@ namespace Uncodium.SimpleStore
                     _current = new();
                 }
 
+                Remove(key);
                 _current.Add(key, value);
             }
 
