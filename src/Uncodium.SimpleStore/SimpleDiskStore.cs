@@ -175,7 +175,7 @@ namespace Uncodium.SimpleStore
             var indexFileName = Path.GetFullPath(Path.Combine(folder, "index.bin"));
             if (!File.Exists(indexFileName)) throw new Exception($"Expected {indexFileName}.");
 
-            var dataFilename = Path.GetFullPath(Path.Combine(folder, "data.bin")); 
+            var dataFilename = Path.GetFullPath(Path.Combine(folder, "data.bin"));
             if (!File.Exists(dataFilename)) throw new Exception($"Expected {dataFilename}.");
 
             //
@@ -196,7 +196,7 @@ namespace Uncodium.SimpleStore
             m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.OpenOrCreate, mapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.ReadWrite);
             m_accessor = m_mmf.CreateViewAccessor(0, totalDataFileSizeInBytes);
             m_header = new(m_accessor);
-            m_dbIndex = new Dictionary<string, IndexEntry>();
+            m_dbIndex = new();
 
             ImportDeprecatedIndexFile(indexFileName);
             Flush();
@@ -420,17 +420,17 @@ namespace Uncodium.SimpleStore
         private class IndexPage
         {
             public static readonly Guid MagicBytesVersion1 = Guid.Parse("5587b343-403d-4f62-af22-a18da686b1da");
-            private static readonly FieldBuffer FIELD_MAGIC  = new( 0);  // +16
-            private static readonly FieldInt64  FIELD_NEXT   = new(16);  //  +8
-            private static readonly FieldInt32  FIELD_CURSOR = new(24);  //  +4
-            private static readonly FieldInt32  FIELD_COUNT  = new(28);  //  +4
-            private static readonly Offset32    FIELD_DATA   = new(32);
+            private static readonly FieldBuffer FIELD_MAGIC = new(0);  // +16
+            private static readonly FieldInt64 FIELD_NEXT = new(16);  //  +8
+            private static readonly FieldInt32 FIELD_CURSOR = new(24);  //  +4
+            private static readonly FieldInt32 FIELD_COUNT = new(28);  //  +4
+            private static readonly Offset32 FIELD_DATA = new(32);
 
             private readonly MemoryMappedViewAccessor m_accessor;
             public Block Range { get; }
 
             public IndexPage(IndexPage x) => new IndexPage(x.m_accessor, x.Range);
-            
+
             public IndexPage(MemoryMappedViewAccessor accessor, Block range)
             {
                 m_accessor = accessor;
@@ -514,7 +514,7 @@ namespace Uncodium.SimpleStore
                 private set => FIELD_COUNT.Write(m_accessor, Range, value);
             }
 
-            public IEnumerable<(string key, IndexEntry value)> Entries
+            public IEnumerable<IndexEntry> Entries
             {
                 get
                 {
@@ -529,9 +529,7 @@ namespace Uncodium.SimpleStore
                         var key = Encoding.UTF8.GetString(keyBuffer);
                         var valueOffset = m_accessor.ReadUInt64(p); p += 8;
                         var valueSize = m_accessor.ReadUInt32(p); p += 4;
-                        var result = (key, new IndexEntry(key, valueOffset, valueSize));
-                        //Console.WriteLine($"[ENTRY] [{key}] -> [[{valueOffset}], [{valueSize}]]");
-                        yield return result;
+                        yield return new(key, valueOffset, valueSize);
                     }
                 }
             }
@@ -647,7 +645,7 @@ namespace Uncodium.SimpleStore
                     ensureSpaceFor(DataCursor + IndexPageSizeInBytes);
 
                     var newPage = IndexPage.Init(m_accessor, new Block(DataCursor, IndexPageSizeInBytes), next: m_currentIndexPage);
-                    
+
                     // write again, there is enough space now
                     if (!newPage.TryAdd(e)) throw new Exception("Failed to write index entry.");
 
@@ -671,10 +669,10 @@ namespace Uncodium.SimpleStore
                 }
             }
 
-            public void ReadIndexIntoMemory(Dictionary<string, IndexEntry> index)
+            public void ReadIndexIntoMemory(ChunkedInMemoryIndex index)
             {
                 var xs = IndexPages.SelectMany(p => p.Entries);
-                foreach (var (key, value) in xs) index[key] = value;
+                foreach (var x in xs) index.Add(x);
             }
 
             public static void CreateEmptyDataFile(string dataFileName)
@@ -693,9 +691,9 @@ namespace Uncodium.SimpleStore
                 using var w = new BinaryWriter(ms);
 
                 var indexRootPageOffset = offset + DefaultHeaderSizeInBytes;
-                var cursorPos           = offset + DefaultHeaderSizeInBytes + DefaultIndexPageSizeInBytes;
-                var totalFileSize       = Math.Max(cursorPos, totalFileSizeInBytes);
-                var totalIndexEntries   = 0L;
+                var cursorPos = offset + DefaultHeaderSizeInBytes + DefaultIndexPageSizeInBytes;
+                var totalFileSize = Math.Max(cursorPos, totalFileSizeInBytes);
+                var totalIndexEntries = 0L;
 
                 w.Write(MagicBytesVersion1.ToByteArray());              // [ 0] MagicBytesVersion1
                 w.Write(DefaultHeaderSizeInBytes);                      // [16] HeaderSizeInBytes
@@ -725,7 +723,71 @@ namespace Uncodium.SimpleStore
         private readonly bool m_readOnlySnapshot;
         private string m_dataFileName;
 
-        private Dictionary<string, IndexEntry> m_dbIndex;
+        /// <summary>
+        /// Custom in-memory index to circumvent memory problem in .NET Framework.
+        /// (in .NET framework array size in bytes is limited to 2GB, which limits
+        /// previous Dictionary-based implementation to less than 100k entries,
+        /// due to Dictionary's internal backing array goes out of memory).
+        /// </summary>
+        private class ChunkedInMemoryIndex
+        {
+            private Dictionary<string, (ulong, uint)> _current = new();
+            private readonly List<Dictionary<string, (ulong, uint)>> _index = new();
+
+            public void Add(IndexEntry e)
+            {
+                if (_current.Count >= 32 * 1024 * 1024)
+                {
+                    Console.WriteLine("add index chunk");
+                    _index.Add(_current);
+                    _current = new();
+                }
+
+                Remove(e.Key);
+                _current.Add(e.Key, (e.Offset, e.Size));
+            }
+
+            public int Count => _current.Count + _index.Sum(x => x.Count);
+
+            public string[] Keys
+            {
+                get
+                {
+                    var rs = new List<string>(_current.Keys);
+                    foreach (var i in _index) rs.AddRange(i.Keys);
+                    return rs.ToArray();
+                }
+            }
+
+            public bool ContainsKey(string key)
+            {
+                if (_current.ContainsKey(key)) return true;
+                foreach (var x in _index) if (x.ContainsKey(key)) return true;
+                return false;
+            }
+
+            public bool Remove(string key)
+            {
+                if (_current.Remove(key)) return true;
+                foreach (var x in _index) if (x.Remove(key)) return true;
+                return false;
+            }
+
+            public bool TryGetValue(string key, out (ulong, uint) result)
+            {
+                if (_current.TryGetValue(key, out result)) return true;
+                foreach (var x in _index) if (x.TryGetValue(key, out result)) return true;
+                return false;
+            }
+
+            public IEnumerable<KeyValuePair<string, (ulong offset, uint size)>> EnumerateEntries()
+            {
+                foreach (var kv in _current) yield return kv;
+                foreach (var x in _index) foreach (var kv in x) yield return kv;
+            }
+        }
+        private ChunkedInMemoryIndex m_dbIndex;
+
         private Dictionary<string, WeakReference<object>> m_dbCache;
         private HashSet<object> m_dbCacheKeepAlive;
         private Header m_header;
@@ -745,7 +807,7 @@ namespace Uncodium.SimpleStore
         private string m_disposeStackTrace = null;
         private bool m_loggedDisposeStackTrace = false;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private void CheckDisposed() 
+        private void CheckDisposed()
         {
             if (m_isDisposed)
             {
@@ -887,7 +949,7 @@ namespace Uncodium.SimpleStore
         /// <summary>
         /// Creates store in given file.
         /// </summary>
-        public SimpleDiskStore(string path) 
+        public SimpleDiskStore(string path)
             : this(path, readOnlySnapshot: false, logLines: null)
         { }
 
@@ -963,7 +1025,7 @@ namespace Uncodium.SimpleStore
                 default:
                     throw new Exception($"Unknown layout '{layout}'.");
             }
-            
+
             // init
             Log(
                 $"",
@@ -997,7 +1059,7 @@ namespace Uncodium.SimpleStore
             {
                 m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.OpenOrCreate, mapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.ReadWrite);
                 m_accessor = m_mmf.CreateViewAccessor(0, totalDataFileSizeInBytes);
-                
+
             }
 
             // init header
@@ -1008,7 +1070,7 @@ namespace Uncodium.SimpleStore
                 );
 
             // create in-memory index
-            m_dbIndex = new Dictionary<string, IndexEntry>();
+            m_dbIndex = new();
             m_header.ReadIndexIntoMemory(m_dbIndex);
         }
 
@@ -1161,14 +1223,14 @@ namespace Uncodium.SimpleStore
 
                 // update index
                 var e = new IndexEntry(key, (ulong)valueBufferPos.Value, (uint)storedLength);
-                m_dbIndex[key] = e;
+                m_dbIndex.Add(e);
                 m_header.AppendIndexEntry(e, EnsureSpaceFor);
 
                 // housekeeping
                 m_stats.LatestKeyAdded = key;
             }
         }
-        
+
         private unsafe void WriteBytes(long writeOffset, byte[] data, int dataOffset, int dataLength)
         {
             byte* ptr = (byte*)0;
@@ -1204,8 +1266,8 @@ namespace Uncodium.SimpleStore
 
             if (m_readOnlySnapshot) throw new InvalidOperationException("Read-only store does not support add.");
 
-            using var ms = new MemoryStream(); 
-            
+            using var ms = new MemoryStream();
+
             ct.ThrowIfCancellationRequested();
             //if (onProgress != default) onProgress(0L);
             //stream.CopyTo(ms);
@@ -1245,7 +1307,7 @@ namespace Uncodium.SimpleStore
                 // update index
                 ct.ThrowIfCancellationRequested();
                 var e = new IndexEntry(key, (ulong)valueBufferPos.Value, (uint)storedLength);
-                m_dbIndex[key] = e;
+                m_dbIndex.Add(e);
                 m_header.AppendIndexEntry(e, EnsureSpaceFor);
 
                 // housekeeping
@@ -1283,7 +1345,7 @@ namespace Uncodium.SimpleStore
             lock (m_lock)
             {
                 EnsureMemoryMappedFileIsOpen();
-                return m_dbIndex.TryGetValue(key, out IndexEntry entry) ? entry.Size : null;
+                return m_dbIndex.TryGetValue(key, out (ulong _, uint size) entry) ? entry.size : null;
             }
         }
 
@@ -1298,14 +1360,13 @@ namespace Uncodium.SimpleStore
             lock (m_lock)
             {
                 EnsureMemoryMappedFileIsOpen();
-                if (m_dbIndex.TryGetValue(key, out IndexEntry entry))
+                if (m_dbIndex.TryGetValue(key, out (ulong offset, uint size) entry))
                 {
                     try
                     {
-                        var buffer = new byte[entry.Size];
-                        var offset = (long)entry.Offset;
-                        if (offset < 0) throw new Exception($"Offset out of range. Should not be greater than {long.MaxValue}, but is {entry.Offset}.");
-                        var readcount = m_accessor.ReadArray(offset, buffer, 0, buffer.Length);
+                        var buffer = new byte[entry.size];
+                        if (entry.offset > long.MaxValue) throw new Exception($"Offset out of range. Should not be greater than {long.MaxValue}, but is {entry.offset}.");
+                        var readcount = m_accessor.ReadArray((long)entry.offset, buffer, 0, buffer.Length);
                         if (readcount != buffer.Length) throw new InvalidOperationException();
                         Interlocked.Increment(ref m_stats.CountGet);
                         return buffer;
@@ -1314,7 +1375,7 @@ namespace Uncodium.SimpleStore
                     {
                         var count = Interlocked.Increment(ref m_stats.CountGetWithException);
                         Log($"[CRITICAL ERROR] Get(key={key}) failed.",
-                            $"[CRITICAL ERROR] entry = {{offset={entry.Offset}, size={entry.Size}}}",
+                            $"[CRITICAL ERROR] entry = {{offset={entry.offset}, size={entry.size}}}",
                             $"[CRITICAL ERROR] So far, {count} Get-calls failed.",
                             $"[CRITICAL ERROR] exception = {e}"
                             );
@@ -1343,15 +1404,15 @@ namespace Uncodium.SimpleStore
             lock (m_lock)
             {
                 EnsureMemoryMappedFileIsOpen();
-                if (m_dbIndex.TryGetValue(key, out IndexEntry entry))
+                if (m_dbIndex.TryGetValue(key, out (ulong offset, uint size) entry))
                 {
-                    if (offset >= entry.Size) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be less than length of value buffer.");
-                    if (offset + length > entry.Size) throw new ArgumentOutOfRangeException(nameof(offset), "Offset + size exceeds length of value buffer.");
+                    if (offset >= entry.size) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be less than length of value buffer.");
+                    if (offset + length > entry.size) throw new ArgumentOutOfRangeException(nameof(offset), "Offset + size exceeds length of value buffer.");
 
                     try
                     {
                         var buffer = new byte[length];
-                        var o = entry.Offset + (ulong)offset;
+                        var o = entry.offset + (ulong)offset;
                         if (o > long.MaxValue) throw new Exception($"Offset out of range. Should not be greater than {long.MaxValue}, but is {o}.");
                         if (length > int.MaxValue) throw new Exception($"Length out of range. Should not be greater than {int.MaxValue}, but is {length}.");
                         var readcount = m_accessor.ReadArray((long)o, buffer, 0, (int)length);
@@ -1363,7 +1424,7 @@ namespace Uncodium.SimpleStore
                     {
                         var count = Interlocked.Increment(ref m_stats.CountGetSliceWithException);
                         Log($"[CRITICAL ERROR] GetSlice(key={key}, offset={offset}, length={length}) failed.",
-                            $"[CRITICAL ERROR] entry = {{offset={entry.Offset}, size={entry.Size}}}",
+                            $"[CRITICAL ERROR] entry = {{offset={entry.offset}, size={entry.size}}}",
                             $"[CRITICAL ERROR] So far, {count} GetSlice-calls failed.",
                             $"[CRITICAL ERROR] exception = {e}"
                             );
@@ -1391,14 +1452,14 @@ namespace Uncodium.SimpleStore
             lock (m_lock)
             {
                 EnsureMemoryMappedFileIsOpen();
-                if (m_dbIndex.TryGetValue(key, out IndexEntry entry))
+                if (m_dbIndex.TryGetValue(key, out (ulong offset, uint size) entry))
                 {
-                    if (offset < 0L || offset >= entry.Size) throw new ArgumentOutOfRangeException(
-                        nameof(offset), $"Offset {offset:N0} is out of valid range [0, {entry.Size:N0})."
+                    if (offset < 0L || offset >= entry.size) throw new ArgumentOutOfRangeException(
+                        nameof(offset), $"Offset {offset:N0} is out of valid range [0, {entry.size:N0})."
                         );
 
                     Interlocked.Increment(ref m_stats.CountGetStream);
-                    return m_mmf.CreateViewStream((long)entry.Offset + offset, entry.Size, MemoryMappedFileAccess.Read);
+                    return m_mmf.CreateViewStream((long)entry.offset + offset, entry.size, MemoryMappedFileAccess.Read);
                 }
                 else
                 {
@@ -1434,7 +1495,7 @@ namespace Uncodium.SimpleStore
             lock (m_lock)
             {
                 Interlocked.Increment(ref m_stats.CountList);
-                return m_dbIndex.Select(x =>(key: x.Key, size: (long)x.Value.Size) );
+                return m_dbIndex.EnumerateEntries().Select(kv => (key: kv.Key, size: (long)kv.Value.size));
             }
         }
 
