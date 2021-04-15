@@ -70,7 +70,7 @@ namespace Uncodium.SimpleStore
             m_store.Add(key, value);
         }
 
-        public void AddStream(string key, Stream stream, Action<long> onProgress = default, CancellationToken ct = default)
+        public void AddStream(string key, Stream stream, Action<long>? onProgress = default, CancellationToken ct = default)
         {
             if (m_random.NextDouble() < m_pAdd) throw new Exception();
             m_store.AddStream(key, stream, onProgress, ct);
@@ -82,13 +82,13 @@ namespace Uncodium.SimpleStore
         public long? GetSize(string key)
             => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetSize(key);
 
-        public byte[] Get(string key)
+        public byte[]? Get(string key)
             => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.Get(key);
 
-        public byte[] GetSlice(string key, long offset, int length)
+        public byte[]? GetSlice(string key, long offset, int length)
             => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetSlice(key, offset, length);
 
-        public Stream GetStream(string key, long offset = 0L)
+        public Stream? GetStream(string key, long offset = 0L)
             => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetStream(key, offset);
 
         public void Remove(string key)

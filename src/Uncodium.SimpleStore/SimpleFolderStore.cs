@@ -60,19 +60,17 @@ namespace Uncodium.SimpleStore
             if (!Directory.Exists(Folder)) Directory.CreateDirectory(folder);
         }
 
-        public Stats Stats => m_stats.Copy();
+        public void Dispose()
+        {
+            CheckDisposed();
+            m_isDisposed = true;
+        }
 
-        public string LatestKeyAdded { get; private set; }
+        #region ISimpleStore
 
-        public string LatestKeyFlushed { get; private set; }
-
-        public long GetUsedBytes()
-            => Directory.EnumerateFiles(Folder).Select(s => new FileInfo(s).Length).Sum();
-
-        public long GetReservedBytes() => GetUsedBytes();
-
-        public string Version => Global.Version;
-
+        /// <summary>
+        /// Add data from buffer.
+        /// </summary>
         public void Add(string key, byte[] value)
         {
             CheckDisposed();
@@ -80,15 +78,18 @@ namespace Uncodium.SimpleStore
             File.WriteAllBytes(GetFileNameFromId(key), value);
 
             Interlocked.Increment(ref m_stats.CountAdd);
-            LatestKeyAdded = LatestKeyFlushed = key;
+            m_stats.LatestKeyAdded = m_stats.LatestKeyFlushed = key;
         }
 
-        public void AddStream(string key, Stream stream, Action<long> onProgress = default, CancellationToken ct = default)
+        /// <summary>
+        /// Add data from stream.
+        /// </summary>
+        public void AddStream(string key, Stream stream, Action<long>? onProgress = default, CancellationToken ct = default)
         {
             var filename = GetFileNameFromId(key);
 
             using var target = File.Open(filename, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
-            
+
             ct.ThrowIfCancellationRequested();
             target.Position = 0L;
             //stream.CopyTo(target);
@@ -108,9 +109,12 @@ namespace Uncodium.SimpleStore
             }, ct).Wait();
 
             Interlocked.Increment(ref m_stats.CountAdd);
-            LatestKeyAdded = LatestKeyFlushed = key;
+            m_stats.LatestKeyAdded = m_stats.LatestKeyFlushed = key;
         }
 
+        /// <summary>
+        /// True if key exists in store.
+        /// </summary>
         public bool Contains(string key)
         {
             CheckDisposed();
@@ -118,20 +122,9 @@ namespace Uncodium.SimpleStore
             return File.Exists(GetFileNameFromId(key));
         }
 
-        public void Dispose()
-        {
-            CheckDisposed();
-            m_isDisposed = true;
-        }
-
-        public void Flush()
-        {
-            CheckDisposed();
-            Interlocked.Increment(ref m_stats.CountFlush);
-        }
-
         /// <summary>
-        /// Gets size of value in bytes, or null if key does not exist.
+        /// Get size of value in bytes,
+        /// or null if key does not exist.
         /// </summary>
         public long? GetSize(string key)
         {
@@ -144,7 +137,11 @@ namespace Uncodium.SimpleStore
             return File.Exists(filename) ? new FileInfo(filename).Length : null;
         }
 
-        public byte[] Get(string key)
+        /// <summary>
+        /// Get value as buffer,
+        /// or null if key does not exist.
+        /// </summary>
+        public byte[]? Get(string key)
         {
             CheckDisposed();
 
@@ -162,7 +159,11 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        public byte[] GetSlice(string key, long offset, int size)
+        /// <summary>
+        /// Get value slice as buffer,
+        /// or null if key does not exist.
+        /// </summary>
+        public byte[]? GetSlice(string key, long offset, int size)
         {
             CheckDisposed();
 
@@ -187,12 +188,13 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
-        /// Get read stream for data with given key.
+        /// Get value as read stream,
+        /// or null if key does not exist.
         /// This is not thread-safe with respect to overwriting or removing existing values.
         /// </summary>
         /// <param name="key">Retrieve data for this key.</param>
         /// <param name="offset">Optional. Start stream at given position.</param>
-        public Stream GetStream(string key, long offset = 0L)
+        public Stream? GetStream(string key, long offset = 0L)
         {
             CheckDisposed();
 
@@ -211,6 +213,22 @@ namespace Uncodium.SimpleStore
             }
         }
 
+        /// <summary>
+        /// Enumerate all entries as (key, size) tuples.
+        /// </summary>
+        public IEnumerable<(string key, long size)> List()
+        {
+            CheckDisposed();
+            var skip = Folder.Length + 1;
+            return Directory
+                .EnumerateFiles(Folder, "*.*", SearchOption.AllDirectories)
+                .Select(x => (key: x.Substring(skip), size: new FileInfo(x).Length))
+                ;
+        }
+
+        /// <summary>
+        /// Remove entry.
+        /// </summary>
         public void Remove(string key)
         {
             CheckDisposed();
@@ -226,14 +244,36 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        public IEnumerable<(string key, long size)> List()
+        /// <summary>
+        /// Commit any pending changes to backing storage.
+        /// </summary>
+        public void Flush()
         {
             CheckDisposed();
-            var skip = Folder.Length + 1;
-            return Directory
-                .EnumerateFiles(Folder, "*.*", SearchOption.AllDirectories)
-                .Select(x => (key: x.Substring(skip), size: new FileInfo(x).Length))
-                ;
+            Interlocked.Increment(ref m_stats.CountFlush);
         }
+
+        /// <summary>
+        /// Total bytes used for data.
+        /// </summary>
+        public long GetUsedBytes()
+            => Directory.EnumerateFiles(Folder).Select(s => new FileInfo(s).Length).Sum();
+
+        /// <summary>
+        /// Total bytes reserved for data.
+        /// </summary>
+        public long GetReservedBytes() => GetUsedBytes();
+
+        /// <summary>
+        /// Current version.
+        /// </summary>
+        public string Version => Global.Version;
+
+        /// <summary>
+        /// Various runtime counts and other statistics.
+        /// </summary>
+        public Stats Stats => m_stats.Copy();
+
+        #endregion
     }
 }

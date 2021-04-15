@@ -78,7 +78,7 @@ namespace Uncodium.SimpleStore
             m_store.Add(key, value);
         }
 
-        public void AddStream(string key, Stream stream, Action<long> onProgress = default, CancellationToken ct = default)
+        public void AddStream(string key, Stream stream, Action<long>? onProgress = default, CancellationToken ct = default)
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtAdd));
             ct.ThrowIfCancellationRequested();
@@ -97,19 +97,19 @@ namespace Uncodium.SimpleStore
             return m_store.GetSize(key);
         }
 
-        public byte[] Get(string key)
+        public byte[]? Get(string key)
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet));
             return m_store.Get(key);
         }
 
-        public byte[] GetSlice(string key, long offset, int length)
+        public byte[]? GetSlice(string key, long offset, int length)
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet));
             return m_store.GetSlice(key, offset, length);
         }
 
-        public Stream GetStream(string key, long offset = 0L)
+        public Stream? GetStream(string key, long offset = 0L)
         {
             Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet));
             return m_store.GetStream(key, offset);

@@ -27,6 +27,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.MemoryMappedFiles;
 using System.Linq;
@@ -201,11 +202,11 @@ namespace Uncodium.SimpleStore
             ImportDeprecatedIndexFile(indexFileName);
             Flush();
 
-            m_dbIndex = null;
-            m_header = null;
-            m_accessor.Dispose(); m_accessor = null;
-            m_mmf.Dispose(); m_mmf = null;
-            m_dataFileName = null;
+            //m_dbIndex = null;
+            //m_header = null;
+            m_accessor.Dispose(); //m_accessor = null;
+            m_mmf.Dispose(); //m_mmf = null;
+            //m_dataFileName = null;
 
             // (3) delete old index file ...
             Log($"deleting deprecated index file: {indexFileName}");
@@ -429,7 +430,7 @@ namespace Uncodium.SimpleStore
             private readonly MemoryMappedViewAccessor m_accessor;
             public Block Range { get; }
 
-            public IndexPage(IndexPage x) => new IndexPage(x.m_accessor, x.Range);
+            //public IndexPage(IndexPage x) => new IndexPage(x.m_accessor, x.Range);
 
             public IndexPage(MemoryMappedViewAccessor accessor, Block range)
             {
@@ -488,7 +489,7 @@ namespace Uncodium.SimpleStore
                     FIELD_MAGIC.Write(m_accessor, Range, buffer);
                 }
             }
-            public IndexPage Next
+            public IndexPage? Next
             {
                 get
                 {
@@ -603,6 +604,7 @@ namespace Uncodium.SimpleStore
                 RenewAccessor(accessor);
             }
 
+            [MemberNotNull(nameof(m_currentIndexPage), nameof(m_accessor))]
             public void RenewAccessor(MemoryMappedViewAccessor accessor)
             {
                 m_accessor = accessor;
@@ -721,7 +723,7 @@ namespace Uncodium.SimpleStore
         private readonly object m_lock = new();
         private readonly string m_dbDiskLocation;
         private readonly bool m_readOnlySnapshot;
-        private string m_dataFileName;
+        private string? m_dataFileName;
 
         /// <summary>
         /// Custom in-memory index to circumvent memory problem in .NET Framework.
@@ -804,7 +806,7 @@ namespace Uncodium.SimpleStore
         #region Disposal
 
         private bool m_isDisposed = false;
-        private string m_disposeStackTrace = null;
+        private string? m_disposeStackTrace = null;
         private bool m_loggedDisposeStackTrace = false;
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void CheckDisposed()
@@ -877,11 +879,11 @@ namespace Uncodium.SimpleStore
 
         #region Logging
 
-        private readonly Action<string[]> f_logLines = null;
+        private readonly Action<string[]>? f_logLines = null;
 
         private void Log(params string[] lines)
         {
-            if (!m_readOnlySnapshot)
+            if (!m_readOnlySnapshot && f_logLines is not null)
             {
                 lock (f_logLines)
                 {
@@ -908,7 +910,7 @@ namespace Uncodium.SimpleStore
         /// Optionally opens current state read-only.
         /// Optionally a logger can be supplied which replaces the default logger to log.txt.
         /// </summary>
-        private SimpleDiskStore(string path, bool readOnlySnapshot, Action<string[]> logLines)
+        private SimpleDiskStore(string path, bool readOnlySnapshot, Action<string[]>? logLines)
         {
             m_dbDiskLocation = path;
             m_readOnlySnapshot = readOnlySnapshot;
@@ -970,6 +972,7 @@ namespace Uncodium.SimpleStore
 
         #endregion
 
+        [MemberNotNull(nameof(m_mmf), nameof(m_accessor), nameof(m_header), nameof(m_dbIndex), nameof(m_dbCache), nameof(m_dbCacheKeepAlive))]
         private void Init()
         {
             // === AUTO-CONVERT deprecated formats ===
@@ -1175,28 +1178,39 @@ namespace Uncodium.SimpleStore
 
         #endregion
 
-        /// <summary>
-        /// Various counts and other statistics.
-        /// </summary>
-        public Stats Stats => m_stats.Copy();
+        #region ISimpleStore
+
+        private unsafe void WriteBytes(long writeOffset, byte[] data, int dataOffset, int dataLength)
+        {
+            byte* ptr = (byte*)0;
+            try
+            {
+                m_accessor.SafeMemoryMappedViewHandle.AcquirePointer(ref ptr);
+                Marshal.Copy(data, dataOffset, new IntPtr(ptr + writeOffset), dataLength);
+            }
+            finally
+            {
+                m_accessor.SafeMemoryMappedViewHandle.ReleasePointer();
+            }
+        }
+
+        private unsafe void WriteBytes(long writeOffset, ReadOnlySpan<byte> data)
+        {
+            byte* ptr = (byte*)0;
+            try
+            {
+                m_accessor.SafeMemoryMappedViewHandle.AcquirePointer(ref ptr);
+                var destination = new Span<byte>(ptr + writeOffset, data.Length);
+                data.CopyTo(destination);
+            }
+            finally
+            {
+                m_accessor.SafeMemoryMappedViewHandle.ReleasePointer();
+            }
+        }
 
         /// <summary>
-        /// Total bytes used for blob storage.
-        /// </summary>
-        public long GetUsedBytes() => m_header.DataCursor;
-
-        /// <summary>
-        /// Total bytes reserved for blob storage.
-        /// </summary>
-        public long GetReservedBytes() => m_header.TotalFileSize;
-
-        /// <summary>
-        /// Current version.
-        /// </summary>
-        public string Version => Global.Version;
-
-        /// <summary>
-        /// Adds key/value pair to store.
+        /// Add data from buffer.
         /// </summary>
         public void Add(string key, byte[] value)
         {
@@ -1231,36 +1245,10 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        private unsafe void WriteBytes(long writeOffset, byte[] data, int dataOffset, int dataLength)
-        {
-            byte* ptr = (byte*)0;
-            try
-            {
-                m_accessor.SafeMemoryMappedViewHandle.AcquirePointer(ref ptr);
-                Marshal.Copy(data, dataOffset, new IntPtr(ptr + writeOffset), dataLength);
-            }
-            finally
-            {
-                m_accessor.SafeMemoryMappedViewHandle.ReleasePointer();
-            }
-        }
-
-        private unsafe void WriteBytes(long writeOffset, ReadOnlySpan<byte> data)
-        {
-            byte* ptr = (byte*)0;
-            try
-            {
-                m_accessor.SafeMemoryMappedViewHandle.AcquirePointer(ref ptr);
-                var destination = new Span<byte>(ptr + writeOffset, data.Length);
-                data.CopyTo(destination);
-            }
-            finally
-            {
-                m_accessor.SafeMemoryMappedViewHandle.ReleasePointer();
-            }
-        }
-
-        public void AddStream(string key, Stream stream, Action<long> onProgress = default, CancellationToken ct = default)
+        /// <summary>
+        /// Add data from stream.
+        /// </summary>
+        public void AddStream(string key, Stream stream, Action<long>? onProgress = default, CancellationToken ct = default)
         {
             CheckDisposed();
 
@@ -1319,7 +1307,7 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
-        /// True if key is contained in store.
+        /// True if key exists in store.
         /// </summary>
         public bool Contains(string key)
         {
@@ -1336,7 +1324,8 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
-        /// Gets size of value in bytes, or null if key does not exist.
+        /// Get size of value in bytes,
+        /// or null if key does not exist.
         /// </summary>
         public long? GetSize(string key)
         {
@@ -1350,10 +1339,10 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
-        /// Get value from key,
+        /// Get value as buffer,
         /// or null if key does not exist.
         /// </summary>
-        public byte[] Get(string key)
+        public byte[]? Get(string key)
         {
             CheckDisposed();
 
@@ -1391,10 +1380,10 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
-        /// Get slice of value from key,
+        /// Get value slice as buffer,
         /// or null if key does not exist.
         /// </summary>
-        public byte[] GetSlice(string key, long offset, int length)
+        public byte[]? GetSlice(string key, long offset, int length)
         {
             CheckDisposed();
 
@@ -1440,12 +1429,13 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
-        /// Get read stream for data with given key.
+        /// Get value as read stream,
+        /// or null if key does not exist.
         /// This is not thread-safe with respect to overwriting or removing existing values.
         /// </summary>
         /// <param name="key">Retrieve data for this key.</param>
         /// <param name="offset">Optional. Start stream at given position.</param>
-        public Stream GetStream(string key, long offset = 0L)
+        public Stream? GetStream(string key, long offset = 0L)
         {
             CheckDisposed();
 
@@ -1470,6 +1460,20 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
+        /// Enumerate all entries as (key, size) tuples.
+        /// </summary>
+        public IEnumerable<(string key, long size)> List()
+        {
+            CheckDisposed();
+
+            lock (m_lock)
+            {
+                Interlocked.Increment(ref m_stats.CountList);
+                return m_dbIndex.EnumerateEntries().Select(kv => (key: kv.Key, size: (long)kv.Value.size));
+            }
+        }
+        
+        /// <summary>
         /// Remove entry.
         /// </summary>
         public void Remove(string key)
@@ -1486,21 +1490,7 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
-        /// Enumerate all entries.
-        /// </summary>
-        public IEnumerable<(string key, long size)> List()
-        {
-            CheckDisposed();
-
-            lock (m_lock)
-            {
-                Interlocked.Increment(ref m_stats.CountList);
-                return m_dbIndex.EnumerateEntries().Select(kv => (key: kv.Key, size: (long)kv.Value.size));
-            }
-        }
-
-        /// <summary>
-        /// Commit pending changes to storage.
+        /// Commit any pending changes to backing storage.
         /// </summary>
         public void Flush()
         {
@@ -1519,5 +1509,27 @@ namespace Uncodium.SimpleStore
                 }
             }
         }
+
+        /// <summary>
+        /// Total bytes used for data.
+        /// </summary>
+        public long GetUsedBytes() => m_header.DataCursor;
+
+        /// <summary>
+        /// Total bytes reserved for data.
+        /// </summary>
+        public long GetReservedBytes() => m_header.TotalFileSize;
+
+        /// <summary>
+        /// Current version.
+        /// </summary>
+        public string Version => Global.Version;
+
+        /// <summary>
+        /// Various runtime counts and other statistics.
+        /// </summary>
+        public Stats Stats => m_stats.Copy();
+
+        #endregion
     }
 }

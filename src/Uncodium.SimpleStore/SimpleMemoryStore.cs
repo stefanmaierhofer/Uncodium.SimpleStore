@@ -48,17 +48,17 @@ namespace Uncodium.SimpleStore
             m_db = new Dictionary<string, byte[]>();
         }
 
+        public void Dispose()
+        {
+            CheckDisposed();
+            m_isDisposed = true;
+        }
+
+        #region ISimpleStore
+
         /// <summary>
-        /// Various counts and other statistics.
+        /// Add data from buffer.
         /// </summary>
-        public Stats Stats => m_stats.Copy();
-
-        public string LatestKeyAdded { get; private set; }
-
-        public string LatestKeyFlushed { get; private set; }
-
-        public string Version => Global.Version;
-
         public void Add(string key, byte[] value)
         {
             CheckDisposed();
@@ -66,13 +66,16 @@ namespace Uncodium.SimpleStore
             lock (m_db)
             {
                 m_db[key] = value;
-                LatestKeyAdded = key;
-                LatestKeyFlushed = key;
+                m_stats.LatestKeyAdded = key;
+                m_stats.LatestKeyFlushed = key;
             }
             Interlocked.Increment(ref m_stats.CountAdd);
         }
 
-        public void AddStream(string key, Stream stream, Action<long> onProgress = default, CancellationToken ct = default)
+        /// <summary>
+        /// Add data from stream.
+        /// </summary>
+        public void AddStream(string key, Stream stream, Action<long>? onProgress = default, CancellationToken ct = default)
         {
             using var ms = new MemoryStream();
 
@@ -100,11 +103,15 @@ namespace Uncodium.SimpleStore
             lock (m_db)
             {
                 m_db[key] = buffer;
-                LatestKeyAdded =  LatestKeyFlushed = key;
+                m_stats.LatestKeyAdded = m_stats.LatestKeyFlushed = key;
             }
             Interlocked.Increment(ref m_stats.CountAdd);
         }
 
+
+        /// <summary>
+        /// True if key exists in store.
+        /// </summary>
         public bool Contains(string key)
         {
             CheckDisposed();
@@ -119,7 +126,8 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
-        /// Gets size of value in bytes, or null if key does not exist.
+        /// Get size of value in bytes,
+        /// or null if key does not exist.
         /// </summary>
         public long? GetSize(string key)
         {
@@ -131,7 +139,11 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        public byte[] Get(string key)
+        /// <summary>
+        /// Get value as buffer,
+        /// or null if key does not exist.
+        /// </summary>
+        public byte[]? Get(string key)
         {
             CheckDisposed();
 
@@ -150,7 +162,11 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        public byte[] GetSlice(string key, long offset, int length)
+        /// <summary>
+        /// Get value slice as buffer,
+        /// or null if key does not exist.
+        /// </summary>
+        public byte[]? GetSlice(string key, long offset, int length)
         {
             CheckDisposed();
 
@@ -177,12 +193,13 @@ namespace Uncodium.SimpleStore
         }
 
         /// <summary>
-        /// Get read stream for data with given key.
+        /// Get value as read stream,
+        /// or null if key does not exist.
         /// This is not thread-safe with respect to overwriting or removing existing values.
         /// </summary>
         /// <param name="key">Retrieve data for this key.</param>
         /// <param name="offset">Optional. Start stream at given position.</param>
-        public Stream GetStream(string key, long offset = 0L)
+        public Stream? GetStream(string key, long offset = 0L)
         {
             CheckDisposed();
 
@@ -206,6 +223,23 @@ namespace Uncodium.SimpleStore
             }
         }
 
+        /// <summary>
+        /// Enumerate all entries as (key, size) tuples.
+        /// </summary>
+        public IEnumerable<(string key, long size)> List()
+        {
+            CheckDisposed();
+
+            lock (m_db)
+            {
+                Interlocked.Increment(ref m_stats.CountList);
+                return m_db.Select(x => (key: x.Key, size: (long)x.Value.Length));
+            }
+        }
+
+        /// <summary>
+        /// Remove entry.
+        /// </summary>
         public void Remove(string key)
         {
             CheckDisposed();
@@ -223,31 +257,35 @@ namespace Uncodium.SimpleStore
             }
         }
 
-        public IEnumerable<(string key, long size)> List()
-        {
-            CheckDisposed();
-
-            lock (m_db)
-            {
-                Interlocked.Increment(ref m_stats.CountList);
-                return m_db.Select(x => (key: x.Key, size: (long)x.Value.Length));
-            }
-        }
-
+        /// <summary>
+        /// Commit any pending changes to backing storage.
+        /// </summary>
         public void Flush()
         {
             CheckDisposed();
             Interlocked.Increment(ref m_stats.CountFlush);
         }
 
-        public void Dispose()
-        {
-            CheckDisposed();
-            m_isDisposed = true;
-        }
-
+        /// <summary>
+        /// Total bytes used for data.
+        /// </summary>
         public long GetUsedBytes() => m_db.Values.Select(buffer => buffer.Length).Sum();
 
+        /// <summary>
+        /// Total bytes reserved for data.
+        /// </summary>
         public long GetReservedBytes() => GetUsedBytes();
+
+        /// <summary>
+        /// Current version.
+        /// </summary>
+        public string Version => Global.Version;
+
+        /// <summary>
+        /// Various runtime counts and other statistics.
+        /// </summary>
+        public Stats Stats => m_stats.Copy();
+
+        #endregion
     }
 }

@@ -34,48 +34,49 @@ namespace Uncodium.SimpleStore
     public interface ISimpleStore : IDisposable
     {
         /// <summary>
-        /// Add data for key.
+        /// Add data from buffer.
         /// </summary>
         void Add(string key, byte[] data);
 
         /// <summary>
-        /// Add key/value.
+        /// Add data from stream.
         /// </summary>
-        void AddStream(string key, Stream data, Action<long> onProgress = default, CancellationToken ct = default);
+        void AddStream(string key, Stream data, Action<long>? onProgress = default, CancellationToken ct = default);
 
         /// <summary>
-        /// True if key is contained in store.
+        /// True if key exists in store.
         /// </summary>
         bool Contains(string key);
 
         /// <summary>
-        /// Gets size of value in bytes, or null if key does not exist.
+        /// Get size of value in bytes,
+        /// or null if key does not exist.
         /// </summary>
         long? GetSize(string key);
 
         /// <summary>
-        /// Get value from key,
+        /// Get value as buffer,
         /// or null if key does not exist.
         /// </summary>
-        byte[] Get(string key);
+        byte[]? Get(string key);
 
         /// <summary>
-        /// Get slice of value from key,
+        /// Get value slice as buffer,
         /// or null if key does not exist.
         /// </summary>
-        byte[] GetSlice(string key, long offset, int length);
-
+        byte[]? GetSlice(string key, long offset, int length);
 
         /// <summary>
-        /// Get read stream for data with given key.
+        /// Get value as read stream,
+        /// or null if key does not exist.
         /// This is not thread-safe with respect to overwriting or removing existing values.
         /// </summary>
         /// <param name="key">Retrieve data for this key.</param>
         /// <param name="offset">Optional. Start stream at given position.</param>
-        Stream GetStream(string key, long offset = 0L);
+        Stream? GetStream(string key, long offset = 0L);
 
         /// <summary>
-        /// Enumerate all entries.
+        /// Enumerate all entries as (key, size) tuples.
         /// </summary>
         IEnumerable<(string key, long size)> List();
 
@@ -85,7 +86,7 @@ namespace Uncodium.SimpleStore
         void Remove(string key);
 
         /// <summary>
-        /// Commit pending changes to backing storage.
+        /// Commit any pending changes to backing storage.
         /// </summary>
         void Flush();
 
@@ -100,12 +101,12 @@ namespace Uncodium.SimpleStore
         long GetReservedBytes();
 
         /// <summary>
-        /// Get current version.
+        /// Current version.
         /// </summary>
         string Version { get; }
 
         /// <summary>
-        /// Get various runtime counts and other statistics.
+        /// Various runtime counts and other statistics.
         /// </summary>
         Stats Stats { get; }
     }
