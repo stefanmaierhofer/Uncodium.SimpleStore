@@ -221,8 +221,10 @@ namespace Uncodium.SimpleStore
                     $"Failed to upgrade original store format. Data file already contains header format {Header.MagicBytesVersion1}."
                     );
 
+                Log($"    data file                                     : {indexFileName}");
+
                 var totalDataFileSizeInBytes = new FileInfo(filename).Length;
-                Log($"    total data file size                          : {indexFileName,20:N0} bytes");
+                Log($"    total data file size                          : {totalDataFileSizeInBytes,20:N0} bytes");
 
                 // get write position (first 8 bytes as int64, in old format)
                 var p = 0L;
@@ -238,7 +240,7 @@ namespace Uncodium.SimpleStore
                 var buffer = Header.GenerateHeaderAndEmptyIndexForOffset(headerOffset, totalDataFileSizeInBytes);
                 f.Write(buffer, 0, buffer.Length);
                 var writePosition = f.Position;
-                Log($"    injected header and empty index");
+                Log($"    inject header and empty index                 : done");
                 Log($"    write position (new)                          : {writePosition,20:N0}");
 
                 // replace write position with pointer/offset to header
@@ -644,7 +646,7 @@ namespace Uncodium.SimpleStore
                 if (!m_currentIndexPage.TryAdd(e))
                 {
                     // current index page is full -> append new page
-                    ensureSpaceFor(DataCursor + IndexPageSizeInBytes);
+                    ensureSpaceFor(IndexPageSizeInBytes.Value);
 
                     var newPage = IndexPage.Init(m_accessor, new Block(DataCursor, IndexPageSizeInBytes), next: m_currentIndexPage);
 
