@@ -270,7 +270,7 @@ namespace Uncodium.SimpleStore
                     for (i = 0; i < count; i++)
                     {
                         key = br.ReadString();
-                        offset = br.ReadUInt64();
+                        offset = br.ReadUInt64() + 8; // add 8, because in old format offset was relative to data section which started 8 bytes into the file 
                         size = br.ReadUInt32();
 
                         var e = new IndexEntry(key, offset, size);
@@ -829,7 +829,7 @@ namespace Uncodium.SimpleStore
             var token = Guid.NewGuid();
             if (!m_readOnlySnapshot) Log(
                 $"",
-                $"shutdown {token} (begin)",
+                $"[shutdown {token}] (begin)",
                 $"reserved space        : {m_header.TotalFileSize,20:N0} bytes",
                 $"used space            : {m_header.DataCursor,20:N0} bytes (including index)"
                 );
@@ -845,6 +845,9 @@ namespace Uncodium.SimpleStore
                         if (!m_readOnlySnapshot)
                         {
                             m_accessor.Flush();
+                            Log(
+                                $"[shutdown {token}] flush everything to disk (latest key added is {Stats.LatestKeyAdded ?? "<none>"})"
+                                );
                             //m_accessorWriteStream.Flush();
                         }
 
@@ -854,9 +857,8 @@ namespace Uncodium.SimpleStore
                         m_cts.Cancel();
 
                         Log(
-                            $"shutdown {token} - latest known key is {Stats.LatestKeyAdded},",
-                            $"shutdown {token} - should be the same key as indicated above in \"(2/2) flush index to disk (end)\"",
-                            $"shutdown {token} (end)"
+                            $"[shutdown {token}] latest key added is {Stats.LatestKeyAdded ?? "<none>"} (should be the same as above),",
+                            $"[shutdown {token}] (end)"
                             );
 
                         return;
