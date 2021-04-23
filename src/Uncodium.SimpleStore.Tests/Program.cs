@@ -114,14 +114,26 @@ static void TestAutoConversion()
 
 
 
+static void Quickstart()
+{
+    using var store = new SimpleDiskStore("./mystore");
 
-using var store = new SimpleDiskStore("./mystore");
+    var blob = new byte[1000000];
+    store.Add("mykey", blob);
 
-var blob = new byte[1000000];
-store.Add("mykey", blob);
+    var x = store.Get("mykey");
 
-var x = store.Get("mykey");
+    var stream = File.OpenRead("foo.jpg");
+    store.AddStream("my image", stream);
 
+    var readstream = store.GetStream("my image");
+
+    foreach (var (key, size) in store.List()) Console.WriteLine($"{key} {size}");
+
+}
+
+
+//using var store = new SimpleDiskStore(@"E:\tmp\foo");
 
 
 //TestAutoConversion();

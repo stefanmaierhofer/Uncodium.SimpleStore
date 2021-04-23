@@ -28,8 +28,8 @@ namespace Uncodium.SimpleStore.Tests
             finally
             {
                 try { store.Dispose(); } catch { }
-                File.Delete(path + SimpleDiskStore.DefaultFileExtension);
-                File.Delete(path + SimpleDiskStore.DefaultFileExtension + ".log");
+                File.Delete(path);
+                File.Delete(path + ".log");
             }
         }
         private static string GetString(SimpleDiskStore store, string key)

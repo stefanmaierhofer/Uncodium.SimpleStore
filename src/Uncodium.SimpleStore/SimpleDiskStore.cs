@@ -45,11 +45,6 @@ namespace Uncodium.SimpleStore
     public class SimpleDiskStore : ISimpleStore
     {
         /// <summary>
-        /// The default file extension for a SimpleDiskStore is (U)ncodium (D)isk (S)tore.
-        /// </summary>
-        public const string DefaultFileExtension = ".uds";
-
-        /// <summary>
         /// The maximum number of characters in a key string.
         /// </summary>
         public const int MaxKeyLength = 4096;
@@ -80,17 +75,23 @@ namespace Uncodium.SimpleStore
             SingleFile,
 
             /// <summary>
-            /// There is a folder or file, but in an unknown format.
+            /// There is a file, but in an unknown format.
             /// </summary>
-            Unknown
+            UnknownFileHeader,
+
+            /// <summary>
+            /// There is a folder, but no well-known file inside it ('data.bin').
+            /// </summary>
+            UnknownFolder
         }
 
         public static StoreLayout GetStoreLayout(string path)
         {
             if (Directory.Exists(path))
             {
-                var dataFileName = Path.Combine(path, "data.bin");
-                if (File.Exists(dataFileName))
+                // path is a folder ...
+                var oldStyleDataFileName = Path.Combine(path, "data.bin");
+                if (File.Exists(oldStyleDataFileName))
                 {
                     var indexFileName = Path.Combine(path, "index.bin");
                     if (File.Exists(indexFileName))
@@ -99,30 +100,29 @@ namespace Uncodium.SimpleStore
                     }
                     else
                     {
-                        return ContainsHeader(dataFileName) ? StoreLayout.FolderWithMergedDataAndIndexFile : StoreLayout.Unknown;
+                        return ContainsHeader(oldStyleDataFileName)
+                            ? StoreLayout.FolderWithMergedDataAndIndexFile
+                            : StoreLayout.UnknownFileHeader
+                            ;
                     }
                 }
                 else
                 {
-                    // a 'data.bin' file is required inside a folder layout
-                    return StoreLayout.Unknown;
+                    return StoreLayout.UnknownFolder;
                 }
+            }
+            else if (File.Exists(path))
+            {
+                // path is a file ...
+                return ContainsHeader(path)
+                    ? StoreLayout.SingleFile
+                    : StoreLayout.UnknownFileHeader
+                    ;
             }
             else
             {
-                // if there is no folder, then this must be a single file layout ...
-                var fileName = path;
-                if (!File.Exists(fileName))
-                {
-                    fileName += DefaultFileExtension;
-                    if (!File.Exists(fileName))
-                    {
-                        // there is neither a folder nor a file at the given path
-                        return StoreLayout.None;
-                    }
-                }
-
-                return ContainsHeader(fileName) ? StoreLayout.SingleFile : StoreLayout.Unknown;
+                // there is neither a folder nor a file at the given path ...
+                return StoreLayout.None;
             }
         }
 
@@ -681,6 +681,9 @@ namespace Uncodium.SimpleStore
 
             public static void CreateEmptyDataFile(string dataFileName)
             {
+                var baseFolder = Path.GetDirectoryName(dataFileName);
+                if (!Directory.Exists(baseFolder)) Directory.CreateDirectory(baseFolder);
+
                 using var f = File.Open(dataFileName, FileMode.CreateNew, FileAccess.Write, FileShare.None);
                 using var w = new BinaryWriter(f);
 
@@ -934,9 +937,7 @@ namespace Uncodium.SimpleStore
                 else
                 {
                     // new format/layout
-                    logFileName = m_dbDiskLocation.EndsWith(DefaultFileExtension)
-                        ? m_dbDiskLocation + ".log"
-                        : m_dbDiskLocation + DefaultFileExtension + ".log";
+                    logFileName = m_dbDiskLocation + ".log";
                 }
                 f_logLines = lines => File.AppendAllLines(logFileName, lines.Select(line => $"[{DateTimeOffset.Now}] {line}"));
             }
@@ -994,11 +995,11 @@ namespace Uncodium.SimpleStore
             // init data file
             switch (layout)
             {
-                case StoreLayout.Unknown:
+                case StoreLayout.UnknownFileHeader:
                     throw new Exception($"Unknown store layout at '{m_dbDiskLocation}'.");
 
                 case StoreLayout.FolderWithStandaloneDataAndIndexFiles:
-                    // never reached (has been auto-converted to FolderWithmergedDataAndIndexFile above)
+                    // never reached (has been auto-converted to FolderWithMergedDataAndIndexFile above)
                     throw new Exception($"Invariant 98a8fe60-a87d-4c16-a47e-9b760d09788b.");
 
                 case StoreLayout.FolderWithMergedDataAndIndexFile:
@@ -1011,18 +1012,12 @@ namespace Uncodium.SimpleStore
                 case StoreLayout.SingleFile:
                     {
                         m_dataFileName = m_dbDiskLocation;
-                        if (!File.Exists(m_dataFileName) && !m_dataFileName.EndsWith(DefaultFileExtension))
-                        {
-                            m_dataFileName += DefaultFileExtension;
-                            if (!File.Exists(m_dataFileName)) throw new Exception($"Store file '{m_dataFileName}' does not exist.");
-                        }
                     }
                     break;
 
                 case StoreLayout.None:
                     {
                         m_dataFileName = m_dbDiskLocation;
-                        if (!m_dataFileName.EndsWith(DefaultFileExtension)) m_dataFileName += DefaultFileExtension;
 
                         // create empty store
                         Header.CreateEmptyDataFile(m_dataFileName);

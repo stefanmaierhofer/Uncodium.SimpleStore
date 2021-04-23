@@ -67,12 +67,12 @@ namespace Uncodium.SimpleStore.Tests
         public void CreateDiskStoreCreatesDataFile()
         {
             var path = Path.GetFullPath(Guid.NewGuid().ToString());
-            var dataFileName = path + SimpleDiskStore.DefaultFileExtension;
+            var dataFileName = path + ".uds";
 
             Assert.False(File.Exists(dataFileName));
             Assert.False(Directory.Exists(dataFileName));
 
-            var store = new SimpleDiskStore(path);
+            var store = new SimpleDiskStore(dataFileName);
 
             Assert.True(File.Exists(dataFileName));
             Assert.False(Directory.Exists(dataFileName));
@@ -88,7 +88,7 @@ namespace Uncodium.SimpleStore.Tests
         [Test]
         public void CreateDiskStoreCreatesDataFile_WithExtension()
         {
-            var path = Path.GetFullPath(Guid.NewGuid().ToString()) + SimpleDiskStore.DefaultFileExtension;
+            var path = Path.GetFullPath(Guid.NewGuid().ToString()) + ".uds";
             var dataFileName = path;
 
             Assert.False(File.Exists(dataFileName));
@@ -527,7 +527,7 @@ namespace Uncodium.SimpleStore.Tests
             var key3 = Guid.NewGuid().ToString();
             var storename = TestStoreSmallPath + ".1";
             if (Directory.Exists(storename)) Directory.Delete(storename, true);
-            if (File.Exists(storename + SimpleDiskStore.DefaultFileExtension)) File.Delete(storename + SimpleDiskStore.DefaultFileExtension);
+            if (File.Exists(storename)) File.Delete(storename);
 
             using var store = new SimpleDiskStore(storename);
             store.Add(key1, "key1");
