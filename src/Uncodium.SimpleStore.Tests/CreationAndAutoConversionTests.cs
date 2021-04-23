@@ -134,6 +134,26 @@ namespace Uncodium.SimpleStore.Tests
         }
 
         [Test]
+        public void OpendingDataFileOfNonConvertedOldStyleStoreDirectlyWillFail()
+        {
+            var path = CreateOldStore();
+            Assert.True(Directory.Exists(path));
+            Assert.False(File.Exists(path));
+
+            try
+            {
+                var oldStyleDataFile = Path.Combine(path, "data.bin");
+                Assert.True(File.Exists(oldStyleDataFile));
+
+                Assert.Throws<Exception>(() => new SimpleDiskStore(oldStyleDataFile));
+            }
+            finally
+            {
+                DeleteOldStore(path);
+            }
+        }
+
+        [Test]
         public void CanOpenAutoConvertedDataFileDirectly()
         {
             var path = CreateOldStore();
