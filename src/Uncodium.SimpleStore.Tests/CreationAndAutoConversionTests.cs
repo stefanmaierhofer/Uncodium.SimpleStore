@@ -201,6 +201,30 @@ namespace Uncodium.SimpleStore.Tests
             }
         }
 
+
+
+        [Test]
+        public void CanOpenStoreWithOldStyleNameViaEnclosingDirectory()
+        {
+            var tmpFolder = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}");
+            Directory.CreateDirectory(tmpFolder);
+
+            try
+            {
+                var filename = Path.Combine(tmpFolder, "data.bin");
+                var store = new SimpleDiskStore(filename);
+                store.Add("foo", "bar");
+                store.Dispose();
+
+                using var store2 = new SimpleDiskStore(tmpFolder);
+                Assert.True(store2.Contains("foo"));
+            }
+            finally
+            {
+                Directory.Delete(tmpFolder, true);
+            }
+        }
+
         [Test]
         public void CanCreateNewSingleFileStore_ContainingFolderExists_NoExtension()
         {
