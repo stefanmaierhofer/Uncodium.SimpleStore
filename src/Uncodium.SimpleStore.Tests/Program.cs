@@ -168,6 +168,8 @@ static void CompareFolders(string folder1, string folder2)
     {
         if (Path.GetFileName(files1[i]) != Path.GetFileName(files2[i])) throw new Exception($"File name mismatch: {Path.GetFileName(files1[i])} != {Path.GetFileName(files2[i])}");
 
+        Console.WriteLine($"{Path.GetFileName(files1[i])}");
+
         var buffer1 = File.ReadAllBytes(files1[i]);
         var buffer2 = File.ReadAllBytes(files2[i]);
         if (buffer1.Length != buffer2.Length) throw new Exception($"File size mismatch: {Path.GetFileName(files1[i])},  {buffer1.Length} != {buffer2.Length}");
@@ -176,8 +178,8 @@ static void CompareFolders(string folder1, string folder2)
             if (buffer1[j] != buffer2[j])
             {
                 Console.WriteLine(
-                $"\nFile content mismatch: {Path.GetFileName(files1[i])}, size = {buffer1.Length}, offset {j}, {buffer1[j]} != {buffer2[j]}"
-                );
+                    $"\nFile content mismatch: {Path.GetFileName(files1[i])}, size = {buffer1.Length}, offset {j}, {buffer1[j]} != {buffer2[j]}"
+                    );
 
                 Console.WriteLine("Press <enter> to show diff.");
                 Console.ReadLine();

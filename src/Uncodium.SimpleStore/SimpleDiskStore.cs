@@ -232,6 +232,15 @@ namespace Uncodium.SimpleStore
                     p = br.ReadInt64();
                 Log($"    write position                                : {p,20:N0}");
 
+                // [FIX 20210429] old-style write position (first 8 bytes as int64)
+                //                is NOT relative to beginning of file, but
+                //                relative to 8 bytes into the file!
+                //                In V3 write position is relative to beginning of file,
+                //                so we have to add 8, otherwise we will overwrite
+                //                the final 8 bytes of the last store entry.
+                p += 8;
+                Log($"    write position (corrected)                    : {p,20:N0}");
+
                 // append header and empty index (at current write position)
                 using var f = File.Open(filename, FileMode.Open, FileAccess.Write, FileShare.None);
 
