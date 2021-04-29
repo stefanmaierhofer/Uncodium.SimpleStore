@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing.Printing;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -43,19 +44,23 @@ namespace Uncodium.SimpleStore.Tests
             {
                 var key = keys[i];
                 var buffer = source.Get(key);
+                Console.WriteLine($"{key} {buffer.Length}");
                 target.Add(key, buffer);
 
-                if ((DateTimeOffset.Now - timestampLastProgress).TotalSeconds > 1.0)
-                {
-                    timestampLastProgress = DateTimeOffset.Now;
-                    Console.WriteLine($"{DateTime.Now} | {i+1,9:N0}/{keys.Length:N0} | {100.0*(i+1)/keys.Length:000.00}%");
-                }
+                //if ((DateTimeOffset.Now - timestampLastProgress).TotalSeconds > 1.0)
+                //{
+                //    timestampLastProgress = DateTimeOffset.Now;
+                //    Console.WriteLine($"{DateTime.Now} | {i+1,9:N0}/{keys.Length:N0} | {100.0*(i+1)/keys.Length:000.00}%");
+                //}
             }
             Console.WriteLine($"{DateTime.Now} | {keys.Length,9:N0}/{keys.Length:N0} | {100.0:000.00}%");
         }
 
         static void Main()
         {
+            Console.WriteLine(string.Join(" ", Guid.Parse("ff682f91-ad99-4135-a5d4-15ef97ed7cde").ToByteArray().Select(x => $"{x:X2}")));
+            Console.WriteLine(string.Join(" ", Guid.Parse("5587b343-403d-4f62-af22-a18da686b1da").ToByteArray().Select(x => $"{x:X2}")));
+
             ExtractStoreToFolder(@"T:\Vgm\Data\20210429_adorjan_store2.1.10", @"E:\tmp\20210429_adorjan_store2.1.10_old");
 
             //var foo = new int[536870912-100];
