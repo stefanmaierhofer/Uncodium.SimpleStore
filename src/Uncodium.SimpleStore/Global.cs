@@ -32,6 +32,6 @@ namespace Uncodium.SimpleStore
         /// <summary>
         /// Current version.
         /// </summary>
-        public const string Version = "3.0.2";
+        public const string Version = "3.0.3";
     }
 }

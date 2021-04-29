@@ -842,10 +842,10 @@ namespace Uncodium.SimpleStore
 
             var token = Guid.NewGuid();
             if (!m_readOnlySnapshot) Log(
-                $"",
-                $"[shutdown {token}] (begin)",
-                $"reserved space        : {m_header.TotalFileSize,20:N0} bytes",
-                $"used space            : {m_header.DataCursor,20:N0} bytes (including index)"
+                $"shutdown {token} : begin",
+                $"shutdown {token} : reserved space is {m_header.TotalFileSize:N0} bytes",
+                $"shutdown {token} : used space is {m_header.DataCursor.Value:N0} bytes",
+                $"shutdown {token} : index has {m_dbIndex.Count:N0} entries"
                 );
 
             while (true)
@@ -859,20 +859,20 @@ namespace Uncodium.SimpleStore
                         if (!m_readOnlySnapshot)
                         {
                             m_accessor.Flush();
-                            Log(
-                                $"[shutdown {token}] flush everything to disk (latest key added is {Stats.LatestKeyAdded ?? "<none>"})"
+                            if (Stats.LatestKeyAdded is not null) Log(
+                                $"shutdown {token} : flush everything to disk (latest key added is {Stats.LatestKeyAdded ?? "<none>"})"
                                 );
-                            //m_accessorWriteStream.Flush();
                         }
 
                         m_accessor.Dispose();
-                        //m_accessorWriteStream.Dispose();
                         m_mmf.Dispose();
                         m_cts.Cancel();
 
+                        if (Stats.LatestKeyAdded is not null) Log(
+                            $"shutdown {token} : latest key added is {Stats.LatestKeyAdded ?? "<none>"} (should be the same as above),"
+                            );
                         Log(
-                            $"[shutdown {token}] latest key added is {Stats.LatestKeyAdded ?? "<none>"} (should be the same as above),",
-                            $"[shutdown {token}] (end)"
+                            $"shutdown {token} : end"
                             );
 
                         return;
@@ -989,6 +989,15 @@ namespace Uncodium.SimpleStore
         [MemberNotNull(nameof(m_mmf), nameof(m_accessor), nameof(m_header), nameof(m_dbIndex), nameof(m_dbCache), nameof(m_dbCacheKeepAlive))]
         private void Init()
         {
+            // init
+            Log(
+                $"",
+                $"=========================================",
+                $"  starting up (version {Global.Version})",
+                $"=========================================",
+                $""
+                );
+
             // === AUTO-CONVERT deprecated formats ===
             var layout = GetStoreLayout(m_dbDiskLocation);
 
@@ -1037,15 +1046,6 @@ namespace Uncodium.SimpleStore
                     throw new Exception($"Unknown layout '{layout}'.");
             }
 
-            // init
-            Log(
-                $"",
-                $"=========================================",
-                $"  starting up (version {Global.Version})",
-                $"=========================================",
-                $""
-                );
-
             m_dbCache = new Dictionary<string, WeakReference<object>>();
             m_dbCacheKeepAlive = new HashSet<object>();
 
@@ -1077,12 +1077,16 @@ namespace Uncodium.SimpleStore
             m_header = new(m_accessor);
             Log(
                 $"reserved space        : {m_header.TotalFileSize,20:N0} bytes",
-                $"used space            : {m_header.DataCursor,20:N0} bytes"
+                $"used space            : {m_header.DataCursor.Value,20:N0} bytes"
                 );
 
             // create in-memory index
             m_dbIndex = new();
             m_header.ReadIndexIntoMemory(m_dbIndex);
+
+            Log(
+                $"index                 : {m_dbIndex.Count,20:N0} entries"
+                );
         }
 
         #endregion
