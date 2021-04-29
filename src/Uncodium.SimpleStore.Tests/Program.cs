@@ -132,6 +132,79 @@ static void Quickstart()
 
 }
 
+static void ExtractStoreToFolder(string storeToExtract, string targetFolder)
+{
+    if (Directory.Exists(targetFolder)) Directory.Delete(targetFolder, true);
+
+    using var source = new SimpleDiskStore(storeToExtract);
+    using var target = new SimpleFolderStore(targetFolder);
+
+    var entries = source.List().ToArray();
+    var keys = entries.Select(x => x.key).ToArray();
+    Console.WriteLine($"Extracting {keys.Length:N0} entries to {targetFolder}.");
+    var t0 = DateTimeOffset.Now;
+    var timestampLastProgress = t0;
+    for (var i = 0; i < keys.Length; i++)
+    {
+        var key = keys[i];
+        var buffer = source.Get(key);
+        target.Add(key, buffer);
+
+        if ((DateTimeOffset.Now - timestampLastProgress).TotalSeconds > 1.0)
+        {
+            timestampLastProgress = DateTimeOffset.Now;
+            Console.WriteLine($"{DateTime.Now} | {i + 1,9:N0}/{keys.Length:N0} | {100.0 * (i + 1) / keys.Length:000.00}%");
+        }
+    }
+    Console.WriteLine($"{DateTime.Now} | {keys.Length,9:N0}/{keys.Length:N0} | {100.0:000.00}%");
+}
+
+static void CompareFolders(string folder1, string folder2)
+{
+    var files1 = Directory.GetFiles(folder1).OrderBy(x => x).ToArray();
+    var files2 = Directory.GetFiles(folder2).OrderBy(x => x).ToArray();
+    if (files1.Length != files2.Length) throw new Exception($"Different number of files ({files1.Length} != {files2.Length}).");
+    for (var i = 0; i < files1.Length; i++)
+    {
+        if (Path.GetFileName(files1[i]) != Path.GetFileName(files2[i])) throw new Exception($"File name mismatch: {Path.GetFileName(files1[i])} != {Path.GetFileName(files2[i])}");
+
+        var buffer1 = File.ReadAllBytes(files1[i]);
+        var buffer2 = File.ReadAllBytes(files2[i]);
+        if (buffer1.Length != buffer2.Length) throw new Exception($"File size mismatch: {Path.GetFileName(files1[i])},  {buffer1.Length} != {buffer2.Length}");
+        for (var j = 0; j < buffer1.Length; j++)
+        {
+            if (buffer1[j] != buffer2[j])
+            {
+                Console.WriteLine(
+                $"\nFile content mismatch: {Path.GetFileName(files1[i])}, size = {buffer1.Length}, offset {j}, {buffer1[j]} != {buffer2[j]}"
+                );
+
+                Console.WriteLine("Press <enter> to show diff.");
+                Console.ReadLine();
+
+                for (var k = 0; k < buffer1.Length; k++)
+                {
+                    var c1 = buffer1[k];
+                    var c2 = buffer2[k];
+
+                    if (c1 != c2)
+                    {
+                        Console.BackgroundColor = ConsoleColor.DarkRed;
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                    }
+                    Console.WriteLine($"[{k,4}] {c1:X2} {c2:X2}");
+                    if (c1 != c2) Console.ResetColor();
+                }
+
+                break;
+            }
+        }
+    }
+}
+
+
+//ExtractStoreToFolder(@"T:\Vgm\Data\20210429_adorjan_store2.1.10", @"E:\tmp\20210429_adorjan_store2.1.10_new");
+CompareFolders(@"E:\tmp\20210429_adorjan_store2.1.10_old", @"E:\tmp\20210429_adorjan_store2.1.10_new");
 
 //using var store = new SimpleDiskStore(@"E:\tmp\foo");
 
