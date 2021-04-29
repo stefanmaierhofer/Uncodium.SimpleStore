@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing.Printing;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -27,8 +28,36 @@ namespace Uncodium.SimpleStore.Tests
             return true;
         }
 
+        static void ExtractStoreToFolder(string storeToExtract, string targetFolder)
+        {
+            if (Directory.Exists(targetFolder)) Directory.Delete(targetFolder, true);
+
+            using var source = new SimpleDiskStore(storeToExtract);
+            using var target = new SimpleFolderStore(targetFolder);
+
+            var keys = source.SnapshotKeys();
+            Console.WriteLine($"Extracting {keys.Length:N0} entries to {targetFolder}.");
+            var t0 = DateTimeOffset.Now;
+            var timestampLastProgress = t0;
+            for (var i = 0; i < keys.Length; i++)
+            {
+                var key = keys[i];
+                var buffer = source.Get(key);
+                target.Add(key, buffer);
+
+                if ((DateTimeOffset.Now - timestampLastProgress).TotalSeconds > 1.0)
+                {
+                    timestampLastProgress = DateTimeOffset.Now;
+                    Console.WriteLine($"{DateTime.Now} | {i+1,9:N0}/{keys.Length:N0} | {100.0*(i+1)/keys.Length:000.00}%");
+                }
+            }
+            Console.WriteLine($"{DateTime.Now} | {keys.Length,9:N0}/{keys.Length:N0} | {100.0:000.00}%");
+        }
+
         static void Main()
         {
+            ExtractStoreToFolder(@"T:\Vgm\Data\20210429_adorjan_store2.1.10", @"E:\tmp\20210429_adorjan_store2.1.10_old");
+
             //var foo = new int[536870912-100];
             //Console.WriteLine(IsPrime(44157247));
             //Console.WriteLine(IsPrime(88314497));
@@ -36,30 +65,30 @@ namespace Uncodium.SimpleStore.Tests
             //while (!IsPrime(++newSize)) ;
             //Console.WriteLine(newSize);
 
-            //Console.WriteLine($"{Marshal.SizeOf<Entry>():N0}");
+            //Console.WriteLine($"{ Marshal.SizeOf<Entry>():N0}");
 
-            Console.WriteLine("START");
-            var dbDiskLocation = @"W:\teststore";
-            var store = new SimpleDiskStore(dbDiskLocation);
-            Console.WriteLine("store opened");
-            var i = 0L;
-            var sw = new Stopwatch(); sw.Start();
-            //var index = new Dictionary<string, (long, int)>();
-            try
-            {
-                while (true)
-                {
-                    if (++i % 1000000 == 0) Console.WriteLine($"[{sw.Elapsed}] {i,20:N0} entries");
-                    if (i % 10000000 == 0) store.Flush();
-                    store.Add(Guid.NewGuid().ToString(), new byte[1]);
-                    //index.Add(Guid.NewGuid().ToString(), (0, 0));
-                }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-                Console.WriteLine($"[{sw.Elapsed}] {i,20:N0} entries");
-            }
+            //Console.WriteLine("START");
+            //var dbDiskLocation = @"W:\teststore";
+            //var store = new SimpleDiskStore(dbDiskLocation);
+            //Console.WriteLine("store opened");
+            //var i = 0L;
+            //var sw = new Stopwatch(); sw.Start();
+            ////var index = new Dictionary<string, (long, int)>();
+            //try
+            //{
+            //    while (true)
+            //    {
+            //        if (++i % 1000000 == 0) Console.WriteLine($"[{sw.Elapsed}] {i,20:N0} entries");
+            //        if (i % 10000000 == 0) store.Flush();
+            //        store.Add(Guid.NewGuid().ToString(), new byte[1]);
+            //        //index.Add(Guid.NewGuid().ToString(), (0, 0));
+            //    }
+            //}
+            //catch (Exception e)
+            //{
+            //    Console.WriteLine(e);
+            //    Console.WriteLine($"[{sw.Elapsed}] {i,20:N0} entries");
+            //}
 
             //TestConcurrentCallsToFlush();
 
