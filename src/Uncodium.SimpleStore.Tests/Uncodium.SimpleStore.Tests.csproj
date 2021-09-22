@@ -20,6 +20,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.4.0" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Uncodium.SimpleStore.AzureBlobStorage\Uncodium.SimpleStore.AzureBlobStorage.csproj" />
     <ProjectReference Include="..\Uncodium.SimpleStore\Uncodium.SimpleStore.csproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

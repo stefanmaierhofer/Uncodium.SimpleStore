@@ -58,7 +58,7 @@ namespace Uncodium.SimpleStore
             _sas = sas;
 
             var uri = new Uri(sas);
-            var sasCred = new AzureSasCredential(sas);
+            var sasCred = new AzureSasCredential(sas.Substring(sas.IndexOf('?') + 1));
             var client = new BlobServiceClient(new Uri($"{uri.Scheme}://{uri.Host}"), sasCred);
             var localPath = uri.LocalPath[0] == '/' ? uri.LocalPath.Substring(1) : uri.LocalPath;
             _client = client.GetBlobContainerClient(localPath);
