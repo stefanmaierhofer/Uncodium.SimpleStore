@@ -1,0 +1,12 @@
+type project
+id Uncodium.SimpleStore.AzureBlobStorage
+authors Stefan Maierhofer
+owners Stefan Maierhofer
+licenseUrl https://github.com/stefanmaierhofer/Uncodium.SimpleStore/blob/master/LICENSE
+projectUrl https://github.com/stefanmaierhofer/Uncodium.SimpleStore
+description
+    Uncodium.SimpleStore bindings for Azure blob storage.
+    This is no longer optimized for low-latency local disk storage,
+    but provides an alternative storage back-end (Azure blob storage)
+    which is fully API-compatible with other SimpleStore implementations.
+include-pdbs true

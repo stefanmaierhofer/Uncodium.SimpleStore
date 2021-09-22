@@ -53,7 +53,7 @@ namespace Uncodium.SimpleStore
         /// </summary>
         public string LatestKeyFlushed;
 
-        internal Stats Copy() => new()
+        public Stats Copy() => new()
         {
             CountAdd = CountAdd,
             CountContains = CountContains,
