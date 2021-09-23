@@ -27,87 +27,86 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 
-namespace Uncodium.SimpleStore
+namespace Uncodium.SimpleStore;
+
+/// <summary>
+/// </summary>
+public interface ISimpleStore : IDisposable
 {
     /// <summary>
+    /// Add data from buffer.
     /// </summary>
-    public interface ISimpleStore : IDisposable
-    {
-        /// <summary>
-        /// Add data from buffer.
-        /// </summary>
-        void Add(string key, byte[] data);
+    void Add(string key, byte[] data);
 
-        /// <summary>
-        /// Add data from stream.
-        /// </summary>
-        void AddStream(string key, Stream data, Action<long>? onProgress = default, CancellationToken ct = default);
+    /// <summary>
+    /// Add data from stream.
+    /// </summary>
+    void AddStream(string key, Stream data, Action<long>? onProgress = default, CancellationToken ct = default);
 
-        /// <summary>
-        /// True if key exists in store.
-        /// </summary>
-        bool Contains(string key);
+    /// <summary>
+    /// True if key exists in store.
+    /// </summary>
+    bool Contains(string key);
 
-        /// <summary>
-        /// Get size of value in bytes,
-        /// or null if key does not exist.
-        /// </summary>
-        long? GetSize(string key);
+    /// <summary>
+    /// Get size of value in bytes,
+    /// or null if key does not exist.
+    /// </summary>
+    long? GetSize(string key);
 
-        /// <summary>
-        /// Get value as buffer,
-        /// or null if key does not exist.
-        /// </summary>
-        byte[]? Get(string key);
+    /// <summary>
+    /// Get value as buffer,
+    /// or null if key does not exist.
+    /// </summary>
+    byte[]? Get(string key);
 
-        /// <summary>
-        /// Get value slice as buffer,
-        /// or null if key does not exist.
-        /// </summary>
-        byte[]? GetSlice(string key, long offset, int length);
+    /// <summary>
+    /// Get value slice as buffer,
+    /// or null if key does not exist.
+    /// </summary>
+    byte[]? GetSlice(string key, long offset, int length);
 
-        /// <summary>
-        /// Get value as read stream,
-        /// or null if key does not exist.
-        /// This is not thread-safe with respect to overwriting or removing existing values.
-        /// </summary>
-        /// <param name="key">Retrieve data for this key.</param>
-        /// <param name="offset">Optional. Start stream at given position.</param>
-        Stream? GetStream(string key, long offset = 0L);
+    /// <summary>
+    /// Get value as read stream,
+    /// or null if key does not exist.
+    /// This is not thread-safe with respect to overwriting or removing existing values.
+    /// </summary>
+    /// <param name="key">Retrieve data for this key.</param>
+    /// <param name="offset">Optional. Start stream at given position.</param>
+    Stream? GetStream(string key, long offset = 0L);
 
-        /// <summary>
-        /// Enumerate all entries as (key, size) tuples.
-        /// </summary>
-        IEnumerable<(string key, long size)> List();
+    /// <summary>
+    /// Enumerate all entries as (key, size) tuples.
+    /// </summary>
+    IEnumerable<(string key, long size)> List();
 
-        /// <summary>
-        /// Remove entry.
-        /// </summary>
-        void Remove(string key);
+    /// <summary>
+    /// Remove entry.
+    /// </summary>
+    void Remove(string key);
 
-        /// <summary>
-        /// Commit any pending changes to backing storage.
-        /// </summary>
-        void Flush();
+    /// <summary>
+    /// Commit any pending changes to backing storage.
+    /// </summary>
+    void Flush();
 
-        /// <summary>
-        /// Total bytes used for data.
-        /// </summary>
-        long GetUsedBytes();
+    /// <summary>
+    /// Total bytes used for data.
+    /// </summary>
+    long GetUsedBytes();
 
-        /// <summary>
-        /// Total bytes reserved for data.
-        /// </summary>
-        long GetReservedBytes();
+    /// <summary>
+    /// Total bytes reserved for data.
+    /// </summary>
+    long GetReservedBytes();
 
-        /// <summary>
-        /// Current version.
-        /// </summary>
-        string Version { get; }
+    /// <summary>
+    /// Current version.
+    /// </summary>
+    string Version { get; }
 
-        /// <summary>
-        /// Various runtime counts and other statistics.
-        /// </summary>
-        Stats Stats { get; }
-    }
+    /// <summary>
+    /// Various runtime counts and other statistics.
+    /// </summary>
+    Stats Stats { get; }
 }

@@ -24,49 +24,49 @@
 
 #pragma warning disable CS1591
 
-namespace Uncodium.SimpleStore
+namespace Uncodium.SimpleStore;
+
+public struct Stats
 {
-    public struct Stats
+    public long CountAdd;
+    public long CountContains;
+    public long CountGet;
+    public long CountGetWithException;
+    public long CountGetSlice;
+    public long CountGetSliceWithException;
+    public long CountGetStream;
+    public long CountGetInvalidKey;
+    public long CountRemove;
+    public long CountRemoveInvalidKey;
+    public long CountList;
+    public long CountFlush;
+
+    /// <summary>
+    /// Latest key added to the store.
+    /// </summary>
+    public string LatestKeyAdded;
+
+    /// <summary>
+    /// Latest key flushed to backing storage.
+    /// In SimpleDiskStore and SimpleFolderStore this is a file on disk.
+    /// In SimpleMemoryStore this is memory, so LatestKeyFlushed is always identical to LatestKeyAdded.
+    /// </summary>
+    public string LatestKeyFlushed;
+
+    public Stats Copy() => new()
     {
-        public long CountAdd;
-        public long CountContains;
-        public long CountGet;
-        public long CountGetWithException;
-        public long CountGetSlice;
-        public long CountGetSliceWithException;
-        public long CountGetStream;
-        public long CountGetInvalidKey;
-        public long CountRemove;
-        public long CountRemoveInvalidKey;
-        public long CountList;
-        public long CountFlush;
-
-        /// <summary>
-        /// Latest key added to the store.
-        /// </summary>
-        public string LatestKeyAdded;
-
-        /// <summary>
-        /// Latest key flushed to backing storage.
-        /// In SimpleDiskStore and SimpleFolderStore this is a file on disk.
-        /// In SimpleMemoryStore this is memory, so LatestKeyFlushed is always identical to LatestKeyAdded.
-        /// </summary>
-        public string LatestKeyFlushed;
-
-        public Stats Copy() => new()
-        {
-            CountAdd = CountAdd,
-            CountContains = CountContains,
-            CountGet = CountGet,
-            CountGetWithException = CountGetWithException,
-            CountGetSlice = CountGetSlice,
-            CountGetSliceWithException = CountGetSliceWithException,
-            CountGetStream = CountGetStream,
-            CountGetInvalidKey = CountGetInvalidKey,
-            CountRemove = CountRemove,
-            CountRemoveInvalidKey = CountRemoveInvalidKey,
-            CountList = CountList,
-            CountFlush = CountFlush
-        };
-    }
+        CountAdd = CountAdd,
+        CountContains = CountContains,
+        CountGet = CountGet,
+        CountGetWithException = CountGetWithException,
+        CountGetSlice = CountGetSlice,
+        CountGetSliceWithException = CountGetSliceWithException,
+        CountGetStream = CountGetStream,
+        CountGetInvalidKey = CountGetInvalidKey,
+        CountRemove = CountRemove,
+        CountRemoveInvalidKey = CountRemoveInvalidKey,
+        CountList = CountList,
+        CountFlush = CountFlush
+    };
 }
+

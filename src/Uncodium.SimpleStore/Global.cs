@@ -22,16 +22,16 @@
    SOFTWARE.
 */
 
-namespace Uncodium.SimpleStore
+namespace Uncodium.SimpleStore;
+
+/// <summary>
+/// Global constants.
+/// </summary>
+public static class Global
 {
     /// <summary>
-    /// Global constants.
+    /// Current version.
     /// </summary>
-    public static class Global
-    {
-        /// <summary>
-        /// Current version.
-        /// </summary>
-        public const string Version = "3.0.3";
-    }
+    public const string Version = "3.0.5";
 }
+

@@ -29,88 +29,88 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 
-namespace Uncodium.SimpleStore
+namespace Uncodium.SimpleStore;
+
+/// <summary>
+/// Each operation may fail with a given probability. 
+/// </summary>
+public class WrapperRandomFail : ISimpleStore
 {
-    /// <summary>
-    /// Each operation may fail with a given probability. 
-    /// </summary>
-    public class WrapperRandomFail : ISimpleStore
+    private readonly Random m_random = new();
+    private readonly ISimpleStore m_store;
+    private readonly double m_pStats;
+    private readonly double m_pAdd;
+    private readonly double m_pGet;
+    private readonly double m_pRemove;
+    private readonly double m_pFlush;
+
+    public WrapperRandomFail(ISimpleStore store,
+        double pStats, double pAdd, double pGet, double pRemove, double pFlush
+        )
     {
-        private readonly Random m_random = new();
-        private readonly ISimpleStore m_store;
-        private readonly double m_pStats;
-        private readonly double m_pAdd;
-        private readonly double m_pGet;
-        private readonly double m_pRemove;
-        private readonly double m_pFlush;
-
-        public WrapperRandomFail(ISimpleStore store,
-            double pStats, double pAdd, double pGet, double pRemove, double pFlush
-            )
-        {
-            m_store = store ?? throw new ArgumentNullException(nameof(store));
-            m_pStats = pStats;
-            m_pAdd = pAdd;
-            m_pGet = pGet;
-            m_pRemove = pRemove;
-            m_pFlush = pFlush;
-        }
-
-        public WrapperRandomFail(ISimpleStore store, double pFail) : this(store, pFail, pFail, pFail, pFail, pFail)
-        { }
-
-        public Stats Stats
-            => m_random.NextDouble() < m_pStats ? throw new Exception() : m_store.Stats;
-
-        public string Version => m_store.Version;
-
-        public void Add(string key, byte[] value)
-        {
-            if (m_random.NextDouble() < m_pAdd) throw new Exception();
-            m_store.Add(key, value);
-        }
-
-        public void AddStream(string key, Stream stream, Action<long>? onProgress = default, CancellationToken ct = default)
-        {
-            if (m_random.NextDouble() < m_pAdd) throw new Exception();
-            m_store.AddStream(key, stream, onProgress, ct);
-        }
-
-        public bool Contains(string key)
-            => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.Contains(key);
-        
-        public long? GetSize(string key)
-            => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetSize(key);
-
-        public byte[]? Get(string key)
-            => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.Get(key);
-
-        public byte[]? GetSlice(string key, long offset, int length)
-            => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetSlice(key, offset, length);
-
-        public Stream? GetStream(string key, long offset = 0L)
-            => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetStream(key, offset);
-
-        public void Remove(string key)
-        {
-            if (m_random.NextDouble() < m_pRemove) throw new Exception();
-            m_store.Remove(key);
-        }
-
-        public IEnumerable<(string key, long size)> List() => m_store.List();
-
-        public void Flush()
-        {
-            if (m_random.NextDouble() < m_pFlush) throw new Exception();
-            m_store.Flush();
-        }
-
-        public void Dispose() => m_store.Dispose();
-
-        public long GetUsedBytes()
-            => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetUsedBytes();
-
-        public long GetReservedBytes()
-            => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetReservedBytes();
+        m_store = store ?? throw new ArgumentNullException(nameof(store));
+        m_pStats = pStats;
+        m_pAdd = pAdd;
+        m_pGet = pGet;
+        m_pRemove = pRemove;
+        m_pFlush = pFlush;
     }
+
+    public WrapperRandomFail(ISimpleStore store, double pFail) : this(store, pFail, pFail, pFail, pFail, pFail)
+    { }
+
+    public Stats Stats
+        => m_random.NextDouble() < m_pStats ? throw new Exception() : m_store.Stats;
+
+    public string Version => m_store.Version;
+
+    public void Add(string key, byte[] value)
+    {
+        if (m_random.NextDouble() < m_pAdd) throw new Exception();
+        m_store.Add(key, value);
+    }
+
+    public void AddStream(string key, Stream stream, Action<long>? onProgress = default, CancellationToken ct = default)
+    {
+        if (m_random.NextDouble() < m_pAdd) throw new Exception();
+        m_store.AddStream(key, stream, onProgress, ct);
+    }
+
+    public bool Contains(string key)
+        => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.Contains(key);
+        
+    public long? GetSize(string key)
+        => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetSize(key);
+
+    public byte[]? Get(string key)
+        => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.Get(key);
+
+    public byte[]? GetSlice(string key, long offset, int length)
+        => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetSlice(key, offset, length);
+
+    public Stream? GetStream(string key, long offset = 0L)
+        => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetStream(key, offset);
+
+    public void Remove(string key)
+    {
+        if (m_random.NextDouble() < m_pRemove) throw new Exception();
+        m_store.Remove(key);
+    }
+
+    public IEnumerable<(string key, long size)> List() => m_store.List();
+
+    public void Flush()
+    {
+        if (m_random.NextDouble() < m_pFlush) throw new Exception();
+        m_store.Flush();
+    }
+
+    public void Dispose() => m_store.Dispose();
+
+    public long GetUsedBytes()
+        => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetUsedBytes();
+
+    public long GetReservedBytes()
+        => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetReservedBytes();
 }
+

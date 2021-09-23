@@ -269,6 +269,7 @@ namespace Uncodium.SimpleStore.Tests
         public void CanCreateNewSingleFileStore_ContainingFolderDoesNotExist()
         {
             var tmpFolder = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}");
+            Directory.CreateDirectory(tmpFolder);
 
             try
             {
@@ -289,6 +290,7 @@ namespace Uncodium.SimpleStore.Tests
         public void CanOpenNewlyCreatedSingleFileStore()
         {
             var tmpFolder = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}");
+            Directory.CreateDirectory(tmpFolder);
 
             try
             {

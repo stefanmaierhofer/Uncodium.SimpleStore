@@ -26,47 +26,47 @@ using System;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Uncodium.SimpleStore
+namespace Uncodium.SimpleStore;
+
+/// <summary>
+/// Store extensions. 
+/// </summary>
+public static class Extensions
 {
     /// <summary>
-    /// Store extensions. 
+    /// Get MD5 hash of string as Guid.
     /// </summary>
-    public static class Extensions
-    {
-        /// <summary>
-        /// Get MD5 hash of string as Guid.
-        /// </summary>
-        public static Guid ToMd5Hash(this string s)
-            => new(MD5.Create().ComputeHash(Encoding.UTF8.GetBytes(s)));
+    public static Guid ToMd5Hash(this string s)
+        => new(MD5.Create().ComputeHash(Encoding.UTF8.GetBytes(s)));
 
-        /// <summary>
-        /// Store with flags.
-        /// </summary>
-        public static void Add(this ISimpleStore store, string key, string value)
-            => store.Add(key, Encoding.UTF8.GetBytes(value));
+    /// <summary>
+    /// Store with flags.
+    /// </summary>
+    public static void Add(this ISimpleStore store, string key, string value)
+        => store.Add(key, Encoding.UTF8.GetBytes(value));
 
-        /// <summary>
-        /// Each store operation fails with given probability.
-        /// </summary>
-        public static ISimpleStore FailRandomly(this ISimpleStore store, double pFail)
-            => new WrapperRandomFail(store, pFail);
+    /// <summary>
+    /// Each store operation fails with given probability.
+    /// </summary>
+    public static ISimpleStore FailRandomly(this ISimpleStore store, double pFail)
+        => new WrapperRandomFail(store, pFail);
 
-        /// <summary>
-        /// Each store operation fails with given probability.
-        /// </summary>
-        public static ISimpleStore FailRandomly(this ISimpleStore store, double pStats, double pAdd, double pGet, double pRemove, double pFlush)
-            => new WrapperRandomFail(store, pStats, pAdd, pGet, pRemove, pFlush);
+    /// <summary>
+    /// Each store operation fails with given probability.
+    /// </summary>
+    public static ISimpleStore FailRandomly(this ISimpleStore store, double pStats, double pAdd, double pGet, double pRemove, double pFlush)
+        => new WrapperRandomFail(store, pStats, pAdd, pGet, pRemove, pFlush);
 
-        /// <summary>
-        /// Each store operation is delayed between 0 and given duration in seconds.
-        /// </summary>
-        public static ISimpleStore DelayRandomly(this ISimpleStore store, double dt)
-            => new WrapperRandomDelay(store, dt);
+    /// <summary>
+    /// Each store operation is delayed between 0 and given duration in seconds.
+    /// </summary>
+    public static ISimpleStore DelayRandomly(this ISimpleStore store, double dt)
+        => new WrapperRandomDelay(store, dt);
 
-        /// <summary>
-        /// Each store operation is delayed between 0 and given duration in seconds.
-        /// </summary>
-        public static ISimpleStore DelayRandomly(this ISimpleStore store, double dtStats, double dtAdd, double dtContains, double dtGet, double dtRemove, double dtFlush)
-            => new WrapperRandomDelay(store, dtStats, dtAdd, dtContains, dtGet, dtRemove, dtFlush);
-    }
+    /// <summary>
+    /// Each store operation is delayed between 0 and given duration in seconds.
+    /// </summary>
+    public static ISimpleStore DelayRandomly(this ISimpleStore store, double dtStats, double dtAdd, double dtContains, double dtGet, double dtRemove, double dtFlush)
+        => new WrapperRandomDelay(store, dtStats, dtAdd, dtContains, dtGet, dtRemove, dtFlush);
 }
+

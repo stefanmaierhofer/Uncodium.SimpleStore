@@ -29,118 +29,118 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 
-namespace Uncodium.SimpleStore
+namespace Uncodium.SimpleStore;
+
+/// <summary>
+/// Each operation will be delayed. 
+/// </summary>
+public class WrapperRandomDelay : ISimpleStore
 {
-    /// <summary>
-    /// Each operation will be delayed. 
-    /// </summary>
-    public class WrapperRandomDelay : ISimpleStore
+    private readonly Random m_random = new();
+    private readonly ISimpleStore m_store;
+    private readonly double m_dtStats;
+    private readonly double m_dtAdd;
+    private readonly double m_dtContains;
+    private readonly double m_dtGet;
+    private readonly double m_dtRemove;
+    private readonly double m_dtFlush;
+
+    public WrapperRandomDelay(ISimpleStore store,
+        double dtStats, double dtAdd, double dtContains, double dtGet, double dtRemove, double dtFlush
+        )
     {
-        private readonly Random m_random = new();
-        private readonly ISimpleStore m_store;
-        private readonly double m_dtStats;
-        private readonly double m_dtAdd;
-        private readonly double m_dtContains;
-        private readonly double m_dtGet;
-        private readonly double m_dtRemove;
-        private readonly double m_dtFlush;
+        m_store = store ?? throw new ArgumentNullException(nameof(store));
+        m_dtStats = dtStats;
+        m_dtAdd = dtAdd;
+        m_dtContains = dtContains;
+        m_dtGet = dtGet;
+        m_dtRemove = dtRemove;
+        m_dtFlush = dtFlush;
+    }
 
-        public WrapperRandomDelay(ISimpleStore store,
-            double dtStats, double dtAdd, double dtContains, double dtGet, double dtRemove, double dtFlush
-            )
+    public WrapperRandomDelay(ISimpleStore store, double dt) : this(store, dt, dt, dt, dt, dt, dt)
+    { }
+
+    public Stats Stats
+    {
+        get
         {
-            m_store = store ?? throw new ArgumentNullException(nameof(store));
-            m_dtStats = dtStats;
-            m_dtAdd = dtAdd;
-            m_dtContains = dtContains;
-            m_dtGet = dtGet;
-            m_dtRemove = dtRemove;
-            m_dtFlush = dtFlush;
-        }
-
-        public WrapperRandomDelay(ISimpleStore store, double dt) : this(store, dt, dt, dt, dt, dt, dt)
-        { }
-
-        public Stats Stats
-        {
-            get
-            {
-                Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtStats));
-                return m_store.Stats;
-            }
-        }
-
-        public string Version => m_store.Version;
-
-        public void Add(string key, byte[] value)
-        {
-            Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtAdd));
-            m_store.Add(key, value);
-        }
-
-        public void AddStream(string key, Stream stream, Action<long>? onProgress = default, CancellationToken ct = default)
-        {
-            Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtAdd));
-            ct.ThrowIfCancellationRequested();
-            m_store.AddStream(key, stream, onProgress, ct);
-        }
-
-        public bool Contains(string key)
-        {
-            Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtContains));
-            return m_store.Contains(key);
-        }
-
-        public long? GetSize(string key)
-        {
-            Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet));
-            return m_store.GetSize(key);
-        }
-
-        public byte[]? Get(string key)
-        {
-            Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet));
-            return m_store.Get(key);
-        }
-
-        public byte[]? GetSlice(string key, long offset, int length)
-        {
-            Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet));
-            return m_store.GetSlice(key, offset, length);
-        }
-
-        public Stream? GetStream(string key, long offset = 0L)
-        {
-            Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet));
-            return m_store.GetStream(key, offset);
-        }
-
-        public void Remove(string key)
-        {
-            Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtRemove));
-            m_store.Remove(key);
-        }
-
-        public IEnumerable<(string key, long size)> List() => m_store.List();
-
-        public void Flush()
-        {
-            Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtFlush));
-            m_store.Flush();
-        }
-
-        public void Dispose() => m_store.Dispose();
-
-        public long GetUsedBytes()
-        {
-            Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtFlush));
-            return m_store.GetUsedBytes();
-        }
-
-        public long GetReservedBytes()
-        {
-            Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtFlush));
-            return m_store.GetReservedBytes();
+            Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtStats));
+            return m_store.Stats;
         }
     }
+
+    public string Version => m_store.Version;
+
+    public void Add(string key, byte[] value)
+    {
+        Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtAdd));
+        m_store.Add(key, value);
+    }
+
+    public void AddStream(string key, Stream stream, Action<long>? onProgress = default, CancellationToken ct = default)
+    {
+        Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtAdd));
+        ct.ThrowIfCancellationRequested();
+        m_store.AddStream(key, stream, onProgress, ct);
+    }
+
+    public bool Contains(string key)
+    {
+        Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtContains));
+        return m_store.Contains(key);
+    }
+
+    public long? GetSize(string key)
+    {
+        Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet));
+        return m_store.GetSize(key);
+    }
+
+    public byte[]? Get(string key)
+    {
+        Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet));
+        return m_store.Get(key);
+    }
+
+    public byte[]? GetSlice(string key, long offset, int length)
+    {
+        Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet));
+        return m_store.GetSlice(key, offset, length);
+    }
+
+    public Stream? GetStream(string key, long offset = 0L)
+    {
+        Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtGet));
+        return m_store.GetStream(key, offset);
+    }
+
+    public void Remove(string key)
+    {
+        Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtRemove));
+        m_store.Remove(key);
+    }
+
+    public IEnumerable<(string key, long size)> List() => m_store.List();
+
+    public void Flush()
+    {
+        Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtFlush));
+        m_store.Flush();
+    }
+
+    public void Dispose() => m_store.Dispose();
+
+    public long GetUsedBytes()
+    {
+        Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtFlush));
+        return m_store.GetUsedBytes();
+    }
+
+    public long GetReservedBytes()
+    {
+        Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtFlush));
+        return m_store.GetReservedBytes();
+    }
 }
+

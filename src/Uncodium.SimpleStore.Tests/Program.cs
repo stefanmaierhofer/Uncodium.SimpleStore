@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using Uncodium.SimpleStore;
 
 #pragma warning disable CS8321
@@ -201,7 +202,7 @@ static void CompareFolders(string folder1, string folder2)
     }
 }
 
-static void TestSimpleAzureBlobStore(string sas)
+static async Task TestSimpleAzureBlobStore(string sas)
 {
     var store = new SimpleAzureBlobStore(sas);
 
@@ -212,11 +213,13 @@ static void TestSimpleAzureBlobStore(string sas)
     //    Console.WriteLine($"[{++i}] {key} {size,16:N0}");
     //}
 
-    var buffer1 = store.Get("2eda3f92-1b33-46e2-b2a5-0f490347621a");
-    var buffer2 = store.GetSlice("2eda3f92-1b33-46e2-b2a5-0f490347621a", 10, 20);
+    var buffer1 = await store.GetAsync("2eda3f92-1b33-46e2-b2a5-0f490347621a");
+    var buffer2 = await store.GetSliceAsync("2eda3f92-1b33-46e2-b2a5-0f490347621a", 10, 20);
 }
 
-TestSimpleAzureBlobStore("<your sas url here>");
+
+TestSimpleAzureBlobStore("your sas here").Wait();
+
 
 //ExtractStoreToFolder(@"T:\Vgm\Data\20210429_adorjan_store2.1.10", @"E:\tmp\20210429_adorjan_store2.1.10_new");
 //CompareFolders(@"E:\tmp\20210429_adorjan_store2.1.10_old", @"E:\tmp\20210429_adorjan_store2.1.10_new");
