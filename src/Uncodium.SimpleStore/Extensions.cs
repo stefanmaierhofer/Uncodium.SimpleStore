@@ -25,6 +25,7 @@
 using System;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Uncodium.SimpleStore;
 
@@ -40,10 +41,16 @@ public static class Extensions
         => new(MD5.Create().ComputeHash(Encoding.UTF8.GetBytes(s)));
 
     /// <summary>
-    /// Store with flags.
+    /// Store UTF8-encoded value.
     /// </summary>
     public static void Add(this ISimpleStore store, string key, string value)
         => store.Add(key, Encoding.UTF8.GetBytes(value));
+
+    /// <summary>
+    /// Store UTF8-encoded value.
+    /// </summary>
+    public static Task AddAsync(this ISimpleStoreAsync store, string key, string value)
+        => store.AddAsync(key, Encoding.UTF8.GetBytes(value));
 
     /// <summary>
     /// Each store operation fails with given probability.
