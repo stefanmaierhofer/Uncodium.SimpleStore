@@ -78,7 +78,8 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
     {
         CheckDisposed();
 
-        _client.GetBlobClient(key).Upload(BinaryData.FromBytes(value));
+        var options = new BlobUploadOptions();
+        _client.GetBlobClient(key).Upload(BinaryData.FromBytes(value), options);
 
         Interlocked.Increment(ref m_stats.CountAdd);
         m_stats.LatestKeyAdded = m_stats.LatestKeyFlushed = key;
