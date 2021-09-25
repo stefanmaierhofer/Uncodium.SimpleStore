@@ -37,7 +37,7 @@ namespace Uncodium.SimpleStore;
 /// <summary>
 /// Simple folder store with one file per entry.
 /// </summary>
-public class SimpleFolderStore : ISimpleStore
+public class SimpleFolderStore : ISimpleStore, ISimpleStoreAsync
 {
     /// <summary>
     /// The store folder.
@@ -289,6 +289,88 @@ public class SimpleFolderStore : ISimpleStore
     /// Various runtime counts and other statistics.
     /// </summary>
     public Stats Stats => m_stats.Copy();
+
+    #endregion
+
+    #region ISimpleStoreAsync
+
+    public async Task AddAsync(string key, byte[] data, Action<long>? onProgress = null, CancellationToken ct = default)
+    {
+        CheckDisposed();
+
+        var dir = Path.GetDirectoryName(key);
+        if (dir != "" && !Directory.Exists(dir)) Directory.CreateDirectory(GetFileNameFromId(dir));
+        var filename = GetFileNameFromId(key);
+
+        using var f = File.Open(filename, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
+        await f.WriteAsync(data, 0, data.Length, ct);
+        onProgress?.Invoke(data.Length);
+
+        Interlocked.Increment(ref m_stats.CountAdd);
+        m_stats.LatestKeyAdded = m_stats.LatestKeyFlushed = key;
+    }
+
+    public async Task AddStreamAsync(string key, Stream data, Action<long>? onProgress = null, CancellationToken ct = default)
+    {
+        CheckDisposed();
+
+        var dir = Path.GetDirectoryName(key);
+        if (dir != "" && !Directory.Exists(dir)) Directory.CreateDirectory(GetFileNameFromId(dir));
+        var filename = GetFileNameFromId(key);
+
+        using var target = File.Open(filename, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
+        var startPosition = data.Position;
+        await data.CopyToAsync(target, 81920, ct);
+        onProgress?.Invoke(data.Position - startPosition);
+
+        Interlocked.Increment(ref m_stats.CountAdd);
+        m_stats.LatestKeyAdded = m_stats.LatestKeyFlushed = key;
+    }
+
+    public Task<bool> ContainsAsync(string key, CancellationToken ct = default)
+        => Task.FromResult(Contains(key));
+
+    public Task<long?> GetSizeAsync(string key, CancellationToken ct = default)
+        => Task.FromResult(GetSize(key));
+
+    public Task<byte[]?> GetAsync(string key, CancellationToken ct = default)
+        => Task.FromResult(Get(key));
+
+    public Task<byte[]?> GetSliceAsync(string key, long offset, int length, CancellationToken ct = default)
+        => Task.FromResult(GetSlice(key, offset, length));
+
+    public Task<Stream?> GetStreamAsync(string key, long offset = 0, CancellationToken ct = default)
+        => Task.FromResult(GetStream(key, offset));
+
+    public async IAsyncEnumerable<(string key, long size)> ListAsync([EnumeratorCancellation]CancellationToken ct = default)
+    {
+        CheckDisposed();
+        var skip = Folder.Length + 1;
+        foreach (var x in Directory.EnumerateFiles(Folder, "*.*", SearchOption.AllDirectories))
+        {
+            await Task.Yield();
+            ct.ThrowIfCancellationRequested();
+            yield return (key: x.Substring(skip), size: new FileInfo(x).Length);
+        }
+    }
+
+    public Task RemoveAsync(string key, CancellationToken ct = default)
+    {
+        Remove(key);
+        return Task.CompletedTask;
+    }
+
+    public Task FlushAsync(CancellationToken ct = default)
+    {
+        Flush();
+        return Task.CompletedTask;
+    }
+
+    public Task<long> GetUsedBytesAsync(Action<long>? onProgress = null, CancellationToken ct = default)
+        => Task.FromResult(GetUsedBytes());
+
+    public Task<long> GetReservedBytesAsync(Action<long>? onProgress = null, CancellationToken ct = default)
+        => Task.FromResult(GetReservedBytes());
 
     #endregion
 }
