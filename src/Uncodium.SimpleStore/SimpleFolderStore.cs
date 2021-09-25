@@ -75,7 +75,11 @@ public class SimpleFolderStore : ISimpleStore
     {
         CheckDisposed();
 
-        File.WriteAllBytes(GetFileNameFromId(key), value);
+        var dir = Path.GetDirectoryName(key);
+        if (dir != "" && !Directory.Exists(dir)) Directory.CreateDirectory(GetFileNameFromId(dir));
+        var filename = GetFileNameFromId(key);
+
+        File.WriteAllBytes(filename, value);
 
         Interlocked.Increment(ref m_stats.CountAdd);
         m_stats.LatestKeyAdded = m_stats.LatestKeyFlushed = key;
@@ -86,6 +90,10 @@ public class SimpleFolderStore : ISimpleStore
     /// </summary>
     public void AddStream(string key, Stream stream, Action<long>? onProgress = default, CancellationToken ct = default)
     {
+        CheckDisposed();
+
+        var dir = Path.GetDirectoryName(key);
+        if (dir != "" && !Directory.Exists(dir)) Directory.CreateDirectory(GetFileNameFromId(dir));
         var filename = GetFileNameFromId(key);
 
         using var target = File.Open(filename, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
@@ -236,6 +244,14 @@ public class SimpleFolderStore : ISimpleStore
         try
         {
             File.Delete(GetFileNameFromId(key));
+
+            var dir = Path.GetDirectoryName(key);
+            while (dir != "" && !Directory.EnumerateFileSystemEntries(GetFileNameFromId(dir)).Any())
+            {
+                Directory.Delete(GetFileNameFromId(dir));
+                dir = Path.GetDirectoryName(dir);
+            }
+
             Interlocked.Increment(ref m_stats.CountRemove);
         }
         catch
