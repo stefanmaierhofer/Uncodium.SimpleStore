@@ -1,6 +1,6 @@
 [![windows](https://github.com/stefanmaierhofer/Uncodium.SimpleStore/actions/workflows/windows.yml/badge.svg)](https://github.com/stefanmaierhofer/Uncodium.SimpleStore/actions/workflows/windows.yml)
 [![linux](https://github.com/stefanmaierhofer/Uncodium.SimpleStore/actions/workflows/linux.yml/badge.svg)](https://github.com/stefanmaierhofer/Uncodium.SimpleStore/actions/workflows/linux.yml)
-[![macos](https://github.com/stefanmaierhofer/Uncodium.SimpleStore/actions/workflows/macos.yml/badge.svg)](https://github.com/stefanmaierhofer/Uncodium.SimpleStore/actions/workflowsmacoswindows.yml)
+[![macos](https://github.com/stefanmaierhofer/Uncodium.SimpleStore/actions/workflows/macos.yml/badge.svg)](https://github.com/stefanmaierhofer/Uncodium.SimpleStore/actions/workflows/macos.yml)
 
 # Overview
 
