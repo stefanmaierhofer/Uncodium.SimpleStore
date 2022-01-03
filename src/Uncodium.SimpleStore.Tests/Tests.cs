@@ -14,20 +14,39 @@ namespace Uncodium.SimpleStore.Tests
     {
         private static readonly string TestStoreSmallPath = Path.GetFullPath(@"teststore");
         private static readonly string TestStoreLargePath = Path.GetFullPath(@"teststore_large");
-
-
         private static readonly string TestStoreFolder    = Path.GetFullPath(@"teststore_folder");
 
-        [OneTimeSetUp]
+        //[OneTimeSetUp]
+        [SetUp]
+        [TearDown]
         public void Init()
         {
             if (Directory.Exists(TestStoreSmallPath))
             {
                 Directory.Delete(TestStoreSmallPath, true);
             }
+            if (File.Exists(TestStoreSmallPath))
+            {
+                File.Delete(TestStoreSmallPath);
+                File.Delete(TestStoreSmallPath + ".log");
+            }
             if (Directory.Exists(TestStoreLargePath))
             {
                 Directory.Delete(TestStoreLargePath, true);
+            }
+            if (File.Exists(TestStoreLargePath))
+            {
+                File.Delete(TestStoreLargePath);
+                File.Delete(TestStoreLargePath + ".log");
+            }
+            if (Directory.Exists(TestStoreFolder))
+            {
+                Directory.Delete(TestStoreFolder, true);
+            }
+            if (File.Exists(TestStoreFolder))
+            {
+                File.Delete(TestStoreFolder);
+                File.Delete(TestStoreFolder + ".log");
             }
         }
 
@@ -46,21 +65,45 @@ namespace Uncodium.SimpleStore.Tests
         [Test]
         public void CanCreateDiskStore()
         {
-            using var store = new SimpleDiskStore(TestStoreSmallPath);
+            try
+            {
+                using var store = new SimpleDiskStore(TestStoreSmallPath);
+            }
+            finally
+            {
+                File.Delete(TestStoreSmallPath);
+                File.Delete(TestStoreSmallPath + ".log");
+            }
         }
 
         [Test]
         public void CanCreateFolderStore()
         {
-            using var store = new SimpleFolderStore(TestStoreFolder);
+            try
+            {
+                using var store = new SimpleFolderStore(TestStoreFolder);
+            }
+            finally
+            {
+                Directory.Delete(TestStoreFolder, true);
+            }
         }
 
         [Test]
         public void CanOpenDiskStoreTwiceReadonly()
         {
-            using var store = new SimpleDiskStore(TestStoreSmallPath);
-            using var storeReadOnly1 = SimpleDiskStore.OpenReadOnlySnapshot(TestStoreSmallPath);
-            using var storeReadOnly2 = SimpleDiskStore.OpenReadOnlySnapshot(TestStoreSmallPath);
+            try
+            {
+                using var store = new SimpleDiskStore(TestStoreSmallPath);
+                using var storeReadOnly1 = SimpleDiskStore.OpenReadOnlySnapshot(TestStoreSmallPath);
+                using var storeReadOnly2 = SimpleDiskStore.OpenReadOnlySnapshot(TestStoreSmallPath);
+            }
+            finally
+            {
+                //Directory.Delete(TestStoreSmallPath, true);
+                File.Delete(TestStoreSmallPath);
+                File.Delete(TestStoreSmallPath + ".log");
+            }
         }
 
         [Test]
@@ -69,42 +112,55 @@ namespace Uncodium.SimpleStore.Tests
             var path = Path.GetFullPath(Guid.NewGuid().ToString());
             var dataFileName = path + ".uds";
 
-            Assert.False(File.Exists(dataFileName));
-            Assert.False(Directory.Exists(dataFileName));
+            try
+            {
+                Assert.False(File.Exists(dataFileName));
+                Assert.False(Directory.Exists(dataFileName));
 
-            var store = new SimpleDiskStore(dataFileName);
+                var store = new SimpleDiskStore(dataFileName);
 
-            Assert.True(File.Exists(dataFileName));
-            Assert.False(Directory.Exists(dataFileName));
+                Assert.True(File.Exists(dataFileName));
+                Assert.False(Directory.Exists(dataFileName));
 
-            store.Dispose();
-            File.Delete(dataFileName);
-            Thread.Sleep(250);
+                store.Dispose();
+            }
+            finally
+            {
+                File.Delete(dataFileName);
+                File.Delete(dataFileName + ".log");
+                Thread.Sleep(250);
 
-            Assert.False(File.Exists(dataFileName));
-            Assert.False(Directory.Exists(dataFileName));
+                Assert.False(File.Exists(dataFileName));
+                Assert.False(Directory.Exists(dataFileName));
+            }
         }
 
         [Test]
         public void CreateDiskStoreCreatesDataFile_WithExtension()
         {
-            var path = Path.GetFullPath(Guid.NewGuid().ToString()) + ".uds";
-            var dataFileName = path;
+            var dataFileName = Path.GetFullPath(Guid.NewGuid().ToString()) + ".uds";
 
-            Assert.False(File.Exists(dataFileName));
-            Assert.False(Directory.Exists(dataFileName));
+            try
+            {
+                Assert.False(File.Exists(dataFileName));
+                Assert.False(Directory.Exists(dataFileName));
 
-            var store = new SimpleDiskStore(path);
+                var store = new SimpleDiskStore(dataFileName);
 
-            Assert.True(File.Exists(dataFileName));
-            Assert.False(Directory.Exists(dataFileName));
+                Assert.True(File.Exists(dataFileName));
+                Assert.False(Directory.Exists(dataFileName));
 
-            store.Dispose();
-            File.Delete(dataFileName);
-            Thread.Sleep(250);
+                store.Dispose();
+            }
+            finally
+            {
+                File.Delete(dataFileName);
+                File.Delete(dataFileName + ".log");
+                Thread.Sleep(250);
 
-            Assert.False(File.Exists(dataFileName));
-            Assert.False(Directory.Exists(dataFileName));
+                Assert.False(File.Exists(dataFileName));
+                Assert.False(Directory.Exists(dataFileName));
+            }
         }
 
         #endregion
@@ -137,8 +193,16 @@ namespace Uncodium.SimpleStore.Tests
         public void CanAddDiskStore()
         {
             var key = Guid.NewGuid().ToString();
-            using var store = new SimpleDiskStore(TestStoreSmallPath);
-            store.Add(key, "b");
+            try
+            {
+                using var store = new SimpleDiskStore(TestStoreSmallPath);
+                store.Add(key, "b");
+            }
+            finally
+            {
+                File.Delete(TestStoreSmallPath);
+                File.Delete(TestStoreSmallPath + ".log");
+            }
         }
 
         [Test]
@@ -146,55 +210,83 @@ namespace Uncodium.SimpleStore.Tests
         {
             var key = Guid.NewGuid().ToString();
 
-            using var store = new SimpleDiskStore(TestStoreSmallPath);
+            try
+            {
+                using var store = new SimpleDiskStore(TestStoreSmallPath);
+                var value = "This is a test for adding via stream. This is a test for adding via stream. This is a test for adding via stream.";
+                var stream = new MemoryStream(Encoding.UTF8.GetBytes(value));
+                store.AddStream(key, stream);
 
-            var value = "This is a test for adding via stream. This is a test for adding via stream. This is a test for adding via stream.";
-            var stream = new MemoryStream(Encoding.UTF8.GetBytes(value));
-            store.AddStream(key, stream);
-
-            var value2 = Encoding.UTF8.GetString(store.Get(key));
-            Assert.True(value == value2);
+                var value2 = Encoding.UTF8.GetString(store.Get(key));
+                Assert.True(value == value2);
+            }
+            finally
+            {
+                File.Delete(TestStoreSmallPath);
+                File.Delete(TestStoreSmallPath + ".log");
+            }
         }
 
         [Test]
         public void CanAddFolderStore()
         {
             var key = Guid.NewGuid().ToString();
-            using var store = new SimpleFolderStore(TestStoreFolder);
-            store.Add(key, "b");
+            try
+            {
+                using var store = new SimpleFolderStore(TestStoreFolder);
+                store.Add(key, "b");
+            }
+            finally
+            {
+                Directory.Delete(TestStoreFolder, true);
+            }
         }
 
         [Test]
         public void CanAddFolderStoreStream()
         {
-            var key = Guid.NewGuid().ToString();
-            using var store = new SimpleFolderStore(TestStoreFolder);
+            try
+            {
+                var key = Guid.NewGuid().ToString();
+                using var store = new SimpleFolderStore(TestStoreFolder);
+                var value = "This is a test for adding via stream. This is a test for adding via stream. This is a test for adding via stream.";
+                var stream = new MemoryStream(Encoding.UTF8.GetBytes(value));
+                store.AddStream(key, stream);
 
-            var value = "This is a test for adding via stream. This is a test for adding via stream. This is a test for adding via stream.";
-            var stream = new MemoryStream(Encoding.UTF8.GetBytes(value));
-            store.AddStream(key, stream);
-
-            var value2 = Encoding.UTF8.GetString(store.Get(key));
-            Assert.True(value == value2);
+                var value2 = Encoding.UTF8.GetString(store.Get(key));
+                Assert.True(value == value2);
+            }
+            finally
+            {
+                Directory.Delete(TestStoreFolder, true);
+            }
         }
 
         [Test]
         public void CanAddDiskStoreMany()
         {
             if (Directory.Exists(TestStoreSmallPath)) Directory.Delete(TestStoreSmallPath, true);
-            using var store = new SimpleDiskStore(TestStoreSmallPath);
 
-            var data = new Dictionary<string, string>();
-
-            var imax = 256 * 1024 / (2 + 6 + 8 + 4);
-            for (var i = 0; i < imax; i++)
+            try
             {
-                var key = Guid.NewGuid().ToString();
-                var value = $"many {i}";
-                store.Add(key, value);
-                data[key] = value;
+                using var store = new SimpleDiskStore(TestStoreSmallPath);
+                var data = new Dictionary<string, string>();
+
+                var imax = 256 * 1024 / (2 + 6 + 8 + 4);
+                for (var i = 0; i < imax; i++)
+                {
+                    var key = Guid.NewGuid().ToString();
+                    var value = $"many {i}";
+                    store.Add(key, value);
+                    data[key] = value;
+                }
+                var keys = store.List().ToArray();
             }
-            var keys = store.List().ToArray();
+            finally
+            {
+                File.Delete(TestStoreSmallPath);
+                File.Delete(TestStoreSmallPath + ".log");
+            }
         }
 
         [Test]
@@ -219,19 +311,26 @@ namespace Uncodium.SimpleStore.Tests
         public void CanAddFolderStoreMany()
         {
             if (Directory.Exists(TestStoreFolder)) Directory.Delete(TestStoreFolder, true);
-            using var store = new SimpleFolderStore(TestStoreFolder);
 
-            var data = new Dictionary<string, string>();
-
-            var imax = 256 * 1 / (2 + 6 + 8 + 4);
-            for (var i = 0; i < imax; i++)
+            try
             {
-                var key = Guid.NewGuid().ToString();
-                var value = $"many {i}";
-                store.Add(key, value);
-                data[key] = value;
+                using var store = new SimpleFolderStore(TestStoreFolder);
+                var data = new Dictionary<string, string>();
+
+                var imax = 256 * 1 / (2 + 6 + 8 + 4);
+                for (var i = 0; i < imax; i++)
+                {
+                    var key = Guid.NewGuid().ToString();
+                    var value = $"many {i}";
+                    store.Add(key, value);
+                    data[key] = value;
+                }
+                var keys = store.List().ToArray();
             }
-            var keys = store.List().ToArray();
+            finally
+            {
+                Directory.Delete(TestStoreFolder, true);
+            }
         }
 
         #endregion
@@ -253,24 +352,31 @@ namespace Uncodium.SimpleStore.Tests
         public void CanGetDiskStoreMany()
         {
             if (Directory.Exists(TestStoreSmallPath)) Directory.Delete(TestStoreSmallPath, true);
-            using var store = new SimpleDiskStore(TestStoreSmallPath);
-
-            var data = new Dictionary<string, string>();
-
-            var imax = 256 * 1024 / (2 + 6 + 8 + 4);
-            for (var i = 0; i < imax; i++)
+            try
             {
-                var key = Guid.NewGuid().ToString();
-                var value = $"many {i}";
-                store.Add(key, value);
-                data[key] = value;
+                using var store = new SimpleDiskStore(TestStoreSmallPath);
+                var data = new Dictionary<string, string>();
+
+                var imax = 256 * 1024 / (2 + 6 + 8 + 4);
+                for (var i = 0; i < imax; i++)
+                {
+                    var key = Guid.NewGuid().ToString();
+                    var value = $"many {i}";
+                    store.Add(key, value);
+                    data[key] = value;
+                }
+
+                foreach (var kv in data)
+                {
+                    var v = Encoding.UTF8.GetString(store.Get(kv.Key));
+                    var x = data[kv.Key];
+                    Assert.True(v == x);
+                }
             }
-
-            foreach (var kv in data)
+            finally
             {
-                var v = Encoding.UTF8.GetString(store.Get(kv.Key));
-                var x = data[kv.Key];
-                Assert.True(v == x);
+                File.Delete(TestStoreSmallPath);
+                File.Delete(TestStoreSmallPath + ".log");
             }
         }
 
@@ -278,11 +384,19 @@ namespace Uncodium.SimpleStore.Tests
         public void CanGetDiskStore()
         {
             var key = Guid.NewGuid().ToString();
-            using var store = new SimpleDiskStore(TestStoreSmallPath);
-            store.Add(key, Encoding.UTF8.GetBytes("b"));
-            var x = store.Get(key);
-            var v = Encoding.UTF8.GetString(x);
-            Assert.IsTrue(v == "b");
+            try
+            {
+                using var store = new SimpleDiskStore(TestStoreSmallPath);
+                store.Add(key, Encoding.UTF8.GetBytes("b"));
+                var x = store.Get(key);
+                var v = Encoding.UTF8.GetString(x);
+                Assert.IsTrue(v == "b");
+            }
+            finally
+            {
+                File.Delete(TestStoreSmallPath);
+                File.Delete(TestStoreSmallPath + ".log");
+            }
         }
 
         #endregion
@@ -314,8 +428,16 @@ namespace Uncodium.SimpleStore.Tests
         [Test]
         public void CanGetSliceDiskStore()
         {
-            using var store = new SimpleDiskStore(TestStoreSmallPath);
-            CheckGetSlice(store);
+            try
+            {
+                using var store = new SimpleDiskStore(TestStoreSmallPath);
+                CheckGetSlice(store);
+            }
+            finally
+            {
+                File.Delete(TestStoreSmallPath);
+                File.Delete(TestStoreSmallPath + ".log");
+            }
         }
 
         #endregion
@@ -353,16 +475,31 @@ namespace Uncodium.SimpleStore.Tests
         [Test]
         public void CanOpenReadStreamDiskStore()
         {
-            using var store = new SimpleDiskStore(TestStoreSmallPath);
-            CheckOpenReadStream(store);
+            try
+            {
+                using var store = new SimpleDiskStore(TestStoreSmallPath);
+                CheckOpenReadStream(store);
+            }
+            finally
+            {
+                File.Delete(TestStoreSmallPath);
+                File.Delete(TestStoreSmallPath + ".log");
+            }
         }
 
 
         [Test]
         public void CanOpenReadStreamFolderStore()
         {
-            using var store = new SimpleFolderStore(TestStoreFolder);
-            CheckOpenReadStream(store);
+            try
+            {
+                using var store = new SimpleFolderStore(TestStoreFolder);
+                CheckOpenReadStream(store);
+            }
+            finally
+            {
+                Directory.Delete(TestStoreFolder, true);
+            }
         }
 
         #endregion
@@ -386,15 +523,23 @@ namespace Uncodium.SimpleStore.Tests
         [Test]
         public void CanRemoveDiskStore()
         {
-            var key = Guid.NewGuid().ToString();
-            using var store = new SimpleDiskStore(TestStoreSmallPath);
-            store.Add(key, "b");
-            var x = store.Get(key);
-            Assert.IsTrue(Encoding.UTF8.GetString(x) == "b");
+            try
+            {
+                var key = Guid.NewGuid().ToString();
+                using var store = new SimpleDiskStore(TestStoreSmallPath);
+                store.Add(key, "b");
+                var x = store.Get(key);
+                Assert.IsTrue(Encoding.UTF8.GetString(x) == "b");
 
-            store.Remove(key);
-            var y = store.Get(key);
-            Assert.IsTrue(y == null);
+                store.Remove(key);
+                var y = store.Get(key);
+                Assert.IsTrue(y == null);
+            }
+            finally
+            {
+                File.Delete(TestStoreSmallPath);
+                File.Delete(TestStoreSmallPath + ".log");
+            }
         }
 
         #endregion
@@ -429,70 +574,86 @@ namespace Uncodium.SimpleStore.Tests
         [Test]
         public void CanAddParallelDiskStore()
         {
-            using var store = new SimpleDiskStore(TestStoreLargePath);
-            var stats0 = store.Stats;
-            Assert.IsTrue(stats0.CountAdd == 0);
-
-            var ts = new List<Task>();
-            for (var t = 0; t < 4; t++)
+            try
             {
-                ts.Add(Task.Run(() =>
+                using var store = new SimpleDiskStore(TestStoreLargePath);
+                var stats0 = store.Stats;
+                Assert.IsTrue(stats0.CountAdd == 0);
+
+                var ts = new List<Task>();
+                for (var t = 0; t < 4; t++)
                 {
-                    for (var i = 0; i < 50000; i++)
+                    ts.Add(Task.Run(() =>
                     {
-                        var key = Guid.NewGuid().ToString();
-                        var data = new byte[1024];
-                        store.Add(key, data);
-                    }
-                }));
+                        for (var i = 0; i < 50000; i++)
+                        {
+                            var key = Guid.NewGuid().ToString();
+                            var data = new byte[1024];
+                            store.Add(key, data);
+                        }
+                    }));
+                }
+
+                Task.WhenAll(ts).Wait();
+
+                Assert.IsTrue(store.Stats.CountAdd == 200000);
             }
-
-            Task.WhenAll(ts).Wait();
-
-            Assert.IsTrue(store.Stats.CountAdd == 200000);
+            finally
+            {
+                File.Delete(TestStoreLargePath);
+                File.Delete(TestStoreLargePath + ".log");
+            }
         }
 
         [Test]
         public void CanAddAndGetMultiThreadedDiskStore()
         {
-            using var store = new SimpleDiskStore(TestStoreLargePath);
-            var stats0 = store.Stats;
-
-            var keys = new List<string>();
-
-            var ts = new List<Task>();
-            for (var t = 0; t < 4; t++)
+            try
             {
-                ts.Add(Task.Run(() =>
+                using var store = new SimpleDiskStore(TestStoreLargePath);
+                var stats0 = store.Stats;
+
+                var keys = new List<string>();
+
+                var ts = new List<Task>();
+                for (var t = 0; t < 4; t++)
                 {
-                    var r = new Random();
-                    for (var i = 0; i < 5000; i++)
+                    ts.Add(Task.Run(() =>
                     {
-                        if (r.NextDouble() < 0.5)
+                        var r = new Random();
+                        for (var i = 0; i < 5000; i++)
                         {
-                            //Console.WriteLine($"W {Thread.CurrentThread.ManagedThreadId}");
+                            if (r.NextDouble() < 0.5)
+                            {
+                            //Console.WriteLine($"W {Environment.CurrentManagedThreadId}");
                             var key = Guid.NewGuid().ToString();
-                            lock (keys) keys.Add(key);
-                            var data = new byte[r.Next(100000)];
-                            store.Add(key, data);
-                        }
-                        else
-                        {
-                            if (keys.Count == 0) continue;
-                            //Console.WriteLine($"R {Thread.CurrentThread.ManagedThreadId}");
+                                lock (keys) keys.Add(key);
+                                var data = new byte[r.Next(100000)];
+                                store.Add(key, data);
+                            }
+                            else
+                            {
+                                if (keys.Count == 0) continue;
+                            //Console.WriteLine($"R {Environment.CurrentManagedThreadId}");
                             string key;
-                            lock (keys) key = keys[r.Next(keys.Count)];
-                            var data = store.Get(key);
-                        }
+                                lock (keys) key = keys[r.Next(keys.Count)];
+                                var data = store.Get(key);
+                            }
 
-                        if (i % 1000 == 0) Console.WriteLine($"[{Thread.CurrentThread.ManagedThreadId}] {i}");
+                        //if (i % 1000 == 0) Console.WriteLine($"[{Environment.CurrentManagedThreadId}] {i}");
                     }
-                }));
+                    }));
+                }
+
+                Task.WhenAll(ts).Wait();
+
+                Assert.IsTrue(store.Stats.CountAdd == keys.Count);
             }
-
-            Task.WhenAll(ts).Wait();
-
-            Assert.IsTrue(store.Stats.CountAdd == keys.Count);
+            finally
+            {
+                File.Delete(TestStoreLargePath);
+                File.Delete(TestStoreLargePath + ".log");
+            }
         }
 
         #endregion
@@ -526,21 +687,31 @@ namespace Uncodium.SimpleStore.Tests
             var key2 = Guid.NewGuid().ToString();
             var key3 = Guid.NewGuid().ToString();
             var storename = TestStoreSmallPath + ".1";
-            if (Directory.Exists(storename)) Directory.Delete(storename, true);
-            if (File.Exists(storename)) File.Delete(storename);
+            try
+            {
+                //Directory.Delete(storename, true);
+                File.Delete(storename);
+                File.Delete(storename + ".log");
 
-            using var store = new SimpleDiskStore(storename);
-            store.Add(key1, "key1");
-            Assert.IsTrue(store.List().Count() == 1);
-            store.Add(key2, "key2");
-            Assert.IsTrue(store.List().Count() == 2);
-            store.Add(key3, "key3");
-            Assert.IsTrue(store.List().Count() == 3);
+                using var store = new SimpleDiskStore(storename);
+                store.Add(key1, "key1");
+                Assert.IsTrue(store.List().Count() == 1);
+                store.Add(key2, "key2");
+                Assert.IsTrue(store.List().Count() == 2);
+                store.Add(key3, "key3");
+                Assert.IsTrue(store.List().Count() == 3);
 
-            var keys = new HashSet<string>(store.List().Select(x => x.key));
-            Assert.IsTrue(keys.Contains(key1));
-            Assert.IsTrue(keys.Contains(key2));
-            Assert.IsTrue(keys.Contains(key3));
+                var keys = new HashSet<string>(store.List().Select(x => x.key));
+                Assert.IsTrue(keys.Contains(key1));
+                Assert.IsTrue(keys.Contains(key2));
+                Assert.IsTrue(keys.Contains(key3));
+            }
+            finally
+            {
+                //Directory.Delete(storename, true);
+                File.Delete(storename);
+                File.Delete(storename + ".log");
+            }
         }
 
         #endregion

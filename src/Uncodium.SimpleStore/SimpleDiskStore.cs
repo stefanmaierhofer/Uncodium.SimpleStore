@@ -192,9 +192,8 @@ public class SimpleDiskStore : ISimpleStore
         if (m_dbIndex != null) throw new Exception("Invariant e0e827e5-c038-4d0e-8e55-9a235ad4f353.");
         if (m_dataFileName != null) throw new Exception("Invariant a7038834-41c4-41ac-8b55-016f2f9d2969.");
 
-        m_dataFileName = dataFilename;
-        var mapName = m_dataFileName.ToMd5Hash().ToString();
-        m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.OpenOrCreate, mapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.ReadWrite);
+        m_dataFileName = dataFilename; 
+        m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.OpenOrCreate, MemoryMapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.ReadWrite);
         m_accessor = m_mmf.CreateViewAccessor(0, totalDataFileSizeInBytes);
         m_header = new(m_accessor);
         m_dbIndex = new();
@@ -738,6 +737,7 @@ public class SimpleDiskStore : ISimpleStore
     private readonly string m_dbDiskLocation;
     private readonly bool m_readOnlySnapshot;
     private string? m_dataFileName;
+    private string MemoryMapName => Path.GetFullPath(m_dbDiskLocation ?? throw new ArgumentNullException(nameof(m_dbDiskLocation))).ToMd5Hash().ToString();
 
     /// <summary>
     /// Custom in-memory index to circumvent memory problem in .NET Framework.
@@ -840,53 +840,57 @@ public class SimpleDiskStore : ISimpleStore
     {
         CheckDisposed();
 
-        var token = Guid.NewGuid();
-        if (!m_readOnlySnapshot) Log(
-            $"shutdown {token} : begin",
-            $"shutdown {token} : reserved space is {m_header.TotalFileSize:N0} bytes",
-            $"shutdown {token} : used space is {m_header.DataCursor.Value:N0} bytes",
-            $"shutdown {token} : index has {m_dbIndex.Count:N0} entries"
-            );
-
-        while (true)
+        lock (m_lock)
         {
-            if (m_flushIndexSemaphore.Wait(1000))
-            {
-                try
-                {
-                    CheckDisposed();
+            var token = Guid.NewGuid();
+            if (!m_readOnlySnapshot) Log(
+                $"shutdown {token} : begin",
+                $"shutdown {token} : managed thread id is {Environment.CurrentManagedThreadId}",
+                $"shutdown {token} : reserved space is {m_header.TotalFileSize:N0} bytes",
+                $"shutdown {token} : used space is {m_header.DataCursor.Value:N0} bytes",
+                $"shutdown {token} : index has {m_dbIndex.Count:N0} entries"
+                );
 
-                    if (!m_readOnlySnapshot)
+            while (true)
+            {
+                if (m_flushIndexSemaphore.Wait(1000))
+                {
+                    try
                     {
-                        m_accessor.Flush();
+                        CheckDisposed();
+
+                        if (!m_readOnlySnapshot)
+                        {
+                            m_accessor.Flush();
+                            if (Stats.LatestKeyAdded is not null) Log(
+                                $"shutdown {token} : flush everything to disk (latest key added is {Stats.LatestKeyAdded ?? "<none>"})"
+                                );
+                        }
+
+                        m_isDisposed = true;
+                        m_accessor.Dispose();
+                        m_mmf.Dispose();
+                        m_cts.Cancel();
+
                         if (Stats.LatestKeyAdded is not null) Log(
-                            $"shutdown {token} : flush everything to disk (latest key added is {Stats.LatestKeyAdded ?? "<none>"})"
+                            $"shutdown {token} : latest key added is {Stats.LatestKeyAdded ?? "<none>"} (should be the same as above),"
                             );
+                        Log(
+                            $"shutdown {token} : end"
+                            );
+
+                        return;
                     }
-
-                    m_accessor.Dispose();
-                    m_mmf.Dispose();
-                    m_cts.Cancel();
-
-                    if (Stats.LatestKeyAdded is not null) Log(
-                        $"shutdown {token} : latest key added is {Stats.LatestKeyAdded ?? "<none>"} (should be the same as above),"
-                        );
-                    Log(
-                        $"shutdown {token} : end"
-                        );
-
-                    return;
+                    finally
+                    {
+                        m_flushIndexSemaphore.Release();
+                        m_disposeStackTrace = Environment.StackTrace;
+                    }
                 }
-                finally
+                else
                 {
-                    m_flushIndexSemaphore.Release();
-                    m_disposeStackTrace = Environment.StackTrace;
-                    m_isDisposed = true;
+                    Log($"shutdown {token} is waiting for index being flushed to disk");
                 }
-            }
-            else
-            {
-                Log($"shutdown {token} is waiting for index being flushed to disk");
             }
         }
     }
@@ -1052,26 +1056,25 @@ public class SimpleDiskStore : ISimpleStore
 
         var totalDataFileSizeInBytes = new FileInfo(m_dataFileName).Length;
 
-        var mapName = m_dataFileName.ToMd5Hash().ToString();
-
         if (m_readOnlySnapshot)
         {
             try
             {
-                m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.Open, mapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.Read);
+                m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.Open, MemoryMapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.Read);
             }
             catch
             {
-                m_mmf = MemoryMappedFile.OpenExisting(mapName, MemoryMappedFileRights.Read);
+                m_mmf = MemoryMappedFile.OpenExisting(MemoryMapName, MemoryMappedFileRights.Read);
             }
 
             m_accessor = m_mmf.CreateViewAccessor(0, totalDataFileSizeInBytes, MemoryMappedFileAccess.Read);
         }
         else
         {
-            m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.OpenOrCreate, mapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.ReadWrite);
+            var stream = File.Open(m_dataFileName, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
+            m_mmf = MemoryMappedFile.CreateFromFile(stream, MemoryMapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, leaveOpen: false);
+            //m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.OpenOrCreate, MemoryMapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.ReadWrite);
             m_accessor = m_mmf.CreateViewAccessor(0, totalDataFileSizeInBytes);
-
         }
 
         // init header
@@ -1377,6 +1380,7 @@ public class SimpleDiskStore : ISimpleStore
                 {
                     var count = Interlocked.Increment(ref m_stats.CountGetWithException);
                     Log($"[CRITICAL ERROR] Get(key={key}) failed.",
+                        $"[CRITICAL ERROR] managed thread id is {Environment.CurrentManagedThreadId}",
                         $"[CRITICAL ERROR] entry = {{offset={entry.offset}, size={entry.size}}}",
                         $"[CRITICAL ERROR] So far, {count} Get-calls failed.",
                         $"[CRITICAL ERROR] exception = {e}"
@@ -1426,6 +1430,7 @@ public class SimpleDiskStore : ISimpleStore
                 {
                     var count = Interlocked.Increment(ref m_stats.CountGetSliceWithException);
                     Log($"[CRITICAL ERROR] GetSlice(key={key}, offset={offset}, length={length}) failed.",
+                        $"[CRITICAL ERROR] managed thread id is {Environment.CurrentManagedThreadId}",
                         $"[CRITICAL ERROR] entry = {{offset={entry.offset}, size={entry.size}}}",
                         $"[CRITICAL ERROR] So far, {count} GetSlice-calls failed.",
                         $"[CRITICAL ERROR] exception = {e}"

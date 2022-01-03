@@ -217,6 +217,51 @@ static async Task TestSimpleAzureBlobStore(string sas)
     var buffer2 = await store.GetSliceAsync("2eda3f92-1b33-46e2-b2a5-0f490347621a", 10, 20);
 }
 
+static void TestConcurrentCallsWithRespectToDispose()
+{
+    var dbDiskLocation = @"T:\teststore";
+    Console.WriteLine("open store");
+    using var store = new SimpleDiskStore(dbDiskLocation, lines =>
+    {
+        Console.ForegroundColor = ConsoleColor.Cyan;
+        foreach (var line in lines) Console.WriteLine(line);
+        Console.ResetColor();
+    });
+    Console.WriteLine("add many entries");
+    store.Add("foo", "bar");
+
+    var t0 = new Thread(() =>
+    {
+        while (true)
+        {
+            var x = Encoding.UTF8.GetString(store.Get("foo"));
+            if (x != "bar") throw new Exception($"\"{x}\" != \"bar\"");
+        }
+
+    });
+    t0.Start();
+
+    Console.WriteLine("press enter to dispose ...");
+    Console.ReadLine();
+
+    store.Dispose();
+
+    Console.WriteLine("press enter to exit ...");
+    Console.ReadLine();
+}
+
+//var tests = new Uncodium.SimpleStore.Tests.Tests();
+////tests.CanAddAndGetMultiThreadedDiskStore();
+////tests.CanAddParallelDiskStore();
+//tests.CanOpenDiskStoreTwiceReadonly();
+//return;
+
+//using var largestore = new SimpleDiskStore(@"t:\teststore_large");
+//return;
+
+TestConcurrentCallsWithRespectToDispose();
+
+
 
 //var store = new SimpleAzureBlobStore(
 //                "https://scratchsm.blob.core.windows.net/test?sv=2020-04-08&st=2021-09-25T06%3A23%3A06Z&se=2021-09-26T06%3A23%3A06Z&sr=c&sp=racwdxlt&sig=5J7kptSGFRzBMNuUy7qgh30jej0O22Ug3RXS1ogMCAE%3D"
@@ -225,16 +270,21 @@ static async Task TestSimpleAzureBlobStore(string sas)
 //store.Add("my/folder/foo.json", Encoding.UTF8.GetBytes("bar"));
 //store.Remove("my/folder/foo.json");
 
-var store = new SimpleFolderStore(@"E:\tmp\storefoldertest");
-store.Add("my/path/foo.json", "bar");
-store.AddStream("my/blubber.json", new MemoryStream(Encoding.UTF8.GetBytes("bar bar bar")));
-Console.WriteLine($"{store.Contains("my/path/foo.json")}");
-Console.WriteLine($"{store.GetSize("my/path/foo.json")}");
-Console.WriteLine($"{store.Contains("my/path2/foo.json")}");
-Console.WriteLine($"{store.GetSize("my/path2/foo.json")}");
-store.Remove("my/path/foo.json");
-Console.WriteLine("list");
-foreach (var x in store.List()) Console.WriteLine($"{x.key}");
+
+
+//var store = new SimpleFolderStore(@"E:\tmp\storefoldertest");
+//store.Add("my/path/foo.json", "bar");
+//store.AddStream("my/blubber.json", new MemoryStream(Encoding.UTF8.GetBytes("bar bar bar")));
+//Console.WriteLine($"{store.Contains("my/path/foo.json")}");
+//Console.WriteLine($"{store.GetSize("my/path/foo.json")}");
+//Console.WriteLine($"{store.Contains("my/path2/foo.json")}");
+//Console.WriteLine($"{store.GetSize("my/path2/foo.json")}");
+//store.Remove("my/path/foo.json");
+//Console.WriteLine("list");
+//foreach (var x in store.List()) Console.WriteLine($"{x.key}");
+
+
+
 
 //TestSimpleAzureBlobStore("your sas here").Wait();
 
