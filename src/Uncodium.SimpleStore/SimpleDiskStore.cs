@@ -1,7 +1,7 @@
 ﻿/*
    MIT License
    
-   Copyright (c) 2014,2015,2016,2017,2018,2019,2020,2021 Stefan Maierhofer.
+   Copyright (c) 2014,2015,2016,2017,2018,2019,2020,2021,2022 Stefan Maierhofer.
    
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
@@ -827,9 +827,13 @@ public class SimpleDiskStore : ISimpleStore
     {
         if (m_isDisposed)
         {
+            var token = Guid.NewGuid();
+            Log($"WARNING  {token} : trying to access disposed store");
+            Log($"WARNING  {token} : managed thread id is {Environment.CurrentManagedThreadId}");
+            Log($"WARNING  {token} : stack trace is\n{Environment.StackTrace}");
             if (!m_loggedDisposeStackTrace)
             {
-                Log($"Trying to dispose store, that has already been disposed at {m_disposeStackTrace}");
+                Log($"WARNING  {token} : store has been disposed previously\n{m_disposeStackTrace}");
                 m_loggedDisposeStackTrace = true;
             }
             throw new ObjectDisposedException(nameof(SimpleDiskStore));
@@ -838,10 +842,10 @@ public class SimpleDiskStore : ISimpleStore
 
     public void Dispose()
     {
-        CheckDisposed();
-
         lock (m_lock)
         {
+            CheckDisposed();
+
             var token = Guid.NewGuid();
             if (!m_readOnlySnapshot) Log(
                 $"shutdown {token} : begin",
@@ -1230,17 +1234,17 @@ public class SimpleDiskStore : ISimpleStore
     /// </summary>
     public void Add(string key, byte[] value)
     {
-        CheckDisposed();
-
-        if (m_readOnlySnapshot) throw new InvalidOperationException("Read-only store does not support add.");
-        if (value == null) throw new ArgumentNullException(nameof(value));
-
-        Interlocked.Increment(ref m_stats.CountAdd);
-
-        var buffer = value;
-
         lock (m_lock)
         {
+            CheckDisposed();
+
+            if (m_readOnlySnapshot) throw new InvalidOperationException("Read-only store does not support add.");
+            if (value == null) throw new ArgumentNullException(nameof(value));
+
+            Interlocked.Increment(ref m_stats.CountAdd);
+
+            var buffer = value;
+
             EnsureMemoryMappedFileIsOpen();
 
             var valueBufferPos = m_header.DataCursor;
@@ -1266,34 +1270,34 @@ public class SimpleDiskStore : ISimpleStore
     /// </summary>
     public void AddStream(string key, Stream stream, Action<long>? onProgress = default, CancellationToken ct = default)
     {
-        CheckDisposed();
-
-        if (m_readOnlySnapshot) throw new InvalidOperationException("Read-only store does not support add.");
-
-        using var ms = new MemoryStream();
-
-        ct.ThrowIfCancellationRequested();
-        //if (onProgress != default) onProgress(0L);
-        //stream.CopyTo(ms);
-        Task.Run(async () =>
-        {
-            var buffer = new byte[81920];
-            int bytesRead;
-            long totalRead = 0;
-            while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, ct)) > 0)
-            {
-                await ms.WriteAsync(buffer, 0, bytesRead, ct);
-                ct.ThrowIfCancellationRequested();
-                totalRead += bytesRead;
-                if (onProgress != default) onProgress(totalRead);
-            }
-        }, ct).Wait();
-
-        ct.ThrowIfCancellationRequested();
-        var buffer = ms.ToArray();
-
         lock (m_lock)
         {
+            CheckDisposed();
+
+            if (m_readOnlySnapshot) throw new InvalidOperationException("Read-only store does not support add.");
+
+            using var ms = new MemoryStream();
+
+            ct.ThrowIfCancellationRequested();
+            //if (onProgress != default) onProgress(0L);
+            //stream.CopyTo(ms);
+            Task.Run(async () =>
+            {
+                var buffer = new byte[81920];
+                int bytesRead;
+                long totalRead = 0;
+                while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, ct)) > 0)
+                {
+                    await ms.WriteAsync(buffer, 0, bytesRead, ct);
+                    ct.ThrowIfCancellationRequested();
+                    totalRead += bytesRead;
+                    if (onProgress != default) onProgress(totalRead);
+                }
+            }, ct).Wait();
+
+            ct.ThrowIfCancellationRequested();
+            var buffer = ms.ToArray();
+
             EnsureMemoryMappedFileIsOpen();
 
             var valueBufferPos = m_header.DataCursor;
@@ -1327,11 +1331,11 @@ public class SimpleDiskStore : ISimpleStore
     /// </summary>
     public bool Contains(string key)
     {
-        CheckDisposed();
-
         bool result;
         lock (m_lock)
         {
+            CheckDisposed();
+
             EnsureMemoryMappedFileIsOpen();
             result = m_dbIndex.ContainsKey(key);
         }
@@ -1345,10 +1349,10 @@ public class SimpleDiskStore : ISimpleStore
     /// </summary>
     public long? GetSize(string key)
     {
-        CheckDisposed();
-
         lock (m_lock)
         {
+            CheckDisposed();
+
             EnsureMemoryMappedFileIsOpen();
             return m_dbIndex.TryGetValue(key, out (ulong _, uint size) entry) ? entry.size : null;
         }
@@ -1360,10 +1364,10 @@ public class SimpleDiskStore : ISimpleStore
     /// </summary>
     public byte[]? Get(string key)
     {
-        CheckDisposed();
-
         lock (m_lock)
         {
+            CheckDisposed();
+
             EnsureMemoryMappedFileIsOpen();
             if (m_dbIndex.TryGetValue(key, out (ulong offset, uint size) entry))
             {
@@ -1379,11 +1383,11 @@ public class SimpleDiskStore : ISimpleStore
                 catch (Exception e)
                 {
                     var count = Interlocked.Increment(ref m_stats.CountGetWithException);
-                    Log($"[CRITICAL ERROR] Get(key={key}) failed.",
-                        $"[CRITICAL ERROR] managed thread id is {Environment.CurrentManagedThreadId}",
-                        $"[CRITICAL ERROR] entry = {{offset={entry.offset}, size={entry.size}}}",
-                        $"[CRITICAL ERROR] So far, {count} Get-calls failed.",
-                        $"[CRITICAL ERROR] exception = {e}"
+                    Log($"[ERROR] Get(key={key}) failed.",
+                        $"[ERROR] managed thread id is {Environment.CurrentManagedThreadId}",
+                        $"[ERROR] entry = {{offset={entry.offset}, size={entry.size}}}",
+                        $"[ERROR] So far, {count} Get-calls failed.",
+                        $"[ERROR] exception\n{e}"
                         );
                     return null;
                 }
@@ -1402,13 +1406,13 @@ public class SimpleDiskStore : ISimpleStore
     /// </summary>
     public byte[]? GetSlice(string key, long offset, int length)
     {
-        CheckDisposed();
-
-        if (offset < 0) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be greater or equal 0.");
-        if (length < 1) throw new ArgumentOutOfRangeException(nameof(offset), "Size must be greater than 0.");
-
         lock (m_lock)
         {
+            CheckDisposed();
+
+            if (offset < 0) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be greater or equal 0.");
+            if (length < 1) throw new ArgumentOutOfRangeException(nameof(offset), "Size must be greater than 0.");
+
             EnsureMemoryMappedFileIsOpen();
             if (m_dbIndex.TryGetValue(key, out (ulong offset, uint size) entry))
             {
@@ -1455,10 +1459,10 @@ public class SimpleDiskStore : ISimpleStore
     /// <param name="offset">Optional. Start stream at given position.</param>
     public Stream? GetStream(string key, long offset = 0L)
     {
-        CheckDisposed();
-
         lock (m_lock)
         {
+            CheckDisposed();
+
             EnsureMemoryMappedFileIsOpen();
             if (m_dbIndex.TryGetValue(key, out (ulong offset, uint size) entry))
             {
@@ -1482,10 +1486,10 @@ public class SimpleDiskStore : ISimpleStore
     /// </summary>
     public IEnumerable<(string key, long size)> List()
     {
-        CheckDisposed();
-
         lock (m_lock)
         {
+            CheckDisposed();
+
             Interlocked.Increment(ref m_stats.CountList);
             return m_dbIndex.EnumerateEntries().Select(kv => (key: kv.Key, size: (long)kv.Value.size));
         }
@@ -1496,11 +1500,11 @@ public class SimpleDiskStore : ISimpleStore
     /// </summary>
     public void Remove(string key)
     {
-        CheckDisposed();
-
         if (m_readOnlySnapshot) throw new InvalidOperationException("Read-only store does not support remove.");
         lock (m_lock)
         {
+            CheckDisposed();
+
             EnsureMemoryMappedFileIsOpen();
             m_dbIndex.Remove(key);
         }
@@ -1512,15 +1516,15 @@ public class SimpleDiskStore : ISimpleStore
     /// </summary>
     public void Flush()
     {
-        CheckDisposed();
+        lock (m_lock)
+        {
+            CheckDisposed();
 
-        if (m_readOnlySnapshot)
-        {
-            return;
-        }
-        else
-        {
-            lock (m_lock)
+            if (m_readOnlySnapshot)
+            {
+                return;
+            }
+            else
             {
                 EnsureMemoryMappedFileIsOpen();
                 m_accessor.Flush();

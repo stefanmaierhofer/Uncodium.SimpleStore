@@ -219,9 +219,11 @@ static async Task TestSimpleAzureBlobStore(string sas)
 
 static void TestConcurrentCallsWithRespectToDispose()
 {
+    
+
     var dbDiskLocation = @"T:\teststore";
     Console.WriteLine("open store");
-    using var store = new SimpleDiskStore(dbDiskLocation, lines =>
+    var store = new SimpleDiskStore(dbDiskLocation, lines =>
     {
         Console.ForegroundColor = ConsoleColor.Cyan;
         foreach (var line in lines) Console.WriteLine(line);
@@ -234,8 +236,15 @@ static void TestConcurrentCallsWithRespectToDispose()
     {
         while (true)
         {
-            var x = Encoding.UTF8.GetString(store.Get("foo"));
-            if (x != "bar") throw new Exception($"\"{x}\" != \"bar\"");
+            try
+            {
+                var x = Encoding.UTF8.GetString(store.Get("foo"));
+                if (x != "bar") throw new Exception($"\"{x}\" != \"bar\"");
+            }
+            catch
+            {
+                break;
+            }
         }
 
     });
