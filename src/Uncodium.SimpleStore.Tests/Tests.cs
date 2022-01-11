@@ -63,6 +63,15 @@ namespace Uncodium.SimpleStore.Tests
         }
 
         [Test]
+        public void CanDisposeMemStore()
+        {
+            var store = new SimpleMemoryStore();
+            Assert.True(store.IsDisposed == false);
+            store.Dispose();
+            Assert.True(store.IsDisposed == true);
+        }
+
+        [Test]
         public void CanCreateDiskStore()
         {
             try
@@ -77,11 +86,44 @@ namespace Uncodium.SimpleStore.Tests
         }
 
         [Test]
+        public void CanDisposeDiskStore()
+        {
+            try
+            {
+                var store = new SimpleDiskStore(TestStoreSmallPath); 
+                Assert.True(store.IsDisposed == false);
+                store.Dispose();
+                Assert.True(store.IsDisposed == true);
+            }
+            finally
+            {
+                File.Delete(TestStoreSmallPath);
+                File.Delete(TestStoreSmallPath + ".log");
+            }
+        }
+
+        [Test]
         public void CanCreateFolderStore()
         {
             try
             {
                 using var store = new SimpleFolderStore(TestStoreFolder);
+            }
+            finally
+            {
+                Directory.Delete(TestStoreFolder, true);
+            }
+        }
+
+        [Test]
+        public void CanDisposeFolderStore()
+        {
+            try
+            {
+                var store = new SimpleFolderStore(TestStoreFolder);
+                Assert.True(store.IsDisposed == false);
+                store.Dispose();
+                Assert.True(store.IsDisposed == true);
             }
             finally
             {

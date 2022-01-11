@@ -40,8 +40,8 @@ namespace Uncodium.SimpleStore;
 /// </summary>
 public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
 {
-    private string _sas;
-    private BlobContainerClient _client;
+    private readonly string _sas;
+    private readonly BlobContainerClient _client;
 
     private Stats m_stats;
 
@@ -70,6 +70,10 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
     }
 
     #region ISimpleStore
+
+    /// <summary>
+    /// </summary>
+    public bool IsDisposed => m_isDisposed;
 
     /// <summary>
     /// Add data from buffer.

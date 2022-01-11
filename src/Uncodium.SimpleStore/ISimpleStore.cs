@@ -109,4 +109,8 @@ public interface ISimpleStore : IDisposable
     /// Various runtime counts and other statistics.
     /// </summary>
     Stats Stats { get; }
+
+    /// <summary>
+    /// </summary>
+    bool IsDisposed { get; }
 }

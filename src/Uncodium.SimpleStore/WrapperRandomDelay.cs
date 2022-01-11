@@ -61,6 +61,15 @@ public class WrapperRandomDelay : ISimpleStore
     public WrapperRandomDelay(ISimpleStore store, double dt) : this(store, dt, dt, dt, dt, dt, dt)
     { }
 
+    public bool IsDisposed
+    {
+        get
+        {
+            Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtStats));
+            return m_store.IsDisposed;
+        }
+    }
+
     public Stats Stats
     {
         get

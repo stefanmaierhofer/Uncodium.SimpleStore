@@ -1230,6 +1230,10 @@ public class SimpleDiskStore : ISimpleStore
     }
 
     /// <summary>
+    /// </summary>
+    public bool IsDisposed => m_isDisposed;
+
+    /// <summary>
     /// Add data from buffer.
     /// </summary>
     public void Add(string key, byte[] value)

@@ -59,6 +59,9 @@ public class WrapperRandomFail : ISimpleStore
     public WrapperRandomFail(ISimpleStore store, double pFail) : this(store, pFail, pFail, pFail, pFail, pFail)
     { }
 
+    public bool IsDisposed
+        => m_random.NextDouble() < m_pStats ? throw new Exception() : m_store.IsDisposed;
+
     public Stats Stats
         => m_random.NextDouble() < m_pStats ? throw new Exception() : m_store.Stats;
 

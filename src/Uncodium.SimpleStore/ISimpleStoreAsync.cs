@@ -111,5 +111,9 @@ public interface ISimpleStoreAsync : IDisposable
     /// Various runtime counts and other statistics.
     /// </summary>
     Stats Stats { get; }
+
+    /// <summary>
+    /// </summary>
+    public bool IsDisposed { get; }
 }
 
