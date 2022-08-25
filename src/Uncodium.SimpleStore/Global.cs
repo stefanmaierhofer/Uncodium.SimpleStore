@@ -32,6 +32,6 @@ public static class Global
     /// <summary>
     /// Current version.
     /// </summary>
-    public const string Version = "3.0.13";
+    public const string Version = "3.0.14";
 }
 
