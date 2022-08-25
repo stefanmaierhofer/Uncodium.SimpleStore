@@ -991,7 +991,14 @@ public class SimpleDiskStore : ISimpleStore
     /// This means that no store entries that are added after the call to OpenReadOnlySnapshot will be(come) visible.
     /// </summary>
     public static SimpleDiskStore OpenReadOnlySnapshot(string path)
-        => new(path, readOnlySnapshot: true);
+        => new(path, readOnlySnapshot: true, logLines: null);
+
+    /// <summary>
+    /// Opens store in given file in read-only snapshot mode.
+    /// This means that no store entries that are added after the call to OpenReadOnlySnapshot will be(come) visible.
+    /// </summary>
+    public static SimpleDiskStore OpenReadOnlySnapshot(string path, Action<string[]> logLines)
+        => new(path, readOnlySnapshot: true, logLines: logLines);
 
     #endregion
 
