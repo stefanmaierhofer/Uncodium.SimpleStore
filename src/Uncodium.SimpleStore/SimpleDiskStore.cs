@@ -687,7 +687,7 @@ public class SimpleDiskStore : ISimpleStore
             foreach (var x in xs) index.Add(x);
         }
 
-        public static void CreateEmptyDataFile(string dataFileName)
+        public static void CreateEmptyDataFile(string dataFileName, long initialSizeInBytes)
         {
             var baseFolder = Path.GetDirectoryName(dataFileName);
             if (!Directory.Exists(baseFolder)) Directory.CreateDirectory(baseFolder);
@@ -695,9 +695,15 @@ public class SimpleDiskStore : ISimpleStore
             using var f = File.Open(dataFileName, FileMode.CreateNew, FileAccess.Write, FileShare.None);
             using var w = new BinaryWriter(f);
 
-            var buffer = GenerateHeaderAndEmptyIndexForOffset(0L, 0L);
+            var buffer = GenerateHeaderAndEmptyIndexForOffset(0L, initialSizeInBytes);
             w.Write(buffer);
             w.Flush();
+
+            if (initialSizeInBytes > buffer.Length)
+            {
+                f.SetLength(initialSizeInBytes);
+                f.Flush();
+            }
         }
 
         public static byte[] GenerateHeaderAndEmptyIndexForOffset(long offset, long totalFileSizeInBytes)
@@ -934,7 +940,12 @@ public class SimpleDiskStore : ISimpleStore
     /// Optionally opens current state read-only.
     /// Optionally a logger can be supplied which replaces the default logger to log.txt.
     /// </summary>
-    private SimpleDiskStore(string path, bool readOnlySnapshot, Action<string[]>? logLines)
+    public SimpleDiskStore(
+        string path,
+        bool readOnlySnapshot,
+        Action<string[]>? logLines ,
+        long initialSizeInBytes
+        )
     {
         m_dbDiskLocation = path;
         m_readOnlySnapshot = readOnlySnapshot;
@@ -960,7 +971,7 @@ public class SimpleDiskStore : ISimpleStore
             f_logLines = lines => File.AppendAllLines(logFileName, lines.Select(line => $"[{DateTimeOffset.Now}] {line}"));
         }
 
-        Init();
+        Init(initialSizeInBytes);
     }
 
     /// <summary>
@@ -968,22 +979,35 @@ public class SimpleDiskStore : ISimpleStore
     /// Optionally opens current state read-only.
     /// </summary>
     private SimpleDiskStore(string path, bool readOnlySnapshot)
-        : this(path, readOnlySnapshot: readOnlySnapshot, logLines: null)
+        : this(path, readOnlySnapshot: readOnlySnapshot, logLines: null, initialSizeInBytes: 0L)
     { }
 
     /// <summary>
     /// Creates store in given file.
     /// </summary>
     public SimpleDiskStore(string path)
-        : this(path, readOnlySnapshot: false, logLines: null)
+        : this(path, readOnlySnapshot: false, logLines: null, initialSizeInBytes: 0L)
     { }
 
     /// <summary>
     /// Creates store in given file.
-    /// Optionally a logger can be supplied which replaces the default logger to log.txt.
+    /// </summary>
+    public SimpleDiskStore(string path, long initialSizeInBytes)
+        : this(path, readOnlySnapshot: false, logLines: null, initialSizeInBytes: initialSizeInBytes)
+    { }
+
+    /// <summary>
+    /// Creates store in given file.
     /// </summary>
     public SimpleDiskStore(string path, Action<string[]> logLines)
-        : this(path, readOnlySnapshot: false, logLines: logLines)
+        : this(path, readOnlySnapshot: false, logLines: logLines, initialSizeInBytes: 0L)
+    { }
+
+    /// <summary>
+    /// Creates store in given file.
+    /// </summary>
+    public SimpleDiskStore(string path, Action<string[]> logLines, long initialSizeInBytes)
+        : this(path, readOnlySnapshot: false, logLines: logLines, initialSizeInBytes: initialSizeInBytes)
     { }
 
     /// <summary>
@@ -991,19 +1015,19 @@ public class SimpleDiskStore : ISimpleStore
     /// This means that no store entries that are added after the call to OpenReadOnlySnapshot will be(come) visible.
     /// </summary>
     public static SimpleDiskStore OpenReadOnlySnapshot(string path)
-        => new(path, readOnlySnapshot: true, logLines: null);
+        => new(path, readOnlySnapshot: true, logLines: null, initialSizeInBytes: 0L);
 
     /// <summary>
     /// Opens store in given file in read-only snapshot mode.
     /// This means that no store entries that are added after the call to OpenReadOnlySnapshot will be(come) visible.
     /// </summary>
     public static SimpleDiskStore OpenReadOnlySnapshot(string path, Action<string[]> logLines)
-        => new(path, readOnlySnapshot: true, logLines: logLines);
+        => new(path, readOnlySnapshot: true, logLines: logLines, initialSizeInBytes: 0L);
 
     #endregion
 
     [MemberNotNull(nameof(m_mmf), nameof(m_accessor), nameof(m_header), nameof(m_dbIndex), nameof(m_dbCache), nameof(m_dbCacheKeepAlive))]
-    private void Init()
+    private void Init(long initialSizeInBytes)
     {
         // init
         Log(
@@ -1054,7 +1078,7 @@ public class SimpleDiskStore : ISimpleStore
                     m_dataFileName = m_dbDiskLocation;
 
                     // create empty store
-                    Header.CreateEmptyDataFile(m_dataFileName);
+                    Header.CreateEmptyDataFile(m_dataFileName, initialSizeInBytes);
                 }
                 break;
 

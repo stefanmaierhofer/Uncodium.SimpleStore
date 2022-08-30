@@ -259,6 +259,37 @@ static void TestConcurrentCallsWithRespectToDispose()
     Console.ReadLine();
 }
 
+static void TestCreateWithInitialSize()
+{
+    var path = "W:/tmp/test.uds";
+    var initialSizeInBytes = 15 * (1L << 40);
+
+    File.Delete(path);
+
+    var sw = new Stopwatch(); sw.Restart();
+
+    try
+    {
+        using (var store = new SimpleDiskStore(path, initialSizeInBytes))
+        {
+            //var buffer = new byte[16 * 1024 * 1024];
+            //for (var i = 0; i < 100; i++) store.Add($"key_{i:000}", buffer);
+
+            //Console.ReadLine();
+        }
+        Console.WriteLine("closed store");
+        var length = new FileInfo(path).Length;
+        Console.WriteLine($"file size: {length:N0} bytes", length);
+    }
+    finally
+    {
+        File.Delete(path);
+        Console.WriteLine($"file deleted: {!File.Exists(path)}");
+        Console.WriteLine(sw.Elapsed);
+
+    }
+}
+
 //var tests = new Uncodium.SimpleStore.Tests.Tests();
 ////tests.CanAddAndGetMultiThreadedDiskStore();
 ////tests.CanAddParallelDiskStore();
@@ -268,9 +299,9 @@ static void TestConcurrentCallsWithRespectToDispose()
 //using var largestore = new SimpleDiskStore(@"t:\teststore_large");
 //return;
 
-TestConcurrentCallsWithRespectToDispose();
+//TestConcurrentCallsWithRespectToDispose();
 
-
+TestCreateWithInitialSize();
 
 //var store = new SimpleAzureBlobStore(
 //                "https://scratchsm.blob.core.windows.net/test?sv=2020-04-08&st=2021-09-25T06%3A23%3A06Z&se=2021-09-26T06%3A23%3A06Z&sr=c&sp=racwdxlt&sig=5J7kptSGFRzBMNuUy7qgh30jej0O22Ug3RXS1ogMCAE%3D"
