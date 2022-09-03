@@ -969,6 +969,10 @@ public class SimpleDiskStore : ISimpleStore
 
             }
             f_logLines = lines => File.AppendAllLines(logFileName, lines.Select(line => $"[{DateTimeOffset.Now}] {line}"));
+
+            Log(
+                $"log file              : {Path.GetFullPath(logFileName)}"
+                );
         }
 
         Init(initialSizeInBytes);
@@ -1115,6 +1119,7 @@ public class SimpleDiskStore : ISimpleStore
         // init header
         m_header = new(m_accessor);
         Log(
+            $"data file             : {Path.GetFullPath(m_dataFileName)}",
             $"reserved space        : {m_header.TotalFileSize,20:N0} bytes",
             $"used space            : {m_header.DataCursor.Value,20:N0} bytes"
             );
@@ -1130,7 +1135,7 @@ public class SimpleDiskStore : ISimpleStore
 
     #endregion
 
-    #region Memory-mapped file
+        #region Memory-mapped file
 
     private bool m_mmfIsClosedForResize = false;
     public bool SimulateFullDiskOnNextResize { get; set; }
@@ -1165,6 +1170,9 @@ public class SimpleDiskStore : ISimpleStore
                     m_accessor.Dispose();
                     //m_accessorWriteStream.Dispose();
                     m_mmf.Dispose();
+
+                    // wait a moment before re-opening file to avoid file system race conditions
+                    Thread.Sleep(1000);
 
                     m_mmfIsClosedForResize = true;
                     ReOpenMemoryMappedFile(newTotalFileSize);
