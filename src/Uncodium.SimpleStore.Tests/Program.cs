@@ -262,7 +262,7 @@ static void TestConcurrentCallsWithRespectToDispose()
 static void TestCreateWithInitialSize()
 {
     var path = "W:/tmp/test.uds";
-    var initialSizeInBytes = 15 * (1L << 40);
+    //var initialSizeInBytes = 16 * (1L << 40);
 
     File.Delete(path);
 
@@ -270,13 +270,13 @@ static void TestCreateWithInitialSize()
 
     try
     {
-        using (var store = new SimpleDiskStore(path, initialSizeInBytes))
-        {
-            //var buffer = new byte[16 * 1024 * 1024];
-            //for (var i = 0; i < 100; i++) store.Add($"key_{i:000}", buffer);
+        using var store = new SimpleDiskStore("W:/tmp/test.uds", initialSizeInBytes: 16 * (1L << 40));
+        
+        //var buffer = new byte[16 * 1024 * 1024];
+        //for (var i = 0; i < 100; i++) store.Add($"key_{i:000}", buffer);
 
-            //Console.ReadLine();
-        }
+        //Console.ReadLine();
+        
         Console.WriteLine("closed store");
         var length = new FileInfo(path).Length;
         Console.WriteLine($"file size: {length:N0} bytes", length);

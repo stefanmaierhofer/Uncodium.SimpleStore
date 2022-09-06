@@ -743,7 +743,11 @@ public class SimpleDiskStore : ISimpleStore
     private readonly string m_dbDiskLocation;
     private readonly bool m_readOnlySnapshot;
     private string? m_dataFileName;
-    private string MemoryMapName => Path.GetFullPath(m_dbDiskLocation ?? throw new ArgumentNullException(nameof(m_dbDiskLocation))).ToMd5Hash().ToString();
+    private readonly bool m_disableMemoryMapName = false;
+    private string? MemoryMapName => m_disableMemoryMapName 
+        ? null
+        : Path.GetFullPath(m_dbDiskLocation ?? throw new ArgumentNullException(nameof(m_dbDiskLocation))).ToMd5Hash().ToString()
+        ;
 
     /// <summary>
     /// Custom in-memory index to circumvent memory problem in .NET Framework.
@@ -943,12 +947,14 @@ public class SimpleDiskStore : ISimpleStore
     public SimpleDiskStore(
         string path,
         bool readOnlySnapshot,
-        Action<string[]>? logLines ,
-        long initialSizeInBytes
+        Action<string[]>? logLines,
+        long initialSizeInBytes,
+        bool disableMemoryMapName
         )
     {
         m_dbDiskLocation = path;
         m_readOnlySnapshot = readOnlySnapshot;
+        m_disableMemoryMapName = disableMemoryMapName;
 
         if (logLines != null)
         {
@@ -1012,6 +1018,10 @@ public class SimpleDiskStore : ISimpleStore
     /// </summary>
     public SimpleDiskStore(string path, Action<string[]> logLines, long initialSizeInBytes)
         : this(path, readOnlySnapshot: false, logLines: logLines, initialSizeInBytes: initialSizeInBytes)
+    { }
+
+    public SimpleDiskStore(string path, bool readOnlySnapshot, Action<string[]>? logLines, long initialSizeInBytes)
+        : this(path, readOnlySnapshot, logLines, initialSizeInBytes, disableMemoryMapName: false)
     { }
 
     /// <summary>
@@ -1135,7 +1145,7 @@ public class SimpleDiskStore : ISimpleStore
 
     #endregion
 
-        #region Memory-mapped file
+    #region Memory-mapped file
 
     private bool m_mmfIsClosedForResize = false;
     public bool SimulateFullDiskOnNextResize { get; set; }
@@ -1233,7 +1243,6 @@ public class SimpleDiskStore : ISimpleStore
     {
         if (m_mmfIsClosedForResize) ReOpenMemoryMappedFile(0L);
     }
-
 
     #endregion
 
