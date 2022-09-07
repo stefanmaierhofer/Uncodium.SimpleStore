@@ -204,7 +204,7 @@ static void CompareFolders(string folder1, string folder2)
 
 static async Task TestSimpleAzureBlobStore(string sas)
 {
-    var store = new SimpleAzureBlobStore(sas);
+    var store = new SimpleAzureBlobStore(sas, prefix: null);
 
     //// list
     //long i = 0;
@@ -301,7 +301,15 @@ static void TestCreateWithInitialSize()
 
 //TestConcurrentCallsWithRespectToDispose();
 
-TestCreateWithInitialSize();
+using var simpleStore = new SimpleAzureBlobStore(
+    "https://???/tmp/dir1/?sv=2020-10-02&st=2022-09-07T04%3A29%3A20Z&se=2022-09-08T04%3A29%3A20Z&sr=c&sp=racwdxlt&sig=sGoOOMCs6%2FpOH6AP5N8irV1sc51JHc0YmqF8w1hg9Rw%3D",
+    prefix: "dir1/dir2/"
+    );
+simpleStore.Add("foo", "bar");
+Console.WriteLine("done");
+Console.ReadLine();
+
+//TestCreateWithInitialSize();
 
 //var store = new SimpleAzureBlobStore(
 //                "https://scratchsm.blob.core.windows.net/test?sv=2020-04-08&st=2021-09-25T06%3A23%3A06Z&se=2021-09-26T06%3A23%3A06Z&sr=c&sp=racwdxlt&sig=5J7kptSGFRzBMNuUy7qgh30jej0O22Ug3RXS1ogMCAE%3D"

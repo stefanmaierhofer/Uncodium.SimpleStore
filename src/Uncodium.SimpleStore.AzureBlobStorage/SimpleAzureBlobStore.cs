@@ -42,6 +42,7 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
 {
     private readonly string _sas;
     private readonly BlobContainerClient _client;
+    private readonly string? _prefix;
 
     private Stats m_stats;
 
@@ -50,9 +51,9 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
     private void CheckDisposed() { if (m_isDisposed) throw new ObjectDisposedException(nameof(SimpleAzureBlobStore)); }
 
     /// <summary>
-    /// Creates a store in the given folder.
+    /// Creates a store in the Azure blob container specified by the shared access signature (sas).
     /// </summary>
-    public SimpleAzureBlobStore(string sas)
+    public SimpleAzureBlobStore(string sas, string? prefix)
     {
         _sas = sas;
 
@@ -61,7 +62,24 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
         var client = new BlobServiceClient(new Uri($"{uri.Scheme}://{uri.Host}"), sasCred);
         var localPath = uri.LocalPath[0] == '/' ? uri.LocalPath.Substring(1) : uri.LocalPath;
         _client = client.GetBlobContainerClient(localPath);
+        _prefix = prefix;
+
+        if (string.IsNullOrWhiteSpace(_prefix) || _prefix == "/") _prefix = null;
+        if (_prefix != null && _prefix.Length > 0 && _prefix.Last() != '/') _prefix += '/';
     }
+
+    /// <summary>
+    /// Creates a store in the Azure blob container specified by the shared access signature (sas).
+    /// </summary>
+    public SimpleAzureBlobStore(string sas) : this(sas, prefix: null)
+    { }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private string Key(string k) => _prefix == null ? k : (_prefix + k);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private BlobClient GetBlobClient(string k) => _client.GetBlobClient(Key(k));
+
 
     public void Dispose()
     {
@@ -83,7 +101,7 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
         CheckDisposed();
 
         var options = new BlobUploadOptions();
-        _client.GetBlobClient(key).Upload(BinaryData.FromBytes(value), options);
+        GetBlobClient(key).Upload(BinaryData.FromBytes(value), options);
 
         Interlocked.Increment(ref m_stats.CountAdd);
         m_stats.LatestKeyAdded = m_stats.LatestKeyFlushed = key;
@@ -99,7 +117,7 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
         var options = new BlobUploadOptions();
         if (onProgress != null) options.ProgressHandler = new Progress<long>(onProgress);
 
-        await _client.GetBlobClient(key).UploadAsync(BinaryData.FromBytes(value), options, ct);
+        await GetBlobClient(key).UploadAsync(BinaryData.FromBytes(value), options, ct);
             
         Interlocked.Increment(ref m_stats.CountAdd);
         m_stats.LatestKeyAdded = m_stats.LatestKeyFlushed = key;
@@ -113,7 +131,7 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
         var options = new BlobUploadOptions();
         if (onProgress != null) options.ProgressHandler = new Progress<long>(onProgress);
 
-        _client.GetBlobClient(key).Upload(stream, options, ct);
+        GetBlobClient(key).Upload(stream, options, ct);
 
         Interlocked.Increment(ref m_stats.CountAdd);
         m_stats.LatestKeyAdded = m_stats.LatestKeyFlushed = key;
@@ -127,7 +145,7 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
         var options = new BlobUploadOptions();
         if (onProgress != null) options.ProgressHandler = new Progress<long>(onProgress);
 
-        await _client.GetBlobClient(key).UploadAsync(stream, options, ct);
+        await GetBlobClient(key).UploadAsync(stream, options, ct);
 
         Interlocked.Increment(ref m_stats.CountAdd);
         m_stats.LatestKeyAdded = m_stats.LatestKeyFlushed = key;
@@ -140,7 +158,7 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
     {
         CheckDisposed();
         Interlocked.Increment(ref m_stats.CountContains);
-        return _client.GetBlobClient(key).Exists().Value;
+        return GetBlobClient(key).Exists().Value;
     }
 
     /// <summary>
@@ -150,7 +168,7 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
     {
         CheckDisposed();
         Interlocked.Increment(ref m_stats.CountContains);
-        return (await _client.GetBlobClient(key).ExistsAsync(ct)).Value;
+        return (await GetBlobClient(key).ExistsAsync(ct)).Value;
     }
 
     /// <summary>
@@ -160,7 +178,7 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
     public long? GetSize(string key)
     {
         CheckDisposed();
-        return _client.GetBlobClient(key).GetProperties().Value.ContentLength;
+        return GetBlobClient(key).GetProperties().Value.ContentLength;
     }
 
     /// <summary>
@@ -170,7 +188,7 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
     public async Task<long?> GetSizeAsync(string key, CancellationToken ct = default)
     {
         CheckDisposed();
-        return (await _client.GetBlobClient(key).GetPropertiesAsync(cancellationToken: ct)).Value.ContentLength;
+        return (await GetBlobClient(key).GetPropertiesAsync(cancellationToken: ct)).Value.ContentLength;
     }
 
     /// <summary>
@@ -183,7 +201,7 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
 
         try
         {
-            var res = _client.GetBlobClient(key).DownloadContent();
+            var res = GetBlobClient(key).DownloadContent();
             if (res.Value != null)
             {
                 Interlocked.Increment(ref m_stats.CountGet);
@@ -212,7 +230,7 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
 
         try
         {
-            var res = await _client.GetBlobClient(key).DownloadContentAsync(ct);
+            var res = await GetBlobClient(key).DownloadContentAsync(ct);
             if (res.Value != null)
             {
                 Interlocked.Increment(ref m_stats.CountGet);
@@ -246,7 +264,7 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
         try
         {
             var range = new HttpRange(offset, size);
-            var res = _client.GetBlobClient(key).DownloadStreaming(range);
+            var res = GetBlobClient(key).DownloadStreaming(range);
             var br = new BinaryReader(res.Value.Content);
             var buffer = br.ReadBytes(size);
 
@@ -275,7 +293,7 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
         try
         {
             var range = new HttpRange(offset, size);
-            var res = await _client.GetBlobClient(key).DownloadStreamingAsync(range, cancellationToken: ct);
+            var res = await GetBlobClient(key).DownloadStreamingAsync(range, cancellationToken: ct);
             var br = new BinaryReader(res.Value.Content);
             var buffer = br.ReadBytes(size);
 
@@ -304,7 +322,7 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
         try
         {
             var range = new HttpRange(offset);
-            var res = _client.GetBlobClient(key).DownloadStreaming(range);
+            var res = GetBlobClient(key).DownloadStreaming(range);
             var stream = res.Value.Content;
             Interlocked.Increment(ref m_stats.CountGetStream);
             return stream;
@@ -331,7 +349,7 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
         try
         {
             var range = new HttpRange(offset);
-            var res = await _client.GetBlobClient(key).DownloadStreamingAsync(range, cancellationToken: ct);
+            var res = await GetBlobClient(key).DownloadStreamingAsync(range, cancellationToken: ct);
             var stream = res.Value.Content;
             Interlocked.Increment(ref m_stats.CountGetStream);
             return stream;
@@ -349,7 +367,7 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
     public IEnumerable<(string key, long size)> List()
     {
         CheckDisposed();
-        foreach (var page in _client.GetBlobs())
+        foreach (var page in _client.GetBlobs(prefix: _prefix))
         {
             yield return (page.Name, page.Properties.ContentLength ?? 0);
         }
@@ -361,7 +379,7 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
     public async IAsyncEnumerable<(string key, long size)> ListAsync([EnumeratorCancellation] CancellationToken ct = default)
     {
         CheckDisposed();
-        await foreach (var page in _client.GetBlobsAsync(cancellationToken: ct))
+        await foreach (var page in _client.GetBlobsAsync(prefix: _prefix, cancellationToken: ct))
         {
             yield return (page.Name, page.Properties.ContentLength ?? 0);
         }
@@ -376,7 +394,7 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
 
         try
         {
-            _client.DeleteBlob(key);
+            _client.DeleteBlob(Key(key));
             Interlocked.Increment(ref m_stats.CountRemove);
         }
         catch
@@ -394,7 +412,7 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
 
         try
         {
-            await _client.DeleteBlobAsync(key, cancellationToken: ct);
+            await _client.DeleteBlobAsync(Key(key), cancellationToken: ct);
             Interlocked.Increment(ref m_stats.CountRemove);
         }
         catch
