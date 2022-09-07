@@ -62,10 +62,39 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
         var client = new BlobServiceClient(new Uri($"{uri.Scheme}://{uri.Host}"), sasCred);
         var localPath = uri.LocalPath[0] == '/' ? uri.LocalPath.Substring(1) : uri.LocalPath;
         _client = client.GetBlobContainerClient(localPath);
-        _prefix = prefix;
+        if (!localPath.StartsWith(_client.Name)) throw new Exception($"Expected \"{localPath}\" to start with \"{_client.Name}\".");
 
-        if (string.IsNullOrWhiteSpace(_prefix) || _prefix == "/") _prefix = null;
-        if (_prefix != null && _prefix.Length > 0 && _prefix.Last() != '/') _prefix += '/';
+        // extract optional [PATHPREFIX] following the container name (or null if there is none)
+        // https://[STORAGEACCOUNT].blob.core.windows.net/[CONTAINERNAME]/[PATHPREFIX]?sv=2020-10-02&...
+        var path = clean(localPath.Substring(_client.Name.Length));
+        //Console.WriteLine($"path    : {path ?? "<null>"}");
+
+        // clean up user-specified prefix (trim, remove '/' at start) 
+        prefix = clean(prefix);
+        //Console.WriteLine($"prefix  : {prefix ?? "<null>"}");
+
+        // create final prefix: [PATH]/[PREFIX]/
+        _prefix = (path, prefix) switch
+        {
+            (null, null)         => null,
+            (string a, null)     => a,
+            (null, string b)     => b,
+            (string a, string b) => Path.Combine(a, b)
+        };
+        _prefix = _prefix?.Replace('\\', '/');
+        if (_prefix != null && _prefix.Last() != '/') _prefix += '/';
+
+        // Console.WriteLine($"_prefix : {_prefix ?? "<null>"}");
+
+        static string? clean(string? s)
+        {
+            if (s == null) return s;
+            s = s.Trim().Replace('\\', '/');
+            while (s.Length > 0 && s[0] == '/') s = s.Substring(1);
+            while (s.Length > 0 && s.Last() == '/') s = s.Substring(0, s.Length - 1);
+            if (string.IsNullOrWhiteSpace(s)) return null;
+            return s;
+        }
     }
 
     /// <summary>
