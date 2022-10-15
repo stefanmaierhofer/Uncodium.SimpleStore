@@ -181,6 +181,38 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
     }
 
     /// <summary>
+    /// Get write stream for given key.
+    /// </summary>
+    public Stream GetWriteStream(string key, bool overwrite = true, Action<long>? onProgress = default, CancellationToken ct = default)
+    {
+        var options = new BlobOpenWriteOptions();
+        if (onProgress != null) options.ProgressHandler = new Progress<long>(onProgress);
+
+        var stream = GetBlobClient(key).OpenWrite(overwrite, options, ct);
+
+        Interlocked.Increment(ref m_stats.CountAdd);
+        m_stats.LatestKeyAdded = m_stats.LatestKeyFlushed = key;
+
+        return stream;
+    }
+
+    /// <summary>
+    /// Get write stream for given key.
+    /// </summary>
+    public async Task<Stream> GetWriteStreamAsync(string key, bool overwrite = true, Action<long>? onProgress = default, CancellationToken ct = default)
+    {
+        var options = new BlobOpenWriteOptions();
+        if (onProgress != null) options.ProgressHandler = new Progress<long>(onProgress);
+
+        var stream = await GetBlobClient(key).OpenWriteAsync(overwrite, options, ct);
+
+        Interlocked.Increment(ref m_stats.CountAdd);
+        m_stats.LatestKeyAdded = m_stats.LatestKeyFlushed = key;
+
+        return stream;
+    }
+
+    /// <summary>
     /// True if key exists in store.
     /// </summary>
     public bool Contains(string key)

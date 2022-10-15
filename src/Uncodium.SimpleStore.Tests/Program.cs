@@ -1,4 +1,5 @@
-﻿using NUnit.Framework.Constraints;
+﻿using NUnit.Framework;
+using NUnit.Framework.Constraints;
 using NUnit.Framework.Internal;
 using System;
 using System.Diagnostics;
@@ -290,6 +291,26 @@ static void TestCreateWithInitialSize()
     }
 }
 
+{
+    var path = Path.GetFullPath(@"T:\tmp\20221002_teststore");
+    Console.WriteLine(path);
+
+    //using (var storeRW = new SimpleDiskStore(path))
+    //{
+    //    storeRW.Add("foo", "bar");
+    //    storeRW.Flush();
+    //    Console.WriteLine("press enter to stop");
+    //    Console.ReadLine();
+    //}
+
+    using (var storeRO = new SimpleDiskStore(path, readOnlySnapshot: true, logLines: line => { }, initialSizeInBytes: 0))
+    {
+        var x = storeRO.Get("foo");
+        Console.WriteLine(x);
+        Assert.AreEqual(x, "bar");
+    }
+}
+
 //var tests = new Uncodium.SimpleStore.Tests.Tests();
 ////tests.CanAddAndGetMultiThreadedDiskStore();
 ////tests.CanAddParallelDiskStore();
@@ -301,13 +322,16 @@ static void TestCreateWithInitialSize()
 
 //TestConcurrentCallsWithRespectToDispose();
 
-using var simpleStore = new SimpleAzureBlobStore(
-    "https://???/tmp/dir1/?sv=2020-10-02&st=2022-09-07T04%3A29%3A20Z&se=2022-09-08T04%3A29%3A20Z&sr=c&sp=racwdxlt&sig=sGoOOMCs6%2FpOH6AP5N8irV1sc51JHc0YmqF8w1hg9Rw%3D",
-    prefix: "dir1/dir2/"
-    );
-simpleStore.Add("foo", "bar");
-Console.WriteLine("done");
-Console.ReadLine();
+//{
+//    using var simpleStore = new SimpleAzureBlobStore(
+//        "https://scratchsm.blob.core.windows.net/20220930-jbshaus?sv=2021-04-10&st=2022-09-30T06%3A25%3A59Z&se=2022-10-01T06%3A25%3A59Z&sr=c&sp=rl&sig=ee6hi%2B36%2B3TygpDeBxpzcThYqdfuGENXkG67G7GeAfg%3D",
+//        "root/1/6/2/6"
+//        );
+//    //var buffer = await simpleStore.GetAsync("root.json");
+//    //Console.WriteLine(Encoding.UTF8.GetString(buffer));
+//    foreach (var x in simpleStore.List()) Console.WriteLine(x);
+//    Console.WriteLine("done");
+//}
 
 //TestCreateWithInitialSize();
 

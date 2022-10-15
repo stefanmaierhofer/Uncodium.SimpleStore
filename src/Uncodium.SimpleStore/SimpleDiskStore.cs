@@ -1378,6 +1378,11 @@ public class SimpleDiskStore : ISimpleStore
         Interlocked.Increment(ref m_stats.CountAdd);
     }
 
+    public Stream GetWriteStream(string key, bool overwrite = true, Action<long>? onProgress = null, CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
+    }
+
     /// <summary>
     /// True if key exists in store.
     /// </summary>

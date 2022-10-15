@@ -115,5 +115,10 @@ public class WrapperRandomFail : ISimpleStore
 
     public long GetReservedBytes()
         => m_random.NextDouble() < m_pGet ? throw new Exception() : m_store.GetReservedBytes();
+
+    public Stream GetWriteStream(string key, bool overwrite = true, Action<long>? onProgress = null, CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
+    }
 }
 

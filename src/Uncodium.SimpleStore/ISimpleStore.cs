@@ -44,6 +44,11 @@ public interface ISimpleStore : IDisposable
     void AddStream(string key, Stream data, Action<long>? onProgress = default, CancellationToken ct = default);
 
     /// <summary>
+    /// Get write stream for given key.
+    /// </summary>
+    Stream GetWriteStream(string key, bool overwrite = true, Action<long>? onProgress = default, CancellationToken ct = default);
+
+    /// <summary>
     /// True if key exists in store.
     /// </summary>
     bool Contains(string key);

@@ -124,6 +124,24 @@ public class SimpleFolderStore : ISimpleStore, ISimpleStoreAsync
         m_stats.LatestKeyAdded = m_stats.LatestKeyFlushed = key;
     }
 
+    public Stream GetWriteStream(string key, bool overwrite = true, Action<long>? onProgress = null, CancellationToken ct = default)
+    {
+        CheckDisposed();
+
+        var dir = Path.GetDirectoryName(key);
+        if (dir != "" && !Directory.Exists(dir)) Directory.CreateDirectory(GetFileNameFromId(dir));
+        var filename = GetFileNameFromId(key);
+
+        var target = File.Open(filename, overwrite ? FileMode.Create : FileMode.CreateNew, FileAccess.Write, FileShare.None);
+
+        ct.ThrowIfCancellationRequested();
+
+        Interlocked.Increment(ref m_stats.CountAdd);
+        m_stats.LatestKeyAdded = m_stats.LatestKeyFlushed = key;
+
+        return target;
+    }
+
     /// <summary>
     /// True if key exists in store.
     /// </summary>
@@ -375,6 +393,11 @@ public class SimpleFolderStore : ISimpleStore, ISimpleStoreAsync
 
     public Task<long> GetReservedBytesAsync(Action<long>? onProgress = null, CancellationToken ct = default)
         => Task.FromResult(GetReservedBytes());
+
+    public Task<Stream> GetWriteStreamAsync(string key, bool overwrite = true, Action<long>? onProgress = null, CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
+    }
 
     #endregion
 }

@@ -151,5 +151,10 @@ public class WrapperRandomDelay : ISimpleStore
         Thread.Sleep(TimeSpan.FromSeconds(m_random.NextDouble() * m_dtFlush));
         return m_store.GetReservedBytes();
     }
+
+    public Stream GetWriteStream(string key, bool overwrite = true, Action<long>? onProgress = null, CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
+    }
 }
 

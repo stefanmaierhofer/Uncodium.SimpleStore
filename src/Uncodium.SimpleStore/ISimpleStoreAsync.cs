@@ -45,6 +45,11 @@ public interface ISimpleStoreAsync : IDisposable
     Task AddStreamAsync(string key, Stream data, Action<long>? onProgress = default, CancellationToken ct = default);
 
     /// <summary>
+    /// Get write stream for given key.
+    /// </summary>
+    Task<Stream> GetWriteStreamAsync(string key, bool overwrite = true, Action<long>? onProgress = default, CancellationToken ct = default);
+
+    /// <summary>
     /// True if key exists in store.
     /// </summary>
     Task<bool> ContainsAsync(string key, CancellationToken ct = default);

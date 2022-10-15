@@ -280,6 +280,11 @@ public class SimpleMemoryStore : ISimpleStore
     /// </summary>
     public long GetReservedBytes() => GetUsedBytes();
 
+    public Stream GetWriteStream(string key, bool overwrite = true, Action<long>? onProgress = null, CancellationToken ct = default)
+    {
+        throw new NotImplementedException();
+    }
+
     /// <summary>
     /// Current version.
     /// </summary>
