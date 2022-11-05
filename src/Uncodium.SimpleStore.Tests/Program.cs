@@ -4,6 +4,7 @@ using NUnit.Framework.Internal;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.IO.MemoryMappedFiles;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -220,8 +221,6 @@ static async Task TestSimpleAzureBlobStore(string sas)
 
 static void TestConcurrentCallsWithRespectToDispose()
 {
-    
-
     var dbDiskLocation = @"T:\teststore";
     Console.WriteLine("open store");
     var store = new SimpleDiskStore(dbDiskLocation, lines =>
@@ -291,23 +290,41 @@ static void TestCreateWithInitialSize()
     }
 }
 
+//{
+//    var m_dataFileName = Path.GetFullPath(@"T:\tmp\20221105.uds");
+//    var MemoryMapName = "mm20221105";
+//    var totalDataFileSizeInBytes = 1024L;
+
+//    var stream = File.Open(m_dataFileName, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
+//    var m_mmf = MemoryMappedFile.CreateFromFile(stream, MemoryMapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, leaveOpen: false);
+//    var m_accessor = m_mmf.CreateViewAccessor(0, totalDataFileSizeInBytes);
+
+//    var totalDataFileSizeInBytes2 = new FileInfo(m_dataFileName).Length;
+
+//    var m_mmf2 = MemoryMappedFile.OpenExisting(MemoryMapName, MemoryMappedFileRights.Read);
+//    var m_accessor2 = m_mmf2.CreateViewAccessor(0, totalDataFileSizeInBytes, MemoryMappedFileAccess.Read);
+//}
+
 {
-    var path = Path.GetFullPath(@"T:\tmp\20221002_teststore");
-    Console.WriteLine(path);
+    var path = Path.GetFullPath(Path.GetRandomFileName());
 
-    //using (var storeRW = new SimpleDiskStore(path))
-    //{
-    //    storeRW.Add("foo", "bar");
-    //    storeRW.Flush();
-    //    Console.WriteLine("press enter to stop");
-    //    Console.ReadLine();
-    //}
-
-    using (var storeRO = new SimpleDiskStore(path, readOnlySnapshot: true, logLines: line => { }, initialSizeInBytes: 0))
+    try
     {
-        var x = storeRO.Get("foo");
-        Console.WriteLine(x);
-        Assert.AreEqual(x, "bar");
+        using (var storeRW = new SimpleDiskStore(path, readOnlySnapshot: false, logLines: line => { }, initialSizeInBytes: 0))
+        {
+            storeRW.Add("foo", "bar"); // after this, the mmf name is gone!!! (probably when resizing?)
+
+            using (var storeRO = new SimpleDiskStore(path, readOnlySnapshot: true, logLines: line => { }, initialSizeInBytes: 0))
+            {
+                var x = storeRO.Get("foo");
+                Assert.AreEqual(x, "bar");
+            }
+        }
+    }
+    finally
+    {
+        File.Delete(path);
+        File.Delete(path + ".log");
     }
 }
 

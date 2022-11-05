@@ -114,10 +114,17 @@ public class SimpleDiskStore : ISimpleStore
         else if (File.Exists(path))
         {
             // path is a file ...
-            return ContainsHeader(path)
-                ? StoreLayout.SingleFile
-                : StoreLayout.UnknownFileHeader
-                ;
+            try
+            {
+                return ContainsHeader(path)
+                    ? StoreLayout.SingleFile
+                    : StoreLayout.UnknownFileHeader
+                    ;
+            }
+            catch 
+            {
+                return StoreLayout.SingleFile;
+            }
         }
         else
         {
@@ -1221,7 +1228,7 @@ public class SimpleDiskStore : ISimpleStore
                     newCapacity = new FileInfo(m_dataFileName).Length;
                 }
 
-                m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.OpenOrCreate, null, newCapacity, MemoryMappedFileAccess.ReadWrite);
+                m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.OpenOrCreate, MemoryMapName, newCapacity, MemoryMappedFileAccess.ReadWrite);
                 //m_accessorWriteStream = File.Open(m_dataFileName, FileMode.Open, FileAccess.Write, FileShare.ReadWrite);
 
                 //m_accessorWriteStream = File.Open(m_dataFileName, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
