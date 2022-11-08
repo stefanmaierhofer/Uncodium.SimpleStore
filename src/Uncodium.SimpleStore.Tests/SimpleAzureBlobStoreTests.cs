@@ -13,8 +13,8 @@ public class SimpleAzureBlobStoreTests
 
     private const string SAS =
         "https://tmpfast.blob.core.windows.net/simpleazureblobstoretests" +
-        "?sv=2021-04-10&st=2022-10-15T13%3A07%3A46Z&se=2022-10-16T13%3A07%3A46Z" + 
-        "&sr=c&sp=racwdxltf&sig=qmJ33DD%2F3sMxJoBHPG2zZGsuiS01e8mH5ZSFp7oQbaw%3D"
+        "?sv=2021-08-06&st=2022-11-08T17%3A47%3A54Z&se=2022-11-08T18%3A47%3A00Z" +
+        "&sr=c&sp=racwdxltf&sig=ejjdObTv%2BdarvqmUcH0e1o1OdZixzwXH1q0goRTHyu0%3D"
         ;
 
     [Test]

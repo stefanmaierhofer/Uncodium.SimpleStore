@@ -1099,7 +1099,10 @@ public class SimpleDiskStore : ISimpleStore
                     m_dataFileName = m_dbDiskLocation;
 
                     // create empty store
-                    Header.CreateEmptyDataFile(m_dataFileName, initialSizeInBytes);
+                    if (!m_readOnlySnapshot)
+                    {
+                        Header.CreateEmptyDataFile(m_dataFileName, initialSizeInBytes);
+                    }
                 }
                 break;
 
@@ -1116,21 +1119,51 @@ public class SimpleDiskStore : ISimpleStore
         {
             try
             {
-                m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.Open, MemoryMapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.Read);
+                if (!File.Exists(m_dataFileName)) throw new FileNotFoundException();
+                var stream = File.Open(m_dataFileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                m_mmf = MemoryMappedFile.CreateFromFile(
+                    stream,
+                    mapName: null,
+                    totalDataFileSizeInBytes,
+                    MemoryMappedFileAccess.Read,
+                    HandleInheritability.None,
+                    leaveOpen: false
+                    );
+            }
+            catch
+            {
+                m_mmf = MemoryMappedFile.OpenExisting(MemoryMapName, MemoryMappedFileRights.Read);
+            }
+            m_accessor = m_mmf.CreateViewAccessor(0, totalDataFileSizeInBytes, MemoryMappedFileAccess.Read);
+        }
+        else
+        {
+            try 
+            { 
+                var stream = File.Open(m_dataFileName, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
+                m_mmf = MemoryMappedFile.CreateFromFile(
+                    stream, 
+                    MemoryMapName,
+                    totalDataFileSizeInBytes,
+                    MemoryMappedFileAccess.ReadWrite,
+                    HandleInheritability.None,
+                    leaveOpen: false
+                    );
             }
             catch
             {
                 m_mmf = MemoryMappedFile.OpenExisting(MemoryMapName, MemoryMappedFileRights.Read);
             }
 
-            m_accessor = m_mmf.CreateViewAccessor(0, totalDataFileSizeInBytes, MemoryMappedFileAccess.Read);
-        }
-        else
-        {
-            var stream = File.Open(m_dataFileName, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
-            m_mmf = MemoryMappedFile.CreateFromFile(stream, MemoryMapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, leaveOpen: false);
-            //m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.OpenOrCreate, MemoryMapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.ReadWrite);
-            m_accessor = m_mmf.CreateViewAccessor(0, totalDataFileSizeInBytes);
+            try
+            {
+                m_accessor = m_mmf.CreateViewAccessor(0, totalDataFileSizeInBytes);
+            }
+            catch
+            {
+                m_mmf.Dispose();
+                throw;
+            }
         }
 
         // init header
