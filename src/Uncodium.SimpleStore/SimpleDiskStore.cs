@@ -1190,7 +1190,7 @@ public class SimpleDiskStore : ISimpleStore
     private bool m_mmfIsClosedForResize = false;
     public bool SimulateFullDiskOnNextResize { get; set; }
 
-    private void EnsureSpaceFor(long numberOfBytes)
+    public void EnsureSpaceFor(long numberOfBytes)
     {
         if (SimulateFullDiskOnNextResize || m_header.DataCursor + numberOfBytes > m_header.TotalFileSize)
         {
@@ -1215,7 +1215,7 @@ public class SimpleDiskStore : ISimpleStore
                 {
                     //var sw = new Stopwatch(); sw.Restart();
 
-                    m_header.TotalFileSize = newTotalFileSize;
+                    m_header.TotalFileSize = newTotalFileSize; // set in ReOpenMemoryMappedFile
 
                     m_accessor.Dispose();
                     //m_accessorWriteStream.Dispose();
@@ -1269,6 +1269,8 @@ public class SimpleDiskStore : ISimpleStore
 
                 m_accessor = m_mmf.CreateViewAccessor(0, newCapacity);
                 m_header.RenewAccessor(m_accessor);
+                //m_header.TotalFileSize = newCapacity;
+                //m_accessor.Flush();
 
                 m_mmfIsClosedForResize = false;
             }

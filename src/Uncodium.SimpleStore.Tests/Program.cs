@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Uncodium.SimpleStore;
 
 #pragma warning disable CS8321
+#pragma warning disable IDE0230 // Use UTF-8 string literal
 
 static void TestConcurrentCallsToFlush()
 {
@@ -25,7 +26,7 @@ static void TestConcurrentCallsToFlush()
     });
     Console.WriteLine("add many entries");
     for (var i = 0; i < 1_000_000; i++) store.Add(Guid.NewGuid().ToString(), new[] { (byte)42 });
-            
+
 
     var go = new ManualResetEventSlim();
 
@@ -310,16 +311,12 @@ static void TestCreateWithInitialSize()
 
     try
     {
-        using (var storeRW = new SimpleDiskStore(path, readOnlySnapshot: false, logLines: line => { }, initialSizeInBytes: 0))
-        {
-            storeRW.Add("foo", "bar"); // after this, the mmf name is gone!!! (probably when resizing?)
+        using var storeRW = new SimpleDiskStore(path, readOnlySnapshot: false, logLines: line => { }, initialSizeInBytes: 0);
+        storeRW.Add("foo", "bar"); // after this, the mmf name is gone!!! (probably when resizing?)
 
-            using (var storeRO = new SimpleDiskStore(path, readOnlySnapshot: true, logLines: line => { }, initialSizeInBytes: 0))
-            {
-                var x = storeRO.Get("foo");
-                Assert.AreEqual(x, "bar");
-            }
-        }
+        using var storeRO = new SimpleDiskStore(path, readOnlySnapshot: true, logLines: line => { }, initialSizeInBytes: 0);
+        var x = storeRO.Get("foo");
+        Assert.AreEqual(x, "bar");
     }
     finally
     {

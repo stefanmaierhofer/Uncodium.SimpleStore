@@ -12,9 +12,10 @@ public class SimpleAzureBlobStoreTests
     private static readonly string PREFIX = $"tests/{DateTimeOffset.UtcNow:O}";
 
     private const string SAS =
-        "https://tmpfast.blob.core.windows.net/simpleazureblobstoretests" +
-        "?sv=2021-08-06&st=2022-11-08T17%3A47%3A54Z&se=2022-11-08T18%3A47%3A00Z" +
-        "&sr=c&sp=racwdxltf&sig=ejjdObTv%2BdarvqmUcH0e1o1OdZixzwXH1q0goRTHyu0%3D"
+        "https://scratchsm.blob.core.windows.net/simplestoretests?" +
+        "sv=2021-10-04&st=2023-03-17T06%3A31%3A48Z&" +
+        "se=2023-03-18T06%3A31%3A48Z&sr=c&sp=racwdxltf&" +
+        "sig=QB0at5gJe4U%2FnbaCD3muHAe%2FOnUETAjXLgDtEp6E8ek%3D"
         ;
 
     [Test]
