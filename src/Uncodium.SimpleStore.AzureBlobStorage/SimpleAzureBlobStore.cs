@@ -324,8 +324,8 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
         Interlocked.Increment(ref m_stats.CountGetSlice);
         try
         {
-            var range = new HttpRange(offset, size);
-            var res = GetBlobClient(key).DownloadStreaming(range);
+            var options = new BlobDownloadOptions { Range = new HttpRange(offset, size) };
+            var res = GetBlobClient(key).DownloadStreaming(options);
             var br = new BinaryReader(res.Value.Content);
             var buffer = br.ReadBytes(size);
 
@@ -353,8 +353,8 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
         Interlocked.Increment(ref m_stats.CountGetSlice);
         try
         {
-            var range = new HttpRange(offset, size);
-            var res = await GetBlobClient(key).DownloadStreamingAsync(range, cancellationToken: ct);
+            var options = new BlobDownloadOptions { Range = new HttpRange(offset, size) };
+            var res = await GetBlobClient(key).DownloadStreamingAsync(options, cancellationToken: ct);
             var br = new BinaryReader(res.Value.Content);
             var buffer = br.ReadBytes(size);
 
@@ -382,8 +382,8 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
         Interlocked.Increment(ref m_stats.CountGetStream);
         try
         {
-            var range = new HttpRange(offset);
-            var res = GetBlobClient(key).DownloadStreaming(range);
+            var options = new BlobDownloadOptions { Range = new HttpRange(offset) };
+            var res = GetBlobClient(key).DownloadStreaming(options);
             var stream = res.Value.Content;
             Interlocked.Increment(ref m_stats.CountGetStream);
             return stream;
@@ -409,8 +409,8 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
         Interlocked.Increment(ref m_stats.CountGetStream);
         try
         {
-            var range = new HttpRange(offset);
-            var res = await GetBlobClient(key).DownloadStreamingAsync(range, cancellationToken: ct);
+            var options = new BlobDownloadOptions { Range = new HttpRange(offset) };
+            var res = await GetBlobClient(key).DownloadStreamingAsync(options, cancellationToken: ct);
             var stream = res.Value.Content;
             Interlocked.Increment(ref m_stats.CountGetStream);
             return stream;
