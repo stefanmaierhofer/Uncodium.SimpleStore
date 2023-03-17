@@ -613,6 +613,12 @@ public class SimpleDiskStore : ISimpleStore
             get => new(m_accessor.ReadInt64(m_offsetHeader + 56), new TimeSpan(m_accessor.ReadInt64(m_offsetHeader + 64)));
             //set { m_accessor.Write(m_offset + 56, Created.Ticks); m_accessor.Write(m_offset + 64, Created.Offset.Ticks); }
         }
+        // [72] 1 byte
+        public bool IsResizing 
+         {
+            get => m_accessor.ReadBoolean(m_offsetHeader + 72);
+            set => m_accessor.Write(m_offsetHeader + 72, value);
+        }
 
         #endregion
 
