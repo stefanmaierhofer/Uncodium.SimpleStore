@@ -930,7 +930,7 @@ public class SimpleDiskStore : ISimpleStore
 
     private void Log(params string[] lines)
     {
-        if (!m_readOnlySnapshot && f_logLines is not null)
+        if (f_logLines != null)
         {
             lock (f_logLines)
             {
@@ -975,23 +975,26 @@ public class SimpleDiskStore : ISimpleStore
         }
         else
         {
-            string logFileName;
-            if (Directory.Exists(m_dbDiskLocation))
+            if (!m_readOnlySnapshot)
             {
-                // deprecated format/layout
-                logFileName = Path.Combine(m_dbDiskLocation, "log.txt");
-            }
-            else
-            {
-                // new format/layout
-                logFileName = m_dbDiskLocation + ".log";
+                string logFileName;
+                if (Directory.Exists(m_dbDiskLocation))
+                {
+                    // deprecated format/layout
+                    logFileName = Path.Combine(m_dbDiskLocation, "log.txt");
+                }
+                else
+                {
+                    // new format/layout
+                    logFileName = m_dbDiskLocation + ".log";
 
-            }
-            f_logLines = lines => File.AppendAllLines(logFileName, lines.Select(line => $"[{DateTimeOffset.Now}] {line}"));
+                }
+                f_logLines = lines => File.AppendAllLines(logFileName, lines.Select(line => $"[{DateTimeOffset.Now}] {line}"));
 
-            Log(
-                $"log file              : {Path.GetFullPath(logFileName)}"
-                );
+                Log(
+                    $"log file              : {Path.GetFullPath(logFileName)}"
+                    );
+            }
         }
 
         Init(initialSizeInBytes);
