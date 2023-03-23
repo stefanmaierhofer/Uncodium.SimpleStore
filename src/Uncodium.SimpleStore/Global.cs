@@ -1,7 +1,7 @@
 ﻿/*
    MIT License
    
-   Copyright (c) 2014,2015,2016,2017,2018,2019,2020,2021,2022 Stefan Maierhofer.
+   Copyright (c) 2014,2015,2016,2017,2018,2019,2020,2021,2022,2023 Stefan Maierhofer.
    
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
@@ -32,6 +32,6 @@ public static class Global
     /// <summary>
     /// Current version.
     /// </summary>
-    public const string Version = "3.0.22";
+    public const string Version = "3.0.23";
 }
 
