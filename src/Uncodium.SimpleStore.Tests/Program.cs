@@ -1,10 +1,7 @@
 ﻿using NUnit.Framework;
-using NUnit.Framework.Constraints;
-using NUnit.Framework.Internal;
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.IO.MemoryMappedFiles;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -291,21 +288,6 @@ static void TestCreateWithInitialSize()
     }
 }
 
-//{
-//    var m_dataFileName = Path.GetFullPath(@"T:\tmp\20221105.uds");
-//    var MemoryMapName = "mm20221105";
-//    var totalDataFileSizeInBytes = 1024L;
-
-//    var stream = File.Open(m_dataFileName, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
-//    var m_mmf = MemoryMappedFile.CreateFromFile(stream, MemoryMapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, leaveOpen: false);
-//    var m_accessor = m_mmf.CreateViewAccessor(0, totalDataFileSizeInBytes);
-
-//    var totalDataFileSizeInBytes2 = new FileInfo(m_dataFileName).Length;
-
-//    var m_mmf2 = MemoryMappedFile.OpenExisting(MemoryMapName, MemoryMappedFileRights.Read);
-//    var m_accessor2 = m_mmf2.CreateViewAccessor(0, totalDataFileSizeInBytes, MemoryMappedFileAccess.Read);
-//}
-
 {
     var path = Path.GetFullPath(Path.GetRandomFileName());
 
@@ -324,106 +306,3 @@ static void TestCreateWithInitialSize()
         File.Delete(path + ".log");
     }
 }
-
-//var tests = new Uncodium.SimpleStore.Tests.Tests();
-////tests.CanAddAndGetMultiThreadedDiskStore();
-////tests.CanAddParallelDiskStore();
-//tests.CanOpenDiskStoreTwiceReadonly();
-//return;
-
-//using var largestore = new SimpleDiskStore(@"t:\teststore_large");
-//return;
-
-//TestConcurrentCallsWithRespectToDispose();
-
-//{
-//    using var simpleStore = new SimpleAzureBlobStore(
-//        "https://scratchsm.blob.core.windows.net/20220930-jbshaus?sv=2021-04-10&st=2022-09-30T06%3A25%3A59Z&se=2022-10-01T06%3A25%3A59Z&sr=c&sp=rl&sig=ee6hi%2B36%2B3TygpDeBxpzcThYqdfuGENXkG67G7GeAfg%3D",
-//        "root/1/6/2/6"
-//        );
-//    //var buffer = await simpleStore.GetAsync("root.json");
-//    //Console.WriteLine(Encoding.UTF8.GetString(buffer));
-//    foreach (var x in simpleStore.List()) Console.WriteLine(x);
-//    Console.WriteLine("done");
-//}
-
-//TestCreateWithInitialSize();
-
-//var store = new SimpleAzureBlobStore(
-//                "https://scratchsm.blob.core.windows.net/test?sv=2020-04-08&st=2021-09-25T06%3A23%3A06Z&se=2021-09-26T06%3A23%3A06Z&sr=c&sp=racwdxlt&sig=5J7kptSGFRzBMNuUy7qgh30jej0O22Ug3RXS1ogMCAE%3D"
-//                );
-
-//store.Add("my/folder/foo.json", Encoding.UTF8.GetBytes("bar"));
-//store.Remove("my/folder/foo.json");
-
-
-
-//var store = new SimpleFolderStore(@"E:\tmp\storefoldertest");
-//store.Add("my/path/foo.json", "bar");
-//store.AddStream("my/blubber.json", new MemoryStream(Encoding.UTF8.GetBytes("bar bar bar")));
-//Console.WriteLine($"{store.Contains("my/path/foo.json")}");
-//Console.WriteLine($"{store.GetSize("my/path/foo.json")}");
-//Console.WriteLine($"{store.Contains("my/path2/foo.json")}");
-//Console.WriteLine($"{store.GetSize("my/path2/foo.json")}");
-//store.Remove("my/path/foo.json");
-//Console.WriteLine("list");
-//foreach (var x in store.List()) Console.WriteLine($"{x.key}");
-
-
-
-
-//TestSimpleAzureBlobStore("your sas here").Wait();
-
-
-//ExtractStoreToFolder(@"T:\Vgm\Data\20210429_adorjan_store2.1.10", @"E:\tmp\20210429_adorjan_store2.1.10_new");
-//CompareFolders(@"E:\tmp\20210429_adorjan_store2.1.10_old", @"E:\tmp\20210429_adorjan_store2.1.10_new");
-
-//using var store = new SimpleDiskStore(@"E:\tmp\foo");
-
-
-//TestAutoConversion();
-
-//TestThroughput();
-
-//Console.WriteLine(Encoding.UTF8.GetBytes($"{DateTimeOffset.Now:O}").Length);
-
-//var dbDiskLocation = @"T:\teststore";
-//var store = new SimpleDiskStore(dbDiskLocation);
-//try
-//{
-//    store.Add("foo1", "bar");
-//    store.Flush();
-//    store.SimulateFullDiskOnNextResize = true;
-//    store.Add("foo2", "bar");
-//    store.Flush();
-//}
-//catch (System.IO.IOException e)
-//{
-//    store.SimulateFullDiskOnNextResize = false;
-//    Console.WriteLine($"The application caught an exception: {e.Message}.");
-//    Console.WriteLine("Trying to use store after exception.");
-//    string GetString(string key) => Encoding.UTF8.GetString(store.Get(key));
-//    Console.WriteLine($"Read from store: foo1 -> {GetString("foo1")}");
-//    store.Add("foo3", "bar3");
-//    Console.WriteLine($"Add to store   : foo3 -> foo3");
-//    Console.WriteLine($"Read from store: foo3 -> {GetString("foo3")}");
-//}
-
-//TestConcurrentCallsToFlush();
-
-//var readOnlyStore = SimpleDiskStore.OpenReadOnlySnapshot(dbDiskLocation);
-//Console.WriteLine(Encoding.UTF8.GetString(readOnlyStore.Get("foo")));
-
-//store.Dispose();
-
-//Console.WriteLine(Encoding.UTF8.GetString(readOnlyStore.Get("foo")));
-
-//readOnlyStore.Dispose();
-
-//var readOnlyStore2 = SimpleDiskStore.OpenReadOnlySnapshot(dbDiskLocation);
-//Console.WriteLine(Encoding.UTF8.GetString(readOnlyStore2.Get("foo")));
-
-
-
-//new Tests().CanAddAndGetMultiThreadedDiskStore();
-

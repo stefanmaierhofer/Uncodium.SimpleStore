@@ -207,6 +207,87 @@ namespace Uncodium.SimpleStore.Tests
 
         #endregion
 
+        #region Logging
+
+        [Test]
+        public void CustomLog()
+        {
+            try
+            {
+                var hasLogged = false;
+                using var store = new SimpleDiskStore(
+                    path: TestStoreSmallPath,
+                    readOnlySnapshot: false,
+                    logLines: lines => hasLogged = true,
+                    initialSizeInBytes: 0L
+                    );
+                Assert.True(hasLogged);
+            }
+            finally
+            {
+                File.Delete(TestStoreSmallPath);
+                File.Delete(TestStoreSmallPath + ".log");
+            }
+        }
+
+        [Test]
+        public void CustomLogReadOnlyStore()
+        {
+            try
+            {
+                // init empty store
+                var initStore = new SimpleDiskStore(path: TestStoreSmallPath);
+                initStore.Dispose();
+
+                var hasLogged = false;
+                using var store = new SimpleDiskStore(
+                    path: TestStoreSmallPath,
+                    readOnlySnapshot: true,
+                    logLines: lines => hasLogged = true,
+                    initialSizeInBytes: 0L
+                    );
+                Assert.True(hasLogged);
+            }
+            finally
+            {
+                File.Delete(TestStoreSmallPath);
+                File.Delete(TestStoreSmallPath + ".log");
+            }
+        }
+
+        [Test]
+        public void CustomLogReadOnlyLogFileCollision()
+        {
+            try
+            {
+                bool hasLoggedReadWrite = false;
+                using var readWriteStore = new SimpleDiskStore(
+                    path: TestStoreSmallPath,
+                    readOnlySnapshot: false,
+                    logLines: lines => hasLoggedReadWrite = true,
+                    initialSizeInBytes: 0L
+                    );
+
+                bool hasLoggedReadOnly = false;
+                using var store = new SimpleDiskStore(
+                    path: TestStoreSmallPath,
+                    readOnlySnapshot: true,
+                    logLines: lines => hasLoggedReadOnly = true,
+                    initialSizeInBytes: 0L
+                    );
+
+                Assert.True(hasLoggedReadWrite);
+                Assert.True(hasLoggedReadOnly);
+            }
+            finally
+            {
+                File.Delete(TestStoreSmallPath);
+                File.Delete(TestStoreSmallPath + ".log");
+            }
+        }
+
+        #endregion
+
         #region Add
 
         [Test]
