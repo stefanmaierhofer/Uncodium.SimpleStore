@@ -989,6 +989,9 @@ public class SimpleDiskStore : ISimpleStore
                     logFileName = m_dbDiskLocation + ".log";
 
                 }
+
+                var dir = new DirectoryInfo(Path.GetDirectoryName(logFileName));
+                if (!dir.Exists) dir.Create();
                 f_logLines = lines => File.AppendAllLines(logFileName, lines.Select(line => $"[{DateTimeOffset.Now}] {line}"));
 
                 Log(
@@ -1270,11 +1273,11 @@ public class SimpleDiskStore : ISimpleStore
                     newCapacity = new FileInfo(m_dataFileName).Length;
                 }
 
-                m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.OpenOrCreate, MemoryMapName, newCapacity, MemoryMappedFileAccess.ReadWrite);
+                //m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.OpenOrCreate, MemoryMapName, newCapacity, MemoryMappedFileAccess.ReadWrite);
                 //m_accessorWriteStream = File.Open(m_dataFileName, FileMode.Open, FileAccess.Write, FileShare.ReadWrite);
 
-                //m_accessorWriteStream = File.Open(m_dataFileName, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
-                //m_mmf = MemoryMappedFile.CreateFromFile(m_accessorWriteStream, null, newCapacity, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, false);
+                var stream = File.Open(m_dataFileName, FileMode.Open, FileAccess.ReadWrite, FileShare.Read);
+                m_mmf = MemoryMappedFile.CreateFromFile(stream, null, newCapacity, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, false);
 
                 m_accessor = m_mmf.CreateViewAccessor(0, newCapacity);
                 m_header.RenewAccessor(m_accessor);
