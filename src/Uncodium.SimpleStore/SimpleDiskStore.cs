@@ -870,13 +870,39 @@ public class SimpleDiskStore : ISimpleStore
             CheckDisposed();
 
             var token = Guid.NewGuid();
-            if (!m_readOnlySnapshot) Log(
-                $"shutdown {token} : begin",
-                $"shutdown {token} : managed thread id is {Environment.CurrentManagedThreadId}",
-                $"shutdown {token} : reserved space is {m_header.TotalFileSize:N0} bytes",
-                $"shutdown {token} : used space is {m_header.DataCursor.Value:N0} bytes",
-                $"shutdown {token} : index has {m_dbIndex.Count:N0} entries"
-                );
+            if (!m_readOnlySnapshot)
+            {
+                Log(
+                    $"shutdown {token} : begin",
+                    $"shutdown {token} : managed thread id is {Environment.CurrentManagedThreadId}"
+                    );
+                try
+                {
+                    Log(
+                        $"shutdown {token} : reserved space is {m_header.TotalFileSize:N0} bytes",
+                        $"shutdown {token} : used space is {m_header.DataCursor.Value:N0} bytes"
+                        );
+                }
+                catch (Exception e)
+                {
+                    Log(
+                        $"shutdown {token} : reserved space is NOT READABLE ({e.Message})",
+                        $"shutdown {token} : used space is NOT READABLE ({e.Message})"
+                        );
+                }
+                try
+                {
+                    Log(
+                        $"shutdown {token} : index has {m_dbIndex.Count:N0} entries"
+                        );
+                }
+                catch (Exception e)
+                {
+                    Log(
+                        $"shutdown {token} : index has UNKNOWN entries ({e.Message})"
+                        );
+                }
+            }
 
             while (true)
             {
@@ -888,7 +914,7 @@ public class SimpleDiskStore : ISimpleStore
 
                         if (!m_readOnlySnapshot)
                         {
-                            m_accessor.Flush();
+                            try { m_accessor.Flush(); } catch { }
                             if (Stats.LatestKeyAdded is not null) Log(
                                 $"shutdown {token} : flush everything to disk (latest key added is {Stats.LatestKeyAdded ?? "<none>"})"
                                 );
@@ -1150,9 +1176,10 @@ public class SimpleDiskStore : ISimpleStore
         }
         else
         {
+            FileStream? stream = null;
             try 
             { 
-                var stream = File.Open(m_dataFileName, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
+                stream = File.Open(m_dataFileName, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
                 m_mmf = MemoryMappedFile.CreateFromFile(
                     stream, 
                     MemoryMapName,
@@ -1164,6 +1191,7 @@ public class SimpleDiskStore : ISimpleStore
             }
             catch
             {
+                stream?.Dispose();
                 m_mmf = MemoryMappedFile.OpenExisting(MemoryMapName, MemoryMappedFileRights.Read);
             }
 
@@ -1277,14 +1305,29 @@ public class SimpleDiskStore : ISimpleStore
                 //m_accessorWriteStream = File.Open(m_dataFileName, FileMode.Open, FileAccess.Write, FileShare.ReadWrite);
 
                 var stream = File.Open(m_dataFileName, FileMode.Open, FileAccess.ReadWrite, FileShare.Read);
-                m_mmf = MemoryMappedFile.CreateFromFile(stream, null, newCapacity, MemoryMappedFileAccess.ReadWrite, HandleInheritability.None, false);
+                try
+                {
+                    m_mmf = MemoryMappedFile.CreateFromFile(
+                        stream,
+                        mapName: MemoryMapName,
+                        newCapacity,
+                        MemoryMappedFileAccess.ReadWrite,
+                        HandleInheritability.None,
+                        leaveOpen: false
+                        );
 
-                m_accessor = m_mmf.CreateViewAccessor(0, newCapacity);
-                m_header.RenewAccessor(m_accessor);
-                m_header.TotalFileSize = newCapacity;
-                m_accessor.Flush();
+                    m_accessor = m_mmf.CreateViewAccessor(0, newCapacity);
+                    m_header.RenewAccessor(m_accessor);
+                    m_header.TotalFileSize = newCapacity;
+                    m_accessor.Flush();
 
-                m_mmfIsClosedForResize = false;
+                    m_mmfIsClosedForResize = false;
+                }
+                catch
+                {
+                    stream?.Dispose();
+                    throw;
+                }
             }
         }
     }
