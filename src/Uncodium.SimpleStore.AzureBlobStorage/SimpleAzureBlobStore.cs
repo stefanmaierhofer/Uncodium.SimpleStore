@@ -326,8 +326,16 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
         {
             var options = new BlobDownloadOptions { Range = new HttpRange(offset, size) };
             var res = GetBlobClient(key).DownloadStreaming(options);
-            var br = new BinaryReader(res.Value.Content);
-            var buffer = br.ReadBytes(size);
+            var stream = res.Value.Content;
+
+            var buffer = new byte[size];
+            int i0 = 0, numberOfBytesLeft = size;
+            while (numberOfBytesLeft > 0)
+            {
+                var bytesRead = stream.Read(buffer, i0, numberOfBytesLeft);
+                numberOfBytesLeft -= bytesRead;
+                i0 += bytesRead;
+            }
 
             Interlocked.Increment(ref m_stats.CountGetSlice);
             return buffer;
@@ -355,8 +363,16 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
         {
             var options = new BlobDownloadOptions { Range = new HttpRange(offset, size) };
             var res = await GetBlobClient(key).DownloadStreamingAsync(options, cancellationToken: ct);
-            var br = new BinaryReader(res.Value.Content);
-            var buffer = br.ReadBytes(size);
+            var stream = res.Value.Content;
+
+            var buffer = new byte[size];
+            int i0 = 0, numberOfBytesLeft = size;
+            while (numberOfBytesLeft > 0)
+            {
+                var bytesRead = await stream.ReadAsync(buffer, i0, numberOfBytesLeft);
+                numberOfBytesLeft -= bytesRead;
+                i0 += bytesRead;
+            }
 
             Interlocked.Increment(ref m_stats.CountGetSlice);
             return buffer;

@@ -13,8 +13,9 @@ public class SimpleAzureBlobStoreTests
 
     private const string SAS =
         "https://scratchsm.blob.core.windows.net/simplestoretests" +
-        "?sv=2021-10-04&st=2023-03-23T17%3A03%3A49Z&se=2023-03-24T17%3A03%3A49Z" +
-        "&sr=c&sp=racwdxltf&sig=4DiF5WPozaQtCzkQS9Ubuh6ny830G2wCVNXbpPiozo8%3D"
+        "?sv=2021-10-04&st=2023-04-10T17%3A47%3A43Z" +
+        "&se=2023-04-11T17%3A47%3A43Z&sr=c&sp=racwdxltf" +
+        "&sig=iiVnLSpIdc9ya5weyzehSX5n1rgBClJMfy6RWQlQWkU%3D"
         ;
 
     [Test]
@@ -146,6 +147,49 @@ public class SimpleAzureBlobStoreTests
             var s = Encoding.UTF8.GetString(ms.ToArray());
             Assert.IsTrue(s == "my stream content");
         }
+
+        await store.RemoveAsync(key);
+
+        var exists = await store.GetAsync(key);
+        Assert.IsTrue(exists == null);
+    }
+
+
+    [Test]
+    public async Task GetSlice()
+    {
+        var key = nameof(GetReadStreamAsync);
+        using var store = new SimpleAzureBlobStore(SAS, PREFIX);
+
+        using (var stream = await store.GetWriteStreamAsync(key))
+        {
+            await new MemoryStream(Encoding.UTF8.GetBytes("0123456789")).CopyToAsync(stream);
+        }
+
+        var buffer = store.GetSlice(key, 1, 4);
+        var s = Encoding.UTF8.GetString(buffer);
+        Assert.IsTrue(s == "1234");
+
+        await store.RemoveAsync(key);
+
+        var exists = await store.GetAsync(key);
+        Assert.IsTrue(exists == null);
+    }
+
+    [Test]
+    public async Task GetSliceAsync()
+    {
+        var key = nameof(GetReadStreamAsync);
+        using var store = new SimpleAzureBlobStore(SAS, PREFIX);
+
+        using (var stream = await store.GetWriteStreamAsync(key))
+        {
+            await new MemoryStream(Encoding.UTF8.GetBytes("0123456789")).CopyToAsync(stream);
+        }
+
+        var buffer = await store.GetSliceAsync(key, 1, 4);
+        var s = Encoding.UTF8.GetString(buffer);
+        Assert.IsTrue(s == "1234");
 
         await store.RemoveAsync(key);
 

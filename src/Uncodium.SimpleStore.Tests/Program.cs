@@ -1,12 +1,16 @@
-﻿using NUnit.Framework;
+﻿using Azure.Storage.Blobs.Models;
+using Azure;
+using NUnit.Framework;
 using System;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Uncodium.SimpleStore;
+using Azure.Storage.Blobs;
 
 #pragma warning disable CS8321
 #pragma warning disable IDE0230 // Use UTF-8 string literal
@@ -288,21 +292,58 @@ static void TestCreateWithInitialSize()
     }
 }
 
+static async Task Test20230410()
 {
-    var path = Path.GetFullPath(Path.GetRandomFileName());
+    var sas = "https://scratchsm.blob.core.windows.net/pointshare" +
+        "?sv=2021-10-04&st=2023-04-10T17%3A47%3A43Z" +
+        "&se=2023-04-11T17%3A47%3A43Z&sr=c&sp=racwdxltf" +
+        "&sig=iiVnLSpIdc9ya5weyzehSX5n1rgBClJMfy6RWQlQWkU%3D";
+    //var size = 459232;
+    var _prefix = "structured1.e57/";
+    var _store = new SimpleAzureBlobStore(sas: sas, prefix: _prefix);
+    
+    //BlobContainerClient _client;
+    //{
+    //    var uri = new Uri(sas);
+    //    var sasCred = new AzureSasCredential(sas.Substring(sas.IndexOf('?') + 1));
+    //    var client = new BlobServiceClient(new Uri($"{uri.Scheme}://{uri.Host}"), sasCred);
+    //    var localPath = uri.LocalPath[0] == '/' ? uri.LocalPath.Substring(1) : uri.LocalPath;
+    //    _client = client.GetBlobContainerClient(localPath);
+    //}
 
-    try
-    {
-        using var storeRW = new SimpleDiskStore(path, readOnlySnapshot: false, logLines: line => { }, initialSizeInBytes: 0);
-        storeRW.Add("foo", "bar"); // after this, the mmf name is gone!!! (probably when resizing?)
+    //{
+    //    var options = new BlobDownloadOptions { Range = new HttpRange(3824, size) };
+    //    var res = await GetBlobClient("3/-1/-2/-2/m").DownloadStreamingAsync(options, CancellationToken.None);
+    //    var br = new BinaryReader(res.Value.Content);
+    //    var buffer = new byte[size];
+    //    await br.BaseStream.ReadAsync((Memory<byte>)buffer);
 
-        using var storeRO = new SimpleDiskStore(path, readOnlySnapshot: true, logLines: line => { }, initialSizeInBytes: 0);
-        var x = storeRO.Get("foo");
-        Assert.AreEqual(x, "bar");
-    }
-    finally
-    {
-        File.Delete(path);
-        File.Delete(path + ".log");
-    }
+    //    string Key(string k) => _prefix == null ? k : (_prefix + k);
+    //    BlobClient GetBlobClient(string k) => _client.GetBlobClient(Key(k));
+    //}
+
+    var _slice = await _store.GetSliceAsync("3/-1/-2/-2/m", 3824, 459232);
+    Console.WriteLine($"_slice = {_slice}");
+    Console.WriteLine($"_slice.Length = {_slice.Length}");
 }
+
+await Test20230410();
+
+//{
+//    var path = Path.GetFullPath(Path.GetRandomFileName());
+
+//    try
+//    {
+//        using var storeRW = new SimpleDiskStore(path, readOnlySnapshot: false, logLines: line => { }, initialSizeInBytes: 0);
+//        storeRW.Add("foo", "bar"); // after this, the mmf name is gone!!! (probably when resizing?)
+
+//        using var storeRO = new SimpleDiskStore(path, readOnlySnapshot: true, logLines: line => { }, initialSizeInBytes: 0);
+//        var x = storeRO.Get("foo");
+//        Assert.AreEqual(x, "bar");
+//    }
+//    finally
+//    {
+//        File.Delete(path);
+//        File.Delete(path + ".log");
+//    }
+//}
