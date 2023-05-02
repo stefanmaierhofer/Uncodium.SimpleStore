@@ -199,8 +199,12 @@ public class SimpleDiskStore : ISimpleStore
         if (m_dbIndex != null) throw new Exception("Invariant e0e827e5-c038-4d0e-8e55-9a235ad4f353.");
         if (m_dataFileName != null) throw new Exception("Invariant a7038834-41c4-41ac-8b55-016f2f9d2969.");
 
-        m_dataFileName = dataFilename; 
+        m_dataFileName = dataFilename;
+        #if Windows
         m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.OpenOrCreate, MemoryMapName, totalDataFileSizeInBytes, MemoryMappedFileAccess.ReadWrite);
+        #else
+        m_mmf = MemoryMappedFile.CreateFromFile(m_dataFileName, FileMode.OpenOrCreate, null, totalDataFileSizeInBytes, MemoryMappedFileAccess.ReadWrite);
+        #endif
         m_accessor = m_mmf.CreateViewAccessor(0, totalDataFileSizeInBytes);
         m_header = new(m_accessor);
         m_dbIndex = new();
@@ -1155,6 +1159,9 @@ public class SimpleDiskStore : ISimpleStore
 
         if (m_readOnlySnapshot)
         {
+            #if Linux
+            throw new Exception("Read-only snapshot not supported on Linux.");
+            #endif
             try
             {
                 if (!File.Exists(m_dataFileName)) throw new FileNotFoundException();
@@ -1181,8 +1188,12 @@ public class SimpleDiskStore : ISimpleStore
             { 
                 stream = File.Open(m_dataFileName, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
                 m_mmf = MemoryMappedFile.CreateFromFile(
-                    stream, 
+                    stream,
+                    #if Windows
                     MemoryMapName,
+                    #else
+                    null,
+                    #endif
                     totalDataFileSizeInBytes,
                     MemoryMappedFileAccess.ReadWrite,
                     HandleInheritability.None,
@@ -1309,7 +1320,11 @@ public class SimpleDiskStore : ISimpleStore
                 {
                     m_mmf = MemoryMappedFile.CreateFromFile(
                         stream,
+                        #if Windows
                         mapName: MemoryMapName,
+                        #else
+                        mapName: null,
+                        #endif
                         newCapacity,
                         MemoryMappedFileAccess.ReadWrite,
                         HandleInheritability.None,
