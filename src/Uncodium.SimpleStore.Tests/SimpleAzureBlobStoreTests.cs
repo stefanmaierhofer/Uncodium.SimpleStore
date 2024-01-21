@@ -13,9 +13,8 @@ public class SimpleAzureBlobStoreTests
 
     private const string SAS =
         "https://scratchsm.blob.core.windows.net/simplestoretests" +
-        "?sv=2021-10-04&st=2023-05-02T06%3A33%3A02Z" +
-        "&se=2023-05-03T06%3A33%3A02Z&sr=c&sp=racwdxltf" +
-        "&sig=Ttq4ov2uJZo%2FzjZwzT3l0pYmLWqYsTclSFELBR5OgxU%3D"
+        "?sv=2023-01-03&st=2024-01-21T07%3A01%3A14Z&se=2024-01-22T07%3A01%3A14Z" +
+        "&sr=c&sp=racwdxltf&sig=zLrz%2Brij31bF0aAQzhxyM2bqXpO5hw6gmID98zmEdSs%3D"
         ;
 
     [Test]
