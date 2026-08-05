@@ -1,10 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net472;net48;net6.0</TargetFrameworks>
+    <TargetFrameworks>net472;net48;net10.0</TargetFrameworks>
     <IsPackable>false</IsPackable>
-    <OutputType>Exe</OutputType>
-    <GenerateProgramFile>false</GenerateProgramFile>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -16,13 +14,12 @@
     <DocumentationFile></DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="nunit" Version="3.13.3" />
-    <PackageReference Include="NUnit3TestAdapter" Version="4.3.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.3.2" />
+    <PackageReference Include="NUnit" Version="4.6.1" />
+    <PackageReference Include="NUnit3TestAdapter" Version="6.2.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Uncodium.SimpleStore.AzureBlobStorage\Uncodium.SimpleStore.AzureBlobStorage.csproj" />
     <ProjectReference Include="..\Uncodium.SimpleStore\Uncodium.SimpleStore.csproj" />
   </ItemGroup>
-  <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

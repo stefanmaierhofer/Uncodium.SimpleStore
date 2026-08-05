@@ -1,11 +1,8 @@
 ﻿using NUnit.Framework;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Uncodium.SimpleStore.Tests
 {
@@ -14,8 +11,7 @@ namespace Uncodium.SimpleStore.Tests
     {
         private static void TestWithFreshStore(Action<string, SimpleDiskStore> test)
         {
-            // random store folder
-            var path = Path.GetFullPath($"store_{Guid.NewGuid()}");
+            var path = Path.Combine(Path.GetTempPath(), $"simple-store-disk-full-{Guid.NewGuid():N}");
             SimpleDiskStore store = null;
             try
             {
@@ -27,7 +23,7 @@ namespace Uncodium.SimpleStore.Tests
             }
             finally
             {
-                try { store.Dispose(); } catch { }
+                store?.Dispose();
                 File.Delete(path);
                 File.Delete(path + ".log");
             }
@@ -58,14 +54,15 @@ namespace Uncodium.SimpleStore.Tests
             store.SimulateFullDiskOnNextResize = false;
 
             var x = GetString(store, "last");
-            Assert.True(x == "entry");
+            Assert.That(x, Is.EqualTo("entry"));
 
             // can access entry that has not been flushed
             var y = GetString(store, "afterLastFlush");
-            Assert.True(y == "mmmh");
+            Assert.That(y, Is.EqualTo("mmmh"));
         });
 
         [Test]
+        [Platform("Win")]
         public void DiskStoreContainsLastEntryFlushedBeforeDiskFull_AfterReopen() => TestWithFreshStore((folder, store) =>
         {
             store.Add("last", "entry");
@@ -80,11 +77,10 @@ namespace Uncodium.SimpleStore.Tests
             using var reopenedStore = SimpleDiskStore.OpenReadOnlySnapshot(folder);
 
             var x = GetString(reopenedStore, "last");
-            Assert.True(x == "entry");
+            Assert.That(x, Is.EqualTo("entry"));
 
             var y = GetString(reopenedStore, "afterLastFlush");
-            //Assert.True(y == null); // before version 3.0.0
-            Assert.True(y == "mmmh"); // 2021-01-25: as of version 3.0.0, index is written directly into data file, so it is up-to-date regardless of Flush()
+            Assert.That(y, Is.EqualTo("mmmh")); // The index is written directly into the data file, so it is current without Flush().
         });
 
         [Test]
@@ -98,8 +94,8 @@ namespace Uncodium.SimpleStore.Tests
             Assert.Throws<IOException>(() => store.Contains("nonexisting"));
             store.SimulateFullDiskOnNextResize = false;
 
-            Assert.True(store.Contains("foo"));
-            Assert.False(store.Contains("nonexisting"));
+            Assert.That(store.Contains("foo"), Is.True);
+            Assert.That(store.Contains("nonexisting"), Is.False);
         });
 
         [Test]
@@ -113,8 +109,8 @@ namespace Uncodium.SimpleStore.Tests
             Assert.Throws<IOException>(() => store.Get("nonexisting"));
             store.SimulateFullDiskOnNextResize = false;
 
-            Assert.True(GetString(store, "foo") == "bar");
-            Assert.True(GetString(store, "nonexisting") == null);
+            Assert.That(GetString(store, "foo"), Is.EqualTo("bar"));
+            Assert.That(GetString(store, "nonexisting"), Is.Null);
         });
 
         [Test]
@@ -128,8 +124,8 @@ namespace Uncodium.SimpleStore.Tests
             Assert.Throws<IOException>(() => store.GetSlice("nonexisting", 0, 1));
             store.SimulateFullDiskOnNextResize = false;
 
-            Assert.True(store.GetSlice("foo", 0, 1).Length == 1);
-            Assert.True(store.GetSlice("nonexisting", 0, 1) == null);
+            Assert.That(store.GetSlice("foo", 0, 1).Length, Is.EqualTo(1));
+            Assert.That(store.GetSlice("nonexisting", 0, 1), Is.Null);
         });
 
         [Test]
@@ -144,10 +140,10 @@ namespace Uncodium.SimpleStore.Tests
             store.SimulateFullDiskOnNextResize = false;
 
             using var s1 = store.GetStream("foo");
-            Assert.True(s1 != null);
+            Assert.That(s1, Is.Not.Null);
 
             using var s2 = store.GetStream("nonexisting");
-            Assert.True(s2 == null);
+            Assert.That(s2, Is.Null);
         });
 
         [Test]
@@ -162,10 +158,10 @@ namespace Uncodium.SimpleStore.Tests
             store.SimulateFullDiskOnNextResize = false;
 
             store.Remove("foo");
-            Assert.True(GetString(store, "foo") == null);
+            Assert.That(GetString(store, "foo"), Is.Null);
 
             store.Remove("nonexisting");
-            Assert.True(GetString(store, "nonexisting") == null);
+            Assert.That(GetString(store, "nonexisting"), Is.Null);
         });
 
         [Test]
@@ -175,10 +171,10 @@ namespace Uncodium.SimpleStore.Tests
 
             store.SimulateFullDiskOnNextResize = true;
             Assert.Throws<IOException>(() => store.Add("last drop", "to force disk full"));
-            Assert.True(store.List().Count() == 1);
+            Assert.That(store.List().Count(), Is.EqualTo(1));
             store.SimulateFullDiskOnNextResize = false;
 
-            Assert.True(store.List().Count() == 1);
+            Assert.That(store.List().Count(), Is.EqualTo(1));
         });
 
         [Test]

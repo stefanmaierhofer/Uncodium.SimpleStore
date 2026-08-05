@@ -1239,6 +1239,11 @@ public class SimpleDiskStore : ISimpleStore
     #region Memory-mapped file
 
     private bool m_mmfIsClosedForResize = false;
+
+    /// <summary>
+    /// Simulates an <see cref="IOException"/> whenever the store tries to open its backing file during a resize.
+    /// Intended for testing recovery from disk-full conditions; reset to <see langword="false"/> to reopen the store.
+    /// </summary>
     public bool SimulateFullDiskOnNextResize { get; set; }
 
     public void EnsureSpaceFor(long numberOfBytes)
@@ -1273,7 +1278,7 @@ public class SimpleDiskStore : ISimpleStore
                     m_mmf.Dispose();
 
                     // wait a moment before re-opening file to avoid file system race conditions
-                    Thread.Sleep(1000);
+                    if (!SimulateFullDiskOnNextResize) Thread.Sleep(1000);
 
                     m_mmfIsClosedForResize = true;
                     ReOpenMemoryMappedFile(newTotalFileSize);
@@ -1302,9 +1307,7 @@ public class SimpleDiskStore : ISimpleStore
             {
                 if (SimulateFullDiskOnNextResize)
                 {
-                    var driveName = Path.GetFullPath(m_dataFileName)[0].ToString();
-                    var freeSpaceInBytes = new DriveInfo(driveName).AvailableFreeSpace;
-                    newCapacity = freeSpaceInBytes * 2; // force out of space
+                    throw new IOException("Simulated disk-full condition.");
                 }
 
                 if (newCapacity == 0L)

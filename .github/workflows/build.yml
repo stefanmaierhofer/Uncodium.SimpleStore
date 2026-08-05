@@ -1,0 +1,39 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 10.0.x
+    - name: Restore tools
+      run: dotnet tool restore
+    - name: Restore dependencies
+      run: |
+        dotnet paket restore
+        dotnet restore src/Uncodium.SimpleStore.sln
+    - name: Build
+      run: dotnet build src/Uncodium.SimpleStore.sln --configuration Release --no-restore
+    - name: Test .NET 10
+      run: dotnet test src/Uncodium.SimpleStore.Tests/Uncodium.SimpleStore.Tests.csproj --configuration Release --framework net10.0 --no-build
+    - name: Test .NET Framework 4.7.2
+      if: runner.os == 'Windows'
+      run: dotnet test src/Uncodium.SimpleStore.Tests/Uncodium.SimpleStore.Tests.csproj --configuration Release --framework net472 --no-build
+    - name: Test .NET Framework 4.8
+      if: runner.os == 'Windows'
+      run: dotnet test src/Uncodium.SimpleStore.Tests/Uncodium.SimpleStore.Tests.csproj --configuration Release --framework net48 --no-build

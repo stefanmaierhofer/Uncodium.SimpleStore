@@ -55,17 +55,17 @@ namespace Uncodium.SimpleStore.Tests
             var path = CreateOldStore();
             try
             {
-                Assert.True(Directory.Exists(path));
-                Assert.True(File.Exists(Path.Combine(path, "data.bin")));
-                Assert.True(File.Exists(Path.Combine(path, "index.bin")));
-                Assert.True(SimpleDiskStore.GetStoreLayout(path) == SimpleDiskStore.StoreLayout.FolderWithStandaloneDataAndIndexFiles);
+                Assert.That(Directory.Exists(path), Is.True);
+                Assert.That(File.Exists(Path.Combine(path, "data.bin")), Is.True);
+                Assert.That(File.Exists(Path.Combine(path, "index.bin")), Is.True);
+                Assert.That(SimpleDiskStore.GetStoreLayout(path), Is.EqualTo(SimpleDiskStore.StoreLayout.FolderWithStandaloneDataAndIndexFiles));
             }
             finally
             {
                 DeleteOldStore(path);
             }
 
-            Assert.False(Directory.Exists(path));
+            Assert.That(Directory.Exists(path), Is.False);
         }
 
         [Test]
@@ -75,10 +75,10 @@ namespace Uncodium.SimpleStore.Tests
 
             try
             {
-                Assert.True(SimpleDiskStore.GetStoreLayout(path) == SimpleDiskStore.StoreLayout.FolderWithStandaloneDataAndIndexFiles);
+                Assert.That(SimpleDiskStore.GetStoreLayout(path), Is.EqualTo(SimpleDiskStore.StoreLayout.FolderWithStandaloneDataAndIndexFiles));
 
                 var oldStyleDataFile = Path.Combine(path, "data.bin");
-                Assert.True(File.Exists(oldStyleDataFile));
+                Assert.That(File.Exists(oldStyleDataFile), Is.True);
                 Assert.Throws<Exception>(() => new SimpleDiskStore(oldStyleDataFile));
             }
             finally
@@ -94,11 +94,11 @@ namespace Uncodium.SimpleStore.Tests
 
             try
             {
-                Assert.True(SimpleDiskStore.GetStoreLayout(path) == SimpleDiskStore.StoreLayout.FolderWithStandaloneDataAndIndexFiles);
+                Assert.That(SimpleDiskStore.GetStoreLayout(path), Is.EqualTo(SimpleDiskStore.StoreLayout.FolderWithStandaloneDataAndIndexFiles));
 
                 using var store = new SimpleDiskStore(path);
 
-                Assert.True(SimpleDiskStore.GetStoreLayout(path) == SimpleDiskStore.StoreLayout.FolderWithMergedDataAndIndexFile);
+                Assert.That(SimpleDiskStore.GetStoreLayout(path), Is.EqualTo(SimpleDiskStore.StoreLayout.FolderWithMergedDataAndIndexFile));
 
             }
             finally
@@ -111,21 +111,21 @@ namespace Uncodium.SimpleStore.Tests
         public void CanOpenAutoConvertedOldStore()
         {
             var path = CreateOldStore();
-            Assert.True(Directory.Exists(path));
-            Assert.False(File.Exists(path));
+            Assert.That(Directory.Exists(path), Is.True);
+            Assert.That(File.Exists(path), Is.False);
 
             try
             {
-                Assert.True(SimpleDiskStore.GetStoreLayout(path) == SimpleDiskStore.StoreLayout.FolderWithStandaloneDataAndIndexFiles);
+                Assert.That(SimpleDiskStore.GetStoreLayout(path), Is.EqualTo(SimpleDiskStore.StoreLayout.FolderWithStandaloneDataAndIndexFiles));
 
                 var store = new SimpleDiskStore(path);
                 store.Add("foo", "bar");
                 store.Dispose();
 
-                Assert.True(SimpleDiskStore.GetStoreLayout(path) == SimpleDiskStore.StoreLayout.FolderWithMergedDataAndIndexFile);
+                Assert.That(SimpleDiskStore.GetStoreLayout(path), Is.EqualTo(SimpleDiskStore.StoreLayout.FolderWithMergedDataAndIndexFile));
 
                 using var store2 = new SimpleDiskStore(path);
-                Assert.True(store2.Contains("foo"));
+                Assert.That(store2.Contains("foo"), Is.True);
             }
             finally
             {
@@ -134,16 +134,16 @@ namespace Uncodium.SimpleStore.Tests
         }
 
         [Test]
-        public void OpendingDataFileOfNonConvertedOldStyleStoreDirectlyWillFail()
+        public void OpeningDataFileOfNonConvertedOldStyleStoreDirectlyWillFail()
         {
             var path = CreateOldStore();
-            Assert.True(Directory.Exists(path));
-            Assert.False(File.Exists(path));
+            Assert.That(Directory.Exists(path), Is.True);
+            Assert.That(File.Exists(path), Is.False);
 
             try
             {
                 var oldStyleDataFile = Path.Combine(path, "data.bin");
-                Assert.True(File.Exists(oldStyleDataFile));
+                Assert.That(File.Exists(oldStyleDataFile), Is.True);
 
                 Assert.Throws<Exception>(() => new SimpleDiskStore(oldStyleDataFile));
             }
@@ -157,23 +157,23 @@ namespace Uncodium.SimpleStore.Tests
         public void CanOpenAutoConvertedDataFileDirectly()
         {
             var path = CreateOldStore();
-            Assert.True(Directory.Exists(path));
-            Assert.False(File.Exists(path));
+            Assert.That(Directory.Exists(path), Is.True);
+            Assert.That(File.Exists(path), Is.False);
 
             try
             {
-                Assert.True(SimpleDiskStore.GetStoreLayout(path) == SimpleDiskStore.StoreLayout.FolderWithStandaloneDataAndIndexFiles);
+                Assert.That(SimpleDiskStore.GetStoreLayout(path), Is.EqualTo(SimpleDiskStore.StoreLayout.FolderWithStandaloneDataAndIndexFiles));
 
                 var store = new SimpleDiskStore(path);
                 store.Add("foo", "bar");
                 store.Dispose();
 
-                Assert.True(SimpleDiskStore.GetStoreLayout(path) == SimpleDiskStore.StoreLayout.FolderWithMergedDataAndIndexFile);
+                Assert.That(SimpleDiskStore.GetStoreLayout(path), Is.EqualTo(SimpleDiskStore.StoreLayout.FolderWithMergedDataAndIndexFile));
 
                 var dataFileName = Path.Combine(path, "data.bin");
-                Assert.True(File.Exists(dataFileName));
+                Assert.That(File.Exists(dataFileName), Is.True);
                 using var store2 = new SimpleDiskStore(dataFileName);
-                Assert.True(store2.Contains("foo"));
+                Assert.That(store2.Contains("foo"), Is.True);
             }
             finally
             {
@@ -192,8 +192,8 @@ namespace Uncodium.SimpleStore.Tests
                 var filename = Path.Combine(tmpFolder, "mystore.uds");
                 using var store = new SimpleDiskStore(filename);
 
-                Assert.True(SimpleDiskStore.GetStoreLayout(filename) == SimpleDiskStore.StoreLayout.SingleFile);
-                Assert.True(File.Exists(filename + ".log"));
+                Assert.That(SimpleDiskStore.GetStoreLayout(filename), Is.EqualTo(SimpleDiskStore.StoreLayout.SingleFile));
+                Assert.That(File.Exists(filename + ".log"), Is.True);
             }
             finally
             {
@@ -212,8 +212,8 @@ namespace Uncodium.SimpleStore.Tests
                 var filename = Path.Combine(tmpFolder, "mystore.custom.data.extension");
                 using var store = new SimpleDiskStore(filename);
 
-                Assert.True(SimpleDiskStore.GetStoreLayout(filename) == SimpleDiskStore.StoreLayout.SingleFile);
-                Assert.True(File.Exists(filename + ".log"));
+                Assert.That(SimpleDiskStore.GetStoreLayout(filename), Is.EqualTo(SimpleDiskStore.StoreLayout.SingleFile));
+                Assert.That(File.Exists(filename + ".log"), Is.True);
             }
             finally
             {
@@ -237,7 +237,7 @@ namespace Uncodium.SimpleStore.Tests
                 store.Dispose();
 
                 using var store2 = new SimpleDiskStore(tmpFolder);
-                Assert.True(store2.Contains("foo"));
+                Assert.That(store2.Contains("foo"), Is.True);
             }
             finally
             {
@@ -256,8 +256,8 @@ namespace Uncodium.SimpleStore.Tests
                 var filename = Path.Combine(tmpFolder, "mystore");
                 using var store = new SimpleDiskStore(filename);
 
-                Assert.True(SimpleDiskStore.GetStoreLayout(filename) == SimpleDiskStore.StoreLayout.SingleFile);
-                Assert.True(File.Exists(filename + ".log"));
+                Assert.That(SimpleDiskStore.GetStoreLayout(filename), Is.EqualTo(SimpleDiskStore.StoreLayout.SingleFile));
+                Assert.That(File.Exists(filename + ".log"), Is.True);
             }
             finally
             {
@@ -269,20 +269,21 @@ namespace Uncodium.SimpleStore.Tests
         public void CanCreateNewSingleFileStore_ContainingFolderDoesNotExist()
         {
             var tmpFolder = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}");
-            Directory.CreateDirectory(tmpFolder);
 
             try
             {
+                Assert.That(Directory.Exists(tmpFolder), Is.False);
+
                 var filename = Path.Combine(tmpFolder, "mystore");
                 using var store = new SimpleDiskStore(filename);
 
-                Assert.True(SimpleDiskStore.GetStoreLayout(filename) == SimpleDiskStore.StoreLayout.SingleFile);
-                Assert.True(File.Exists(filename));
-                Assert.True(File.Exists(filename + ".log"));
+                Assert.That(SimpleDiskStore.GetStoreLayout(filename), Is.EqualTo(SimpleDiskStore.StoreLayout.SingleFile));
+                Assert.That(File.Exists(filename), Is.True);
+                Assert.That(File.Exists(filename + ".log"), Is.True);
             }
             finally
             {
-                Directory.Delete(tmpFolder, true);
+                if (Directory.Exists(tmpFolder)) Directory.Delete(tmpFolder, true);
             }
         }
 
@@ -303,7 +304,7 @@ namespace Uncodium.SimpleStore.Tests
 
                 // (re)open store
                 using var store2 = new SimpleDiskStore(filename);
-                Assert.True(store2.Contains("foo"));
+                Assert.That(store2.Contains("foo"), Is.True);
             }
             finally
             {
@@ -319,7 +320,7 @@ namespace Uncodium.SimpleStore.Tests
 
             try
             {
-                Assert.True(Directory.Exists(folder));
+                Assert.That(Directory.Exists(folder), Is.True);
                 Assert.Throws<Exception>(() => new SimpleDiskStore(folder));
             }
             finally

@@ -12,9 +12,10 @@ namespace Uncodium.SimpleStore.Tests
     [TestFixture]
     public class Tests
     {
-        private static readonly string TestStoreSmallPath = Path.GetFullPath(@"teststore");
-        private static readonly string TestStoreLargePath = Path.GetFullPath(@"teststore_large");
-        private static readonly string TestStoreFolder    = Path.GetFullPath(@"teststore_folder");
+        private static readonly string TestRunPrefix = Path.Combine(Path.GetTempPath(), $"simple-store-tests-{Guid.NewGuid():N}");
+        private static readonly string TestStoreSmallPath = TestRunPrefix + "-small";
+        private static readonly string TestStoreLargePath = TestRunPrefix + "-large";
+        private static readonly string TestStoreFolder    = TestRunPrefix + "-folder";
 
         //[OneTimeSetUp]
         [SetUp]
@@ -50,10 +51,6 @@ namespace Uncodium.SimpleStore.Tests
             }
         }
 
-        #region Utils
-
-        #endregion
-
         #region Construction
 
         [Test]
@@ -66,9 +63,9 @@ namespace Uncodium.SimpleStore.Tests
         public void CanDisposeMemStore()
         {
             var store = new SimpleMemoryStore();
-            Assert.True(store.IsDisposed == false);
+            Assert.That(store.IsDisposed, Is.False);
             store.Dispose();
-            Assert.True(store.IsDisposed == true);
+            Assert.That(store.IsDisposed, Is.True);
         }
 
         [Test]
@@ -91,9 +88,9 @@ namespace Uncodium.SimpleStore.Tests
             try
             {
                 var store = new SimpleDiskStore(TestStoreSmallPath); 
-                Assert.True(store.IsDisposed == false);
+                Assert.That(store.IsDisposed, Is.False);
                 store.Dispose();
-                Assert.True(store.IsDisposed == true);
+                Assert.That(store.IsDisposed, Is.True);
             }
             finally
             {
@@ -121,9 +118,9 @@ namespace Uncodium.SimpleStore.Tests
             try
             {
                 var store = new SimpleFolderStore(TestStoreFolder);
-                Assert.True(store.IsDisposed == false);
+                Assert.That(store.IsDisposed, Is.False);
                 store.Dispose();
-                Assert.True(store.IsDisposed == true);
+                Assert.That(store.IsDisposed, Is.True);
             }
             finally
             {
@@ -132,6 +129,7 @@ namespace Uncodium.SimpleStore.Tests
         }
 
         [Test]
+        [Platform("Win")]
         public void CanOpenDiskStoreTwiceReadonly()
         {
             try
@@ -151,18 +149,18 @@ namespace Uncodium.SimpleStore.Tests
         [Test]
         public void CreateDiskStoreCreatesDataFile()
         {
-            var path = Path.GetFullPath(Guid.NewGuid().ToString());
+            var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
             var dataFileName = path + ".uds";
 
             try
             {
-                Assert.False(File.Exists(dataFileName));
-                Assert.False(Directory.Exists(dataFileName));
+                Assert.That(File.Exists(dataFileName), Is.False);
+                Assert.That(Directory.Exists(dataFileName), Is.False);
 
                 var store = new SimpleDiskStore(dataFileName);
 
-                Assert.True(File.Exists(dataFileName));
-                Assert.False(Directory.Exists(dataFileName));
+                Assert.That(File.Exists(dataFileName), Is.True);
+                Assert.That(Directory.Exists(dataFileName), Is.False);
 
                 store.Dispose();
             }
@@ -172,25 +170,25 @@ namespace Uncodium.SimpleStore.Tests
                 File.Delete(dataFileName + ".log");
                 Thread.Sleep(250);
 
-                Assert.False(File.Exists(dataFileName));
-                Assert.False(Directory.Exists(dataFileName));
+                Assert.That(File.Exists(dataFileName), Is.False);
+                Assert.That(Directory.Exists(dataFileName), Is.False);
             }
         }
 
         [Test]
         public void CreateDiskStoreCreatesDataFile_WithExtension()
         {
-            var dataFileName = Path.GetFullPath(Guid.NewGuid().ToString()) + ".uds";
+            var dataFileName = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString()) + ".uds";
 
             try
             {
-                Assert.False(File.Exists(dataFileName));
-                Assert.False(Directory.Exists(dataFileName));
+                Assert.That(File.Exists(dataFileName), Is.False);
+                Assert.That(Directory.Exists(dataFileName), Is.False);
 
                 var store = new SimpleDiskStore(dataFileName);
 
-                Assert.True(File.Exists(dataFileName));
-                Assert.False(Directory.Exists(dataFileName));
+                Assert.That(File.Exists(dataFileName), Is.True);
+                Assert.That(Directory.Exists(dataFileName), Is.False);
 
                 store.Dispose();
             }
@@ -200,8 +198,8 @@ namespace Uncodium.SimpleStore.Tests
                 File.Delete(dataFileName + ".log");
                 Thread.Sleep(250);
 
-                Assert.False(File.Exists(dataFileName));
-                Assert.False(Directory.Exists(dataFileName));
+                Assert.That(File.Exists(dataFileName), Is.False);
+                Assert.That(Directory.Exists(dataFileName), Is.False);
             }
         }
 
@@ -221,7 +219,7 @@ namespace Uncodium.SimpleStore.Tests
                     logLines: lines => hasLogged = true,
                     initialSizeInBytes: 0L
                     );
-                Assert.True(hasLogged);
+                Assert.That(hasLogged, Is.True);
             }
             finally
             {
@@ -231,6 +229,7 @@ namespace Uncodium.SimpleStore.Tests
         }
 
         [Test]
+        [Platform("Win")]
         public void CustomLogReadOnlyStore()
         {
             try
@@ -246,7 +245,7 @@ namespace Uncodium.SimpleStore.Tests
                     logLines: lines => hasLogged = true,
                     initialSizeInBytes: 0L
                     );
-                Assert.True(hasLogged);
+                Assert.That(hasLogged, Is.True);
             }
             finally
             {
@@ -256,6 +255,7 @@ namespace Uncodium.SimpleStore.Tests
         }
 
         [Test]
+        [Platform("Win")]
         public void CustomLogReadOnlyLogFileCollision()
         {
             try
@@ -276,8 +276,8 @@ namespace Uncodium.SimpleStore.Tests
                     initialSizeInBytes: 0L
                     );
 
-                Assert.True(hasLoggedReadWrite);
-                Assert.True(hasLoggedReadOnly);
+                Assert.That(hasLoggedReadWrite, Is.True);
+                Assert.That(hasLoggedReadOnly, Is.True);
             }
             finally
             {
@@ -309,7 +309,7 @@ namespace Uncodium.SimpleStore.Tests
             store.AddStream(key, stream);
 
             var value2 = Encoding.UTF8.GetString(store.Get(key));
-            Assert.True(value == value2);
+            Assert.That(value, Is.EqualTo(value2));
         }
 
         [Test]
@@ -341,7 +341,7 @@ namespace Uncodium.SimpleStore.Tests
                 store.AddStream(key, stream);
 
                 var value2 = Encoding.UTF8.GetString(store.Get(key));
-                Assert.True(value == value2);
+                Assert.That(value, Is.EqualTo(value2));
             }
             finally
             {
@@ -377,7 +377,7 @@ namespace Uncodium.SimpleStore.Tests
                 store.AddStream(key, stream);
 
                 var value2 = Encoding.UTF8.GetString(store.Get(key));
-                Assert.True(value == value2);
+                Assert.That(value, Is.EqualTo(value2));
             }
             finally
             {
@@ -403,7 +403,7 @@ namespace Uncodium.SimpleStore.Tests
                     store.Add(key, value);
                     data[key] = value;
                 }
-                var keys = store.List().ToArray();
+                Assert.That(store.List().Count(), Is.EqualTo(data.Count));
             }
             finally
             {
@@ -427,7 +427,7 @@ namespace Uncodium.SimpleStore.Tests
                 store.Add(key, value);
                 data[key] = value;
             }
-            var keys = store.List().ToArray();
+            Assert.That(store.List().Count(), Is.EqualTo(data.Count));
         }
 
         [Test]
@@ -448,7 +448,7 @@ namespace Uncodium.SimpleStore.Tests
                     store.Add(key, value);
                     data[key] = value;
                 }
-                var keys = store.List().ToArray();
+                Assert.That(store.List().Count(), Is.EqualTo(data.Count));
             }
             finally
             {
@@ -468,7 +468,7 @@ namespace Uncodium.SimpleStore.Tests
             store.Add(key, "b");
             var x = store.Get(key);
             var v = Encoding.UTF8.GetString(x);
-            Assert.IsTrue(v == "b");
+            Assert.That(v, Is.EqualTo("b"));
         }
 
         [Test]
@@ -493,7 +493,7 @@ namespace Uncodium.SimpleStore.Tests
                 {
                     var v = Encoding.UTF8.GetString(store.Get(kv.Key));
                     var x = data[kv.Key];
-                    Assert.True(v == x);
+                    Assert.That(v, Is.EqualTo(x));
                 }
             }
             finally
@@ -513,7 +513,7 @@ namespace Uncodium.SimpleStore.Tests
                 store.Add(key, Encoding.UTF8.GetBytes("b"));
                 var x = store.Get(key);
                 var v = Encoding.UTF8.GetString(x);
-                Assert.IsTrue(v == "b");
+                Assert.That(v, Is.EqualTo("b"));
             }
             finally
             {
@@ -526,20 +526,14 @@ namespace Uncodium.SimpleStore.Tests
 
         #region GetSlice
 
-        private static bool ElementsEqual(byte[] xs, byte[] ys)
-        {
-            if (xs == null || ys == null || xs.Length != ys.Length) return false;
-            for (var i = 0; i < xs.Length; i++) if (xs[i] != ys[i]) return false;
-            return true;
-        }
         private static void CheckGetSlice(ISimpleStore store)
         {
             var key = Guid.NewGuid().ToString();
             store.Add(key, new byte[] { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 });
-            Assert.IsTrue(ElementsEqual(store.GetSlice(key, 0, 10), new byte[] { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }));
-            Assert.IsTrue(ElementsEqual(store.GetSlice(key, 0, 1), new byte[] { 10 }));
-            Assert.IsTrue(ElementsEqual(store.GetSlice(key, 9, 1), new byte[] { 19 }));
-            Assert.IsTrue(ElementsEqual(store.GetSlice(key, 4, 4), new byte[] { 14, 15, 16, 17 }));
+            Assert.That(store.GetSlice(key, 0, 10), Is.EqualTo(new byte[] { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }));
+            Assert.That(store.GetSlice(key, 0, 1), Is.EqualTo(new byte[] { 10 }));
+            Assert.That(store.GetSlice(key, 9, 1), Is.EqualTo(new byte[] { 19 }));
+            Assert.That(store.GetSlice(key, 4, 4), Is.EqualTo(new byte[] { 14, 15, 16, 17 }));
         }
         [Test]
         public void CanGetSliceMemStore()
@@ -574,18 +568,17 @@ namespace Uncodium.SimpleStore.Tests
             using var stream = store.GetStream(key);
             using var br = new BinaryReader(stream);
 
-            var buffer_ = store.Get(key);
             var buffer = br.ReadBytes(10);
-            Assert.IsTrue(ElementsEqual(buffer, new byte[] { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }));
+            Assert.That(buffer, Is.EqualTo(new byte[] { 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }));
 
             stream.Seek(0, SeekOrigin.Begin);
-            Assert.IsTrue(ElementsEqual(br.ReadBytes(1), new byte[] { 10 }));
+            Assert.That(br.ReadBytes(1), Is.EqualTo(new byte[] { 10 }));
 
             stream.Seek(9, SeekOrigin.Begin);
-            Assert.IsTrue(ElementsEqual(br.ReadBytes(1), new byte[] { 19 }));
+            Assert.That(br.ReadBytes(1), Is.EqualTo(new byte[] { 19 }));
 
             stream.Seek(4, SeekOrigin.Begin);
-            Assert.IsTrue(ElementsEqual(br.ReadBytes(4), new byte[] { 14, 15, 16, 17 }));
+            Assert.That(br.ReadBytes(4), Is.EqualTo(new byte[] { 14, 15, 16, 17 }));
         }
 
         [Test]
@@ -636,11 +629,11 @@ namespace Uncodium.SimpleStore.Tests
             using var store = new SimpleMemoryStore();
             store.Add(key, "b");
             var x = store.Get(key);
-            Assert.IsTrue(Encoding.UTF8.GetString(x) == "b");
+            Assert.That(Encoding.UTF8.GetString(x), Is.EqualTo("b"));
 
             store.Remove(key);
             var y = store.Get(key);
-            Assert.IsTrue(y == null);
+            Assert.That(y, Is.Null);
         }
 
         [Test]
@@ -652,11 +645,11 @@ namespace Uncodium.SimpleStore.Tests
                 using var store = new SimpleDiskStore(TestStoreSmallPath);
                 store.Add(key, "b");
                 var x = store.Get(key);
-                Assert.IsTrue(Encoding.UTF8.GetString(x) == "b");
+                Assert.That(Encoding.UTF8.GetString(x), Is.EqualTo("b"));
 
                 store.Remove(key);
                 var y = store.Get(key);
-                Assert.IsTrue(y == null);
+                Assert.That(y, Is.Null);
             }
             finally
             {
@@ -674,7 +667,7 @@ namespace Uncodium.SimpleStore.Tests
         {
             using var store = new SimpleMemoryStore();
             var stats0 = store.Stats;
-            Assert.IsTrue(stats0.CountAdd == 0);
+            Assert.That(stats0.CountAdd, Is.EqualTo(0));
 
             var ts = new List<Task>();
             for (var t = 0; t < 4; t++)
@@ -691,7 +684,7 @@ namespace Uncodium.SimpleStore.Tests
 
             Task.WhenAll(ts).Wait();
 
-            Assert.IsTrue(store.Stats.CountAdd == 1000000);
+            Assert.That(store.Stats.CountAdd, Is.EqualTo(1000000));
         }
 
         [Test]
@@ -701,7 +694,7 @@ namespace Uncodium.SimpleStore.Tests
             {
                 using var store = new SimpleDiskStore(TestStoreLargePath);
                 var stats0 = store.Stats;
-                Assert.IsTrue(stats0.CountAdd == 0);
+                Assert.That(stats0.CountAdd, Is.EqualTo(0));
 
                 var ts = new List<Task>();
                 for (var t = 0; t < 4; t++)
@@ -719,7 +712,7 @@ namespace Uncodium.SimpleStore.Tests
 
                 Task.WhenAll(ts).Wait();
 
-                Assert.IsTrue(store.Stats.CountAdd == 200000);
+                Assert.That(store.Stats.CountAdd, Is.EqualTo(200000));
             }
             finally
             {
@@ -734,8 +727,6 @@ namespace Uncodium.SimpleStore.Tests
             try
             {
                 using var store = new SimpleDiskStore(TestStoreLargePath);
-                var stats0 = store.Stats;
-
                 var keys = new List<string>();
 
                 var ts = new List<Task>();
@@ -770,7 +761,7 @@ namespace Uncodium.SimpleStore.Tests
 
                 Task.WhenAll(ts).Wait();
 
-                Assert.IsTrue(store.Stats.CountAdd == keys.Count);
+                Assert.That(store.Stats.CountAdd, Is.EqualTo(keys.Count));
             }
             finally
             {
@@ -791,16 +782,16 @@ namespace Uncodium.SimpleStore.Tests
             var key3 = Guid.NewGuid().ToString();
             using var store = new SimpleMemoryStore();
             store.Add(key1, "key1");
-            Assert.IsTrue(store.List().Count() == 1);
+            Assert.That(store.List().Count(), Is.EqualTo(1));
             store.Add(key2, "key2");
-            Assert.IsTrue(store.List().Count() == 2);
+            Assert.That(store.List().Count(), Is.EqualTo(2));
             store.Add(key3, "key3");
-            Assert.IsTrue(store.List().Count() == 3);
+            Assert.That(store.List().Count(), Is.EqualTo(3));
 
             var keys = new HashSet<string>(store.List().Select(x => x.key));
-            Assert.IsTrue(keys.Contains(key1));
-            Assert.IsTrue(keys.Contains(key2));
-            Assert.IsTrue(keys.Contains(key3));
+            Assert.That(keys.Contains(key1), Is.True);
+            Assert.That(keys.Contains(key2), Is.True);
+            Assert.That(keys.Contains(key3), Is.True);
         }
 
         [Test]
@@ -818,16 +809,16 @@ namespace Uncodium.SimpleStore.Tests
 
                 using var store = new SimpleDiskStore(storename);
                 store.Add(key1, "key1");
-                Assert.IsTrue(store.List().Count() == 1);
+                Assert.That(store.List().Count(), Is.EqualTo(1));
                 store.Add(key2, "key2");
-                Assert.IsTrue(store.List().Count() == 2);
+                Assert.That(store.List().Count(), Is.EqualTo(2));
                 store.Add(key3, "key3");
-                Assert.IsTrue(store.List().Count() == 3);
+                Assert.That(store.List().Count(), Is.EqualTo(3));
 
                 var keys = new HashSet<string>(store.List().Select(x => x.key));
-                Assert.IsTrue(keys.Contains(key1));
-                Assert.IsTrue(keys.Contains(key2));
-                Assert.IsTrue(keys.Contains(key3));
+                Assert.That(keys.Contains(key1), Is.True);
+                Assert.That(keys.Contains(key2), Is.True);
+                Assert.That(keys.Contains(key3), Is.True);
             }
             finally
             {

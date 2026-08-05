@@ -40,7 +40,6 @@ namespace Uncodium.SimpleStore;
 /// </summary>
 public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
 {
-    private readonly string _sas;
     private readonly BlobContainerClient _client;
     private readonly string? _prefix;
 
@@ -55,8 +54,6 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
     /// </summary>
     public SimpleAzureBlobStore(string sas, string? prefix)
     {
-        _sas = sas;
-
         var uri = new Uri(sas);
         var sasCred = new AzureSasCredential(sas.Substring(sas.IndexOf('?') + 1));
         var client = new BlobServiceClient(new Uri($"{uri.Scheme}://{uri.Host}"), sasCred);
@@ -108,6 +105,11 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private BlobClient GetBlobClient(string k) => _client.GetBlobClient(Key(k));
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private string RemovePrefix(string k) => _prefix == null ? k : k.Substring(_prefix.Length);
+
+    private GetBlobsOptions CreateListOptions() => new() { Prefix = _prefix };
 
 
     public void Dispose()
@@ -444,9 +446,9 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
     public IEnumerable<(string key, long size)> List()
     {
         CheckDisposed();
-        foreach (var page in _client.GetBlobs(prefix: _prefix))
+        foreach (var blob in _client.GetBlobs(CreateListOptions()))
         {
-            yield return (page.Name, page.Properties.ContentLength ?? 0);
+            yield return (RemovePrefix(blob.Name), blob.Properties.ContentLength ?? 0);
         }
     }
 
@@ -456,9 +458,9 @@ public class SimpleAzureBlobStore : ISimpleStore, ISimpleStoreAsync
     public async IAsyncEnumerable<(string key, long size)> ListAsync([EnumeratorCancellation] CancellationToken ct = default)
     {
         CheckDisposed();
-        await foreach (var page in _client.GetBlobsAsync(prefix: _prefix, cancellationToken: ct))
+        await foreach (var blob in _client.GetBlobsAsync(CreateListOptions(), cancellationToken: ct))
         {
-            yield return (page.Name, page.Properties.ContentLength ?? 0);
+            yield return (RemovePrefix(blob.Name), blob.Properties.ContentLength ?? 0);
         }
     }
 

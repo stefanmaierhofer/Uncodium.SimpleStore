@@ -1,6 +1,4 @@
-[![windows](https://github.com/stefanmaierhofer/Uncodium.SimpleStore/actions/workflows/windows.yml/badge.svg)](https://github.com/stefanmaierhofer/Uncodium.SimpleStore/actions/workflows/windows.yml)
-[![linux](https://github.com/stefanmaierhofer/Uncodium.SimpleStore/actions/workflows/linux.yml/badge.svg)](https://github.com/stefanmaierhofer/Uncodium.SimpleStore/actions/workflows/linux.yml)
-[![macos](https://github.com/stefanmaierhofer/Uncodium.SimpleStore/actions/workflows/macos.yml/badge.svg)](https://github.com/stefanmaierhofer/Uncodium.SimpleStore/actions/workflows/macos.yml)
+[![build](https://github.com/stefanmaierhofer/Uncodium.SimpleStore/actions/workflows/build.yml/badge.svg)](https://github.com/stefanmaierhofer/Uncodium.SimpleStore/actions/workflows/build.yml)
 
 # Overview
 
@@ -60,6 +58,22 @@ SimpleStore is not designed to handle such a situation. It does not even try to 
 Over the last years SimpleStore has been adopted by production quality applications (also commercially) and routinely manages datasets in the tens to hundreds of gigabytes range for real-time visualization, modeling, geometric reconstruction, and more.
 
 Of course SimpleStore is not limited to specific application areas as it is completely agnostic of the meaning and semantics of the data it manages. Its current main application in visual computing systems is mostly a historical coincidence.
+
+# Development
+
+Use a stable .NET 10 SDK. Restore the pinned Paket tool and dependencies, then build or test the solution:
+
+```shell
+dotnet tool restore
+dotnet paket restore
+dotnet restore src/Uncodium.SimpleStore.sln
+dotnet build src/Uncodium.SimpleStore.sln --configuration Release --no-restore
+dotnet test src/Uncodium.SimpleStore.Tests/Uncodium.SimpleStore.Tests.csproj --configuration Release --no-restore
+```
+
+The command above runs every target on Windows. On Linux and macOS, add `--framework net10.0`; tests for the Windows-only read-only snapshot implementation are skipped there.
+
+The Azure Blob Storage integration tests require a container SAS URI supplied through the `UNCODIUM_SIMPLESTORE_AZURE_SAS` environment variable. They are skipped when it is not set; never commit a SAS URI.
 
 # Quickstart
 
