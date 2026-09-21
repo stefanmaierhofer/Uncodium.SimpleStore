@@ -759,7 +759,48 @@ public class SimpleDiskStore : ISimpleStore
         }
     }
 
-    private readonly object m_lock = new();
+
+    /// <summary>
+    /// Readers (Contains, GetSize, Get, GetSlice, GetStream, List) run concurrently under a shared lock;
+    /// everything that mutates the index, appends data, remaps the file or disposes the store takes the
+    /// exclusive lock. Recursion is required because Add -> EnsureSpaceFor -> ReOpenMemoryMappedFile nest.
+    /// </summary>
+    private readonly ReaderWriterLockSlim m_rw = new(LockRecursionPolicy.SupportsRecursion);
+
+    private readonly struct LockScope : IDisposable
+    {
+        private readonly ReaderWriterLockSlim _lock;
+        private readonly bool _write;
+        public LockScope(ReaderWriterLockSlim l, bool write)
+        {
+            _lock = l; _write = write;
+            if (write) l.EnterWriteLock(); else l.EnterReadLock();
+        }
+        public void Dispose()
+        {
+            if (_write) _lock.ExitWriteLock(); else _lock.ExitReadLock();
+        }
+    }
+
+    private LockScope WriteLock() => new(m_rw, write: true);
+
+    private LockScope ReadLock() => new(m_rw, write: false);
+
+    /// <summary>
+    /// Takes the shared lock with the memory-mapped file guaranteed open.
+    /// If the file is closed (a previous resize failed, e.g. disk full), it is re-opened first under the
+    /// exclusive lock, because a shared lock cannot be upgraded.
+    /// </summary>
+    private LockScope ReadLockWithOpenMmf()
+    {
+        while (true)
+        {
+            EnsureMemoryMappedFileIsOpen();
+            var scope = ReadLock();
+            if (!m_mmfIsClosedForResize) return scope;
+            scope.Dispose();
+        }
+    }
     private readonly string m_dbDiskLocation;
     private readonly bool m_readOnlySnapshot;
     private string? m_dataFileName;
@@ -872,7 +913,7 @@ public class SimpleDiskStore : ISimpleStore
 
     public void Dispose()
     {
-        lock (m_lock)
+        using (WriteLock())
         {
             CheckDisposed();
 
@@ -1267,7 +1308,7 @@ public class SimpleDiskStore : ISimpleStore
                 }
 
                 Log($"resize data file to {newTotalFileSize / (1024 * 1024 * 1024.0):0.000} GiB");
-                lock (m_lock)
+                using (WriteLock())
                 {
                     //var sw = new Stopwatch(); sw.Restart();
 
@@ -1301,7 +1342,7 @@ public class SimpleDiskStore : ISimpleStore
 
     private void ReOpenMemoryMappedFile(long newCapacity)
     {
-        lock (m_lock)
+        using (WriteLock())
         {
             if (m_mmfIsClosedForResize)
             {
@@ -1397,7 +1438,7 @@ public class SimpleDiskStore : ISimpleStore
     /// </summary>
     public void Add(string key, byte[] value)
     {
-        lock (m_lock)
+        using (WriteLock())
         {
             CheckDisposed();
 
@@ -1433,7 +1474,7 @@ public class SimpleDiskStore : ISimpleStore
     /// </summary>
     public void AddStream(string key, Stream stream, Action<long>? onProgress = default, CancellationToken ct = default)
     {
-        lock (m_lock)
+        using (WriteLock())
         {
             CheckDisposed();
 
@@ -1500,11 +1541,10 @@ public class SimpleDiskStore : ISimpleStore
     public bool Contains(string key)
     {
         bool result;
-        lock (m_lock)
+        using (ReadLockWithOpenMmf())
         {
             CheckDisposed();
 
-            EnsureMemoryMappedFileIsOpen();
             result = m_dbIndex.ContainsKey(key);
         }
         Interlocked.Increment(ref m_stats.CountContains);
@@ -1517,11 +1557,10 @@ public class SimpleDiskStore : ISimpleStore
     /// </summary>
     public long? GetSize(string key)
     {
-        lock (m_lock)
+        using (ReadLockWithOpenMmf())
         {
             CheckDisposed();
 
-            EnsureMemoryMappedFileIsOpen();
             return m_dbIndex.TryGetValue(key, out (ulong _, uint size) entry) ? entry.size : null;
         }
     }
@@ -1532,11 +1571,10 @@ public class SimpleDiskStore : ISimpleStore
     /// </summary>
     public byte[]? Get(string key)
     {
-        lock (m_lock)
+        using (ReadLockWithOpenMmf())
         {
             CheckDisposed();
 
-            EnsureMemoryMappedFileIsOpen();
             if (m_dbIndex.TryGetValue(key, out (ulong offset, uint size) entry))
             {
                 try
@@ -1574,14 +1612,13 @@ public class SimpleDiskStore : ISimpleStore
     /// </summary>
     public byte[]? GetSlice(string key, long offset, int length)
     {
-        lock (m_lock)
+        using (ReadLockWithOpenMmf())
         {
             CheckDisposed();
 
             if (offset < 0) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be greater or equal 0.");
             if (length < 1) throw new ArgumentOutOfRangeException(nameof(offset), "Size must be greater than 0.");
 
-            EnsureMemoryMappedFileIsOpen();
             if (m_dbIndex.TryGetValue(key, out (ulong offset, uint size) entry))
             {
                 if (offset >= entry.size) throw new ArgumentOutOfRangeException(nameof(offset), "Offset must be less than length of value buffer.");
@@ -1627,11 +1664,10 @@ public class SimpleDiskStore : ISimpleStore
     /// <param name="offset">Optional. Start stream at given position.</param>
     public Stream? GetStream(string key, long offset = 0L)
     {
-        lock (m_lock)
+        using (ReadLockWithOpenMmf())
         {
             CheckDisposed();
 
-            EnsureMemoryMappedFileIsOpen();
             if (m_dbIndex.TryGetValue(key, out (ulong offset, uint size) entry))
             {
                 if (offset < 0L || offset >= entry.size) throw new ArgumentOutOfRangeException(
@@ -1654,7 +1690,7 @@ public class SimpleDiskStore : ISimpleStore
     /// </summary>
     public IEnumerable<(string key, long size)> List()
     {
-        lock (m_lock)
+        using (ReadLock()) // index only, works while the mmf is closed (e.g. disk full)
         {
             CheckDisposed();
 
@@ -1669,7 +1705,7 @@ public class SimpleDiskStore : ISimpleStore
     public void Remove(string key)
     {
         if (m_readOnlySnapshot) throw new InvalidOperationException("Read-only store does not support remove.");
-        lock (m_lock)
+        using (WriteLock())
         {
             CheckDisposed();
 
@@ -1684,7 +1720,7 @@ public class SimpleDiskStore : ISimpleStore
     /// </summary>
     public void Flush()
     {
-        lock (m_lock)
+        using (WriteLock())
         {
             CheckDisposed();
 
