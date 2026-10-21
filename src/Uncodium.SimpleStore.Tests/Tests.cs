@@ -147,6 +147,30 @@ namespace Uncodium.SimpleStore.Tests
         }
 
         [Test]
+        public void ReadOnlySnapshotsOfAClosedStoreReadItsEntriesAndLeaveItUnchanged()
+        {
+            // No platform restriction: a closed store maps read-only everywhere, Linux included.
+            try
+            {
+                using (var store = new SimpleDiskStore(TestStoreSmallPath)) store.Add("key", new byte[] { 1, 2, 3 });
+                var before = File.ReadAllBytes(TestStoreSmallPath);
+                using (var first = SimpleDiskStore.OpenReadOnlySnapshot(TestStoreSmallPath))
+                using (var second = SimpleDiskStore.OpenReadOnlySnapshot(TestStoreSmallPath))
+                {
+                    Assert.That(first.Get("key"), Is.EqualTo(new byte[] { 1, 2, 3 }));
+                    Assert.That(second.Get("key"), Is.EqualTo(new byte[] { 1, 2, 3 }));
+                    Assert.That(first.Get("missing"), Is.Null);
+                }
+                Assert.That(File.ReadAllBytes(TestStoreSmallPath), Is.EqualTo(before));
+            }
+            finally
+            {
+                File.Delete(TestStoreSmallPath);
+                File.Delete(TestStoreSmallPath + ".log");
+            }
+        }
+
+        [Test]
         public void CreateDiskStoreCreatesDataFile()
         {
             var path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
@@ -229,7 +253,6 @@ namespace Uncodium.SimpleStore.Tests
         }
 
         [Test]
-        [Platform("Win")]
         public void CustomLogReadOnlyStore()
         {
             try
