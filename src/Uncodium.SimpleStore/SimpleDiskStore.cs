@@ -1162,10 +1162,8 @@ public class SimpleDiskStore : ISimpleStore
 
         if (m_readOnlySnapshot)
         {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) throw new Exception(
-                "Read-only snapshot not supported on Linux."
-                );
-
+            // A read-only mapping of the file works everywhere. Only Windows shares a writer's named map, for a file the
+            // writer holds open; elsewhere that open fails as it is.
             try
             {
                 if (!File.Exists(m_dataFileName)) throw new FileNotFoundException();
@@ -1179,7 +1177,7 @@ public class SimpleDiskStore : ISimpleStore
                     leaveOpen: false
                     );
             }
-            catch
+            catch when (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 m_mmf = MemoryMappedFile.OpenExisting(MemoryMapName, MemoryMappedFileRights.Read);
             }
