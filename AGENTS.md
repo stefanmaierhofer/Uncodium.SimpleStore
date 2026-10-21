@@ -26,6 +26,10 @@ Tests use NUnit 4 with `[TestFixture]` and `[Test]`. Name fixtures `*Tests` and 
 
 Manage library dependencies through `paket.dependencies`, project `paket.references`, and `paket.lock`; test-runner packages are direct references in the test project. Never commit live Azure SAS tokens, connection strings, local drive paths, or generated store data.
 
+## Releases
+
+A release is a commit on `main` that adds a `### x.y.z` section with its bullets at the top of `RELEASE_NOTES.md`. Pushing it runs `.github/workflows/publish.yml`: unless a GitHub release of that version exists, it runs the build-and-test workflow on Windows, Linux and macOS, packs both packages with `dotnet aardpack` (version from `RELEASE_NOTES.md`; it creates the GitHub release) and pushes them to nuget.org with trusted publishing (`NuGet/login`, repository secret `NUGET_USER` = the nuget.org account whose trusted publishing policy names this repository and `publish.yml`). No API key is stored anywhere. nuget.org lists the packages a few minutes after the push.
+
 ## Commit & Pull Request Guidelines
 
 History favors short, direct subjects, commonly lowercase (for example, `fix test project`), with version-only commits reserved for releases. Keep each commit focused and use an imperative summary. Pull requests should explain the behavior change, identify storage-format or API compatibility effects, link relevant issues, and list the commands and target frameworks tested. Call out platform-specific behavior explicitly; screenshots are only useful for documentation changes with visual output.

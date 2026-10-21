@@ -8,6 +8,13 @@
         "paket"
       ],
       "rollForward": false
+    },
+    "aardpack": {
+      "version": "2.0.7",
+      "commands": [
+        "aardpack"
+      ],
+      "rollForward": false
     }
   }
 }
