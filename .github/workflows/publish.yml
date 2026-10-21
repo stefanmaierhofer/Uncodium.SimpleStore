@@ -80,9 +80,9 @@ jobs:
       - name: Build
         run: dotnet build src/Uncodium.SimpleStore.sln --configuration Release --no-restore
 
+      # Without a token aardpack only packs: the GitHub release follows the NuGet push, so a failed push leaves no
+      # release and the next run (or a rerun) publishes again.
       - name: Pack
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: dotnet aardpack src\Uncodium.SimpleStore.sln --notag --skip-build
 
       - name: Upload Packages
@@ -100,3 +100,12 @@ jobs:
       - name: NuGet
         shell: cmd
         run: dotnet nuget push "bin\pack\*.nupkg" -k ${{ steps.login.outputs.NUGET_API_KEY }} -s "https://api.nuget.org/v3/index.json" --skip-duplicate
+
+      - name: GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(dotnet aardpack --parse-only)
+          awk 'NR > 1 && /^### / { exit } NR > 1 { print }' RELEASE_NOTES.md > notes.md
+          gh release create "$VERSION" bin/pack/*.nupkg --title "$VERSION" --notes-file notes.md --target "$GITHUB_SHA"

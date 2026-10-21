@@ -28,7 +28,7 @@ Manage library dependencies through `paket.dependencies`, project `paket.referen
 
 ## Releases
 
-A release is a commit on `main` that adds a `### x.y.z` section with its bullets at the top of `RELEASE_NOTES.md`. Pushing it runs `.github/workflows/publish.yml`: unless a GitHub release of that version exists, it runs the build-and-test workflow on Windows, Linux and macOS, packs both packages with `dotnet aardpack` (version from `RELEASE_NOTES.md`; it creates the GitHub release) and pushes them to nuget.org with trusted publishing (`NuGet/login`, repository secret `NUGET_USER` = the nuget.org account whose trusted publishing policy names this repository and `publish.yml`). No API key is stored anywhere. nuget.org lists the packages a few minutes after the push.
+A release is a commit on `main` that adds a `### x.y.z` section with its bullets at the top of `RELEASE_NOTES.md`. Pushing it runs `.github/workflows/publish.yml`: unless a GitHub release of that version exists, it runs the build-and-test workflow on Windows, Linux and macOS, packs both packages with `dotnet aardpack` (version from `RELEASE_NOTES.md`), pushes them to nuget.org with trusted publishing (`NuGet/login`; repository secret `NUGET_USER` = the nuget.org username that created the trusted publishing policy naming this repository and `publish.yml`, not the package owner if they differ) and then creates the GitHub release with the packages. A failed push leaves no release, so rerunning the failed job publishes again. No API key is stored anywhere. nuget.org lists the packages a few minutes after the push.
 
 ## Commit & Pull Request Guidelines
 
